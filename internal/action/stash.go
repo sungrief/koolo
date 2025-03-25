@@ -237,7 +237,25 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, string, string) {
 func shouldKeepRecipeItem(i data.Item) bool {
 	ctx := context.Get()
 	ctx.SetLastStep("shouldKeepRecipeItem")
-
+	
+	const maxCraftJewels = 50
+	
+	// —— Magic jewels: keep up to maxCraftJewels unconditionally ——
+    if i.Name == "Jewel" && i.Quality == item.QualityMagic {
+        count := 0
+        for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
+            if it.Name == i.Name && it.Quality == item.QualityMagic {
+                count++
+            }
+        }
+        if count >= maxCraftJewels {
+            ctx.Logger.Info("Max magic jewels reached, skipping", "count", count)
+            return false
+        }
+        ctx.Logger.Info("Keeping magic jewel for crafting", "item", i.Name, "quality", i.Quality)
+        return true
+    }
+	 
 	// No items with quality higher than magic can be part of a recipe
 	if i.Quality > item.QualityMagic {
 		return false

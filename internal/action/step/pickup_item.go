@@ -143,6 +143,7 @@ func PickupItem(it data.Item, itemPickupAttempt int) error {
 		spiralAttempt++
 	}
 }
+
 func hasHostileMonstersNearby(pos data.Position) bool {
 	ctx := context.Get()
 
