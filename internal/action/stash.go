@@ -238,24 +238,45 @@ func shouldKeepRecipeItem(i data.Item) bool {
 	ctx := context.Get()
 	ctx.SetLastStep("shouldKeepRecipeItem")
 	
-	const maxCraftJewels = 50
+//	const maxCraftJewels = 50
+//	
+//    // —— Rare jewels: only keep up to maxCraftJewels and only if NOT matching pickit ——
+//    if i.Name == "Jewel" && i.Quality == item.QualityRare {
+//        count := 0
+//        for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
+//            if it.Name == i.Name && it.Quality == item.QualityRare {
+//                count++
+//            }
+//        }
+//        if count >= maxCraftJewels {
+//            ctx.Logger.Info("Max rare jewels reached, skipping", "count", count)
+//            return false
+//        }
+//        _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i)
+//        if res == nip.RuleResultFullMatch {
+//            ctx.Logger.Info("Skipping rare jewel (matches pickit)", "item", i.Name, "quality", i.Quality)
+//            return false
+//        }
+//        ctx.Logger.Info("Keeping rare jewel for crafting", "item", i.Name, "quality", i.Quality)
+//        return true
+//    }
+//
+//    // —— Magic jewels: keep up to maxCraftJewels unconditionally ——
+//    if i.Name == "Jewel" && i.Quality == item.QualityMagic {
+//        count := 0
+//        for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
+//            if it.Name == i.Name && it.Quality == item.QualityMagic {
+//                count++
+//            }
+//        }
+//        if count >= maxCraftJewels {
+//            ctx.Logger.Info("Max magic jewels reached, skipping", "count", count)
+//            return false
+//        }
+//        ctx.Logger.Info("Keeping magic jewel for crafting", "item", i.Name, "quality", i.Quality)
+//        return true
+//    }
 	
-	// —— Magic jewels: keep up to maxCraftJewels unconditionally ——
-    if i.Name == "Jewel" && i.Quality == item.QualityMagic {
-        count := 0
-        for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
-            if it.Name == i.Name && it.Quality == item.QualityMagic {
-                count++
-            }
-        }
-        if count >= maxCraftJewels {
-            ctx.Logger.Info("Max magic jewels reached, skipping", "count", count)
-            return false
-        }
-        ctx.Logger.Info("Keeping magic jewel for crafting", "item", i.Name, "quality", i.Quality)
-        return true
-    }
-	 
 	// No items with quality higher than magic can be part of a recipe
 	if i.Quality > item.QualityMagic {
 		return false

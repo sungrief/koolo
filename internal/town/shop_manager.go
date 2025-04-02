@@ -175,10 +175,10 @@ func ItemsToBeSold() (items []data.Item) {
 		if itm.IsRuneword {
 			continue
 		}
-        // Never sell jewels
-        if itm.Name == "Jewel" {
-            continue
-        }
+//        // Never sell jewels
+//        if itm.Name == "Jewel" {
+//            continue
+//        }
 		
 		if ctx.Data.CharacterCfg.Inventory.InventoryLock[itm.Position.Y][itm.Position.X] == 1 {
 			// If item is a full match will be stashed, we don't want to sell it
