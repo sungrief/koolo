@@ -554,7 +554,7 @@ func (n *NecromancerLeveling) killBossSequence(bossNPC npc.ID, monsterType data.
 		distanceToBoss := n.PathFinder.DistanceFromMe(boss.Position)
 
 		// Cast Bone Prison if boss is too close or as defensive measure
-		if distanceToBoss < 8 {
+		if distanceToBoss < 15 {
 			n.castDefensiveBonePrison(boss)
 		}
 
