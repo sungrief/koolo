@@ -97,8 +97,10 @@ Paladin
                         <option value="javazon" {{ if eq .Config.Character.Class
                         "javazon" }}selected{{ end }}>Javazon
                         </option>
-        
-                <option value="berserker" {{ if eq .Config.Character.Class
+                        <option value="amazon_leveling" {{ if eq .Config.Character.Class
+                        "amazon_leveling" }}selected{{ end }}>Amazon (Leveling)
+                        </option>
+                        <option value="berserker" {{ if eq .Config.Character.Class
                         "berserker" }}selected{{ end }}>Berserk Barbarian
                         </option>
                     </select>

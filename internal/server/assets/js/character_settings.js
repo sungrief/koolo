@@ -44,7 +44,7 @@ window.onload = function () {
     const buildSelectElement = document.querySelector('select[name="characterClass"]');
     buildSelectElement.addEventListener('change', function() {
         const selectedBuild = buildSelectElement.value;
-        const levelingBuilds = ['paladin', 'sorceress_leveling', 'druid_leveling', 'necromancer', 'assassin'];
+        const levelingBuilds = ['paladin', 'sorceress_leveling', 'druid_leveling', 'amazon_leveling', 'necromancer', 'assassin'];
 
         const enabledRunListElement = document.getElementById('enabled_runs');
         if (!enabledRunListElement) return;
@@ -85,6 +85,7 @@ function checkLevelingProfile() {
         "sorceress_leveling",
         "paladin",
         "druid_leveling",
+        "amazon_leveling",
         "necromancer",
         "assassin"
     ];

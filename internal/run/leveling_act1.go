@@ -257,7 +257,7 @@ func (a Leveling) AdjustDifficultyConfig() {
 	lvl, _ := a.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
 
 	a.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = a.GetRunewords()
-	if lvl.Value >= 4 && lvl.Value < 12 {
+	if lvl.Value >= 4 && lvl.Value < 24 {
 		a.ctx.CharacterCfg.Health.HealingPotionAt = 85
 
 		if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
