@@ -45,6 +45,8 @@ func (s AmazonLeveling) KillMonsterSequence(
 	const timeBetweenPoisonJavs = 5
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			return nil
