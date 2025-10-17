@@ -9,6 +9,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/koolo/internal/action"
+	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -186,7 +187,7 @@ func (d *Diablo) Run() error {
 		if isLevelingChar && d.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
 			action.MoveToCoords(diabloSpawnPosition)
 			action.InRunReturnTownRoutine()
-			action.MoveToCoordIgnoreClearPath(diabloFightPosition)
+			step.MoveTo(diabloFightPosition, step.WithIgnoreMonsters())
 		} else {
 			action.MoveToCoords(diabloSpawnPosition)
 		}

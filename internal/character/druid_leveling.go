@@ -201,7 +201,7 @@ func (s DruidLeveling) KillMonsterSequence(
 				isAnyEnemyNearby, _ := action.IsAnyEnemyAroundPlayer(DruidDangerDistance)
 				if isAnyEnemyNearby {
 					if safePos, found := action.FindSafePosition(monster, DruidDangerDistance, DruidSafeDistance, DruidMinAttackRange, DruidMaxAttackRange); found {
-						action.MoveToCoordIgnoreClearPath(safePos)
+						step.MoveTo(safePos, step.WithIgnoreMonsters())
 						lastReposition = time.Now()
 					}
 				}
