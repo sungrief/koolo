@@ -4,11 +4,21 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
+	"github.com/hectorgimenez/koolo/internal/context"
 )
 
 func getMercenaryMetaItemScore(it data.Item) (float64, bool) {
+
 	name := getItemNameForScore(it)
+
+	ctx := context.Get()
+
 	totalScore := 0.0
+
+	_, tierRule := ctx.CharacterCfg.Runtime.Rules.EvaluateTiers(it, ctx.CharacterCfg.Runtime.TierRules)
+	if tierRule.MercTier() > 0 {
+		totalScore = tierRule.MercTier()
+	}
 
 	if score, found := MercenaryMetaHelmetScore[name]; found {
 		totalScore += score
