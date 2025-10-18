@@ -1250,6 +1250,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Tristram.BuffOnNewArea = r.Form.Has("gameTristramBuffOnNewArea")
 
 		cfg.Game.Nihlathak.ClearArea = r.Form.Has("gameNihlathakClearArea")
+		cfg.Game.Nihlathak.BuffOnNewArea = r.Form.Has("gameNihlathakBuffOnNewArea")
 
 		cfg.Game.Baal.KillBaal = r.Form.Has("gameBaalKillBaal")
 		cfg.Game.Baal.DollQuit = r.Form.Has("gameBaalDollQuit")
