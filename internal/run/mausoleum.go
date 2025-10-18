@@ -38,6 +38,8 @@ func (a Mausoleum) Run() error {
 		return err
 	}
 
+	action.Buff()
+
 	// Move to the BurialGrounds
 	if err = action.MoveToArea(area.BurialGrounds); err != nil {
 		return err
@@ -50,6 +52,8 @@ func (a Mausoleum) Run() error {
 
 	// Open a TP If we're the leader
 	action.OpenTPIfLeader()
+
+	action.Buff()
 
 	// Clear the area
 	return action.ClearCurrentLevel(a.ctx.CharacterCfg.Game.Mausoleum.OpenChests, monsterFilter)

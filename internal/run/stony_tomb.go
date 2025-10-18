@@ -38,6 +38,8 @@ func (s StonyTomb) Run() error {
 		return err
 	}
 
+	action.Buff()
+
 	// Move to the correct area
 	if err = action.MoveToArea(area.RockyWaste); err != nil {
 		return err
@@ -50,6 +52,8 @@ func (s StonyTomb) Run() error {
 
 	// Open a TP If we're the leader
 	action.OpenTPIfLeader()
+
+	action.Buff()
 
 	// Clear the area
 	if err = action.ClearCurrentLevel(s.ctx.CharacterCfg.Game.StonyTomb.OpenChests, monsterFilter); err != nil {

@@ -41,6 +41,8 @@ func (p Pindleskin) Run() error {
 		return err
 	}
 
+	action.Buff()
+
 	_ = action.MoveToCoords(fixedPlaceNearRedPortal)
 
 	redPortal, found := p.ctx.Data.Objects.FindOne(object.PermanentTownPortal)

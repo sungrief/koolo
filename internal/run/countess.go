@@ -31,6 +31,8 @@ func (c Countess) Run() error {
 		return err
 	}
 
+	action.Buff()
+
 	areas := []area.ID{
 		area.ForgottenTower,
 		area.TowerCellarLevel1,
@@ -46,6 +48,8 @@ func (c Countess) Run() error {
 			return err
 		}
 	}
+
+	action.Buff()
 
 	// Try to move around Countess area
 	action.MoveTo(func() (data.Position, bool) {

@@ -30,6 +30,8 @@ func (a LowerKurast) Run() error {
 		return err
 	}
 
+	action.Buff()
+
 	// Clear Lower Kurast
 	return action.ClearCurrentLevel(true, data.MonsterAnyFilter())
 

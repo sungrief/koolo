@@ -102,11 +102,15 @@ func (a Andariel) Run() error {
 		return err
 	}
 
+	action.Buff()
+
 	err = action.MoveToArea(area.CatacombsLevel3)
 	action.MoveToArea(area.CatacombsLevel4)
 	if err != nil {
 		return err
 	}
+
+	action.Buff()
 
 	if a.ctx.CharacterCfg.Game.Andariel.ClearRoom {
 

@@ -37,6 +37,8 @@ func (p Pit) Run() error {
 			return err
 		}
 
+		action.Buff()
+
 		if err = action.MoveToArea(area.MonasteryGate); err != nil {
 			return err
 		}
@@ -50,6 +52,8 @@ func (p Pit) Run() error {
 			return err
 		}
 
+		action.Buff()
+
 		if err = action.MoveToArea(area.TamoeHighland); err != nil {
 			return err
 		}
@@ -60,6 +64,8 @@ func (p Pit) Run() error {
 
 	// Open a TP If we're the leader
 	action.OpenTPIfLeader()
+
+	action.Buff()
 
 	// Clear the area if we don't have only clear lvl2 selected
 	if !p.ctx.CharacterCfg.Game.Pit.OnlyClearLevel2 {

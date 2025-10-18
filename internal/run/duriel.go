@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/mode"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
@@ -43,13 +43,9 @@ func (d Duriel) Name() string {
 }
 
 func (d Duriel) Run() error {
-	
-	
-	
-		if d.ctx.CharacterCfg.Game.Duriel.UseThawing {
-			
 
-		
+	if d.ctx.CharacterCfg.Game.Duriel.UseThawing {
+
 		potsToBuy := 6
 		if d.ctx.Data.MercHPPercent() > 0 && !d.ctx.CharacterCfg.HidePortraits {
 			potsToBuy = 12
@@ -90,11 +86,13 @@ func (d Duriel) Run() error {
 		step.CloseAllMenus()
 
 	}
-	
+
 	err := action.WayPoint(area.CanyonOfTheMagi)
 	if err != nil {
 		return err
 	}
+
+	action.Buff()
 
 	// Find and move to the real Tal Rasha tomb
 	realTalRashaTomb, err := d.findRealTomb()
@@ -106,6 +104,8 @@ func (d Duriel) Run() error {
 	if err != nil {
 		return err
 	}
+
+	action.Buff()
 
 	// Wait for area to fully load and get synchronized
 	utils.Sleep(500)
@@ -162,12 +162,10 @@ func (d Duriel) Run() error {
 		utils.Sleep(20000)
 	}
 
-						_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
+	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 	if isLevelingChar && d.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
 
-				
-	action.ClearAreaAroundPlayer(20, data.MonsterAnyFilter())
-
+		action.ClearAreaAroundPlayer(20, data.MonsterAnyFilter())
 
 		action.ReturnTown()
 		action.IdentifyAll(false)
@@ -176,11 +174,11 @@ func (d Duriel) Run() error {
 		action.Repair()
 		action.VendorRefill(true, true)
 
-	err = action.UsePortalInTown()
-	if err != nil {
-		return err
-	}}
-
+		err = action.UsePortalInTown()
+		if err != nil {
+			return err
+		}
+	}
 
 	for _, obj := range d.ctx.Data.Areas[realTalRashaTomb].Objects {
 		if obj.Name == object.HoradricOrifice {

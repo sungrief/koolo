@@ -53,6 +53,8 @@ func (m Mephisto) Run() error {
 		return err
 	}
 
+	action.Buff()
+
 	if m.clearMonsterFilter != nil {
 		if err = action.ClearCurrentLevel(m.ctx.CharacterCfg.Game.Mephisto.OpenChests, m.clearMonsterFilter); err != nil {
 			return err
@@ -63,6 +65,8 @@ func (m Mephisto) Run() error {
 	if err = action.MoveToArea(area.DuranceOfHateLevel3); err != nil {
 		return err
 	}
+
+	action.Buff()
 
 	lvl, _ := m.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
 

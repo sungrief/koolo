@@ -42,6 +42,8 @@ func (d *Diablo) Run() error {
 		return err
 	}
 
+	action.Buff()
+
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 
 	action.MoveToArea(area.ChaosSanctuary)
