@@ -216,6 +216,14 @@ var (
 			PurchaseItems:    []string{"LightBelt", "SharkskinBelt", "VampirefangBelt"},
 		},
 
+		// Caster Boots
+		{
+			Name:             "Caster Boots",
+			Items:            []string{"ThulRune", "PerfectAmethyst", "Jewel"},
+			PurchaseRequired: true,
+			PurchaseItems:    []string{"Boots", "DemonhideBoots", "WyrmhideBoots"},
+		},
+		
 		// Blood Amulet
 		{
 			Name:             "Blood Amulet",
