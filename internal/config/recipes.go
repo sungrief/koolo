@@ -46,6 +46,7 @@ var AvailableRecipes = []string{
 	"Caster Amulet",
 	"Caster Ring",
 	"Caster Belt",
+	"Caster Boots",
 	"Blood Amulet",
 	"Blood Ring",
 	"Blood Gloves",
