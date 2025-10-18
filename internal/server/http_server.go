@@ -1205,7 +1205,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 		cfg.Game.Andariel.ClearRoom = r.Form.Has("gameAndarielClearRoom")
 		cfg.Game.Andariel.UseAntidoes = r.Form.Has("gameAndarielUseAntidoes")
-		cfg.Game.Andariel.UseAntidoes = r.Form.Has("UseAntidoes")
 		cfg.Game.Andariel.BuffOnNewArea = r.Form.Has("gameAndarielBuffOnNewArea")
 
 		cfg.Game.Countess.ClearFloors = r.Form.Has("gameCountessClearFloors")
