@@ -40,9 +40,7 @@ func (s AmazonLeveling) KillMonsterSequence(
 ) error {
 	completedAttackLoops := 0
 	previousUnitID := 0
-	var lastThrowTime time.Time
 	const numOfLightningFuries = 3
-	const timeBetweenPoisonJavs = 5
 
 	for {
 		context.Get().PauseIfNotPriority()
@@ -86,22 +84,19 @@ func (s AmazonLeveling) KillMonsterSequence(
 			}
 		}
 
-		canRangeAttack := s.getRemainingThrowables() > 5
+		throwStack := s.getRemainingThrowables()
+		if throwStack == 0 {
+			action.InRunReturnTownRoutine()
+			continue
+		}
+
+		canRangeAttack := throwStack > 5
 		rangedAttack := false
 		if canRangeAttack {
 			if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.LightningFury); found {
 				if closeMonsters >= 3 {
 					if step.SecondaryAttack(skill.LightningFury, id, numOfLightningFuries, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance)) == nil {
 						rangedAttack = true
-					}
-				}
-			} else if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.PoisonJavelin); found {
-				if time.Since(lastThrowTime) > timeBetweenPoisonJavs*time.Second {
-					if closeMonsters >= 3 {
-						if step.SecondaryAttack(skill.PoisonJavelin, id, 1, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance)) == nil {
-							rangedAttack = true
-							lastThrowTime = time.Now()
-						}
 					}
 				}
 			}
@@ -111,8 +106,6 @@ func (s AmazonLeveling) KillMonsterSequence(
 
 		if !rangedAttack {
 			step.SecondaryAttack(s.getMeleeSkill(monster), id, 1, step.Distance(1, 1))
-		} else {
-			lastThrowTime = time.Now()
 		}
 
 		completedAttackLoops++
@@ -141,8 +134,16 @@ func (s AmazonLeveling) KillBossSequence(
 			return nil
 		}
 
-		if completedAttackLoops >= maxAmazonLevelingAttackLoops {
+		monster, found := s.Data.Monsters.FindByID(id)
+		if !found {
+			s.Logger.Info("Monster not found", slog.String("monster", fmt.Sprintf("%v", monster)))
 			return nil
+		}
+
+		throwStack := s.getRemainingThrowables()
+		if throwStack == 0 {
+			action.InRunReturnTownRoutine()
+			continue
 		}
 
 		completedAttackLoops++
@@ -151,7 +152,7 @@ func (s AmazonLeveling) KillBossSequence(
 		if s.shouldSummonValkyrie() {
 			step.SecondaryAttack(skill.Valkyrie, id, 1, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance))
 		} else {
-			step.SecondaryAttack(s.getMeleeSkill(data.Monster{}), id, 1, step.Distance(1, 1))
+			step.SecondaryAttack(s.getMeleeSkill(monster), id, 1, step.Distance(1, 1))
 		}
 	}
 }
@@ -452,9 +453,9 @@ func (s AmazonLeveling) SkillPoints() []skill.ID {
 			skill.CriticalStrike,
 			skill.InnerSight,
 			skill.PoisonJavelin, skill.Dodge, skill.PowerStrike,
-			skill.PoisonJavelin, skill.PoisonJavelin, skill.PoisonJavelin,
-			skill.PoisonJavelin, skill.PoisonJavelin, skill.PoisonJavelin,
-			skill.PoisonJavelin, skill.SlowMissiles, skill.Avoid,
+			skill.PowerStrike, skill.PowerStrike, skill.PowerStrike,
+			skill.PowerStrike, skill.PowerStrike, skill.PowerStrike,
+			skill.PowerStrike, skill.SlowMissiles, skill.Avoid,
 			skill.LightningBolt,
 			skill.Penetrate,
 			skill.ChargedStrike, skill.ChargedStrike, skill.ChargedStrike,
