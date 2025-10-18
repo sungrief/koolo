@@ -37,14 +37,18 @@ func (run SpiderCavern) Run() error {
 		return err
 	}
 
-	action.Buff()
+	if run.ctx.CharacterCfg.Game.SpiderCavern.BuffOnNewArea {
+		action.Buff()
+	}
 
 	// Move to the correct area
 	if err = action.MoveToArea(area.SpiderCavern); err != nil {
 		return err
 	}
 
-	action.Buff()
+	if run.ctx.CharacterCfg.Game.SpiderCavern.BuffOnNewArea {
+		action.Buff()
+	}
 
 	// Clear the area
 	action.ClearCurrentLevel(run.ctx.CharacterCfg.Game.SpiderCavern.OpenChests, monsterFilter)

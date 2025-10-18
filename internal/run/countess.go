@@ -31,7 +31,9 @@ func (c Countess) Run() error {
 		return err
 	}
 
-	action.Buff()
+	if c.ctx.CharacterCfg.Game.Countess.BuffOnNewArea {
+		action.Buff()
+	}
 
 	areas := []area.ID{
 		area.ForgottenTower,
@@ -49,7 +51,9 @@ func (c Countess) Run() error {
 		}
 	}
 
-	action.Buff()
+	if c.ctx.CharacterCfg.Game.Countess.BuffOnNewArea {
+		action.Buff()
+	}
 
 	// Try to move around Countess area
 	action.MoveTo(func() (data.Position, bool) {

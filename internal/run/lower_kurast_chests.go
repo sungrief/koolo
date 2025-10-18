@@ -41,7 +41,9 @@ func (run LowerKurastChests) Run() error {
 		return err
 	}
 
-	action.Buff()
+	if run.ctx.CharacterCfg.Game.LowerKurastChest.BuffOnNewArea {
+		action.Buff()
+	}
 
 	// Get bonfires from cached map data
 	var bonFirePositions []data.Position

@@ -41,7 +41,9 @@ func (p Pindleskin) Run() error {
 		return err
 	}
 
-	action.Buff()
+	if p.ctx.CharacterCfg.Game.Pindleskin.BuffOnNewArea {
+		action.Buff()
+	}
 
 	_ = action.MoveToCoords(fixedPlaceNearRedPortal)
 
