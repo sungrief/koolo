@@ -213,6 +213,7 @@ func (a Leveling) setupLevelOneConfig() {
 	a.ctx.CharacterCfg.Health.ManaPotionAt = 25
 	a.ctx.CharacterCfg.Health.RejuvPotionAtLife = 0
 	a.ctx.CharacterCfg.Health.ChickenAt = 7
+	a.ctx.CharacterCfg.Health.TownChickenAt = 15
 	a.ctx.CharacterCfg.Gambling.Enabled = true
 	a.ctx.CharacterCfg.Health.MercRejuvPotionAt = 40
 	a.ctx.CharacterCfg.Health.MercChickenAt = 0
@@ -261,7 +262,7 @@ func (a Leveling) AdjustDifficultyConfig() {
 	a.ctx.CharacterCfg.Game.MinGoldPickupThreshold = 2000 * lvl.Value
 	if lvl.Value >= 4 && lvl.Value < 24 {
 		a.ctx.CharacterCfg.Health.HealingPotionAt = 85
-
+		a.ctx.CharacterCfg.Health.TownChickenAt = 25
 		if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
 			a.ctx.CharacterCfg.Character.ClearPathDist = 7
 		} else {
@@ -275,6 +276,7 @@ func (a Leveling) AdjustDifficultyConfig() {
 			a.ctx.CharacterCfg.Health.MercRejuvPotionAt = 0
 			a.ctx.CharacterCfg.Health.HealingPotionAt = 85
 			a.ctx.CharacterCfg.Health.ChickenAt = 30
+			a.ctx.CharacterCfg.Health.TownChickenAt = 50
 			a.ctx.CharacterCfg.Character.ClearPathDist = 15
 
 		} else if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare {
@@ -283,6 +285,7 @@ func (a Leveling) AdjustDifficultyConfig() {
 			a.ctx.CharacterCfg.Health.MercRejuvPotionAt = 0
 			a.ctx.CharacterCfg.Health.HealingPotionAt = 85
 			a.ctx.CharacterCfg.Health.ChickenAt = 30
+			a.ctx.CharacterCfg.Health.TownChickenAt = 50
 			a.ctx.CharacterCfg.Character.ClearPathDist = 15
 
 		} else if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
@@ -291,6 +294,7 @@ func (a Leveling) AdjustDifficultyConfig() {
 			a.ctx.CharacterCfg.Health.MercRejuvPotionAt = 40
 			a.ctx.CharacterCfg.Health.HealingPotionAt = 90
 			a.ctx.CharacterCfg.Health.ChickenAt = 40
+			a.ctx.CharacterCfg.Health.TownChickenAt = 60
 			if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
 				// don't engage when teleing and running oom
 				a.ctx.CharacterCfg.Character.ClearPathDist = 0
