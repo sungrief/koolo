@@ -207,6 +207,30 @@ var (
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Ring"},
 		},
+		
+		// Caster Belt
+		{
+			Name:             "Caster Belt",
+			Items:            []string{"IthRune", "PerfectAmethyst", "Jewel"},
+			PurchaseRequired: true,
+			PurchaseItems:    []string{"LightBelt", "SharkskinBelt", "VampirefangBelt"},
+		},
+
+		// Blood Amulet
+		{
+			Name:             "Blood Amulet",
+			Items:            []string{"AmnRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: true,
+			PurchaseItems:    []string{"Amulet"},
+		},	
+
+		// Blood Ring
+		{
+			Name:             "Blood Ring",
+			Items:            []string{"SolRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: true,
+			PurchaseItems:    []string{"Ring"},
+		},	
 
 		// Blood Gloves
 		{
