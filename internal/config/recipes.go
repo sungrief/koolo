@@ -45,6 +45,7 @@ var AvailableRecipes = []string{
 	"Reroll GrandCharms",
 	"Caster Amulet",
 	"Caster Ring",
+	"Caster Belt",
 	"Blood Amulet",
 	"Blood Ring",
 	"Blood Gloves",
