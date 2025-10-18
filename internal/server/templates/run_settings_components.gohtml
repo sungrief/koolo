@@ -53,7 +53,7 @@
     <fieldset>
         <label><input type="checkbox" name="gameStonytombOpenChests" {{ if .Config.Game.StonyTomb.OpenChests }}checked{{ end }}> Open chests</label>
         <label><input type="checkbox" name="gameStonytombFocusOnElitePacks" {{ if .Config.Game.StonyTomb.FocusOnElitePacks }}checked{{ end }}> Focus on elite packs</label>
-        <label><input type="checkbox" name="gameStonytombBuffOnNewArea" {{ if .Config.Game.Stonytomb.BuffOnNewArea }}checked{{ end }}> Buff when entering a new area</label>
+        <label><input type="checkbox" name="gameStonytombBuffOnNewArea" {{ if .Config.Game.StonyTomb.BuffOnNewArea }}checked{{ end }}> Buff when entering a new area</label>
     </fieldset>
 {{ end }}
 
@@ -139,7 +139,7 @@
 {{ define "lower_kurast_chest" }}
     <fieldset>
         <label><input type="checkbox" name="gameLowerKurastChestOpenRacks" {{ if .Config.Game.LowerKurastChest.OpenRacks }}checked{{ end }}> Weapon Racks + Armor Stands</label>
-        <label><input type="checkbox" name="gameLowerKurastBuffOnNewArea" {{ if .Config.Game.LowerKurast.BuffOnNewArea }}checked{{ end }}> Buff when entering a new area</label>
+        <label><input type="checkbox" name="gameLowerKurastChestBuffOnNewArea" {{ if .Config.Game.LowerKurast.BuffOnNewArea }}checked{{ end }}> Buff when entering a new area</label>
     </fieldset>
 {{ end }}
 
