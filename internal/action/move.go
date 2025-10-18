@@ -154,6 +154,31 @@ func MoveToArea(dst area.ID) error {
 		return fmt.Errorf("destination area not found: %s", dst.Area().Name)
 	}
 
+	cachedPos := data.Position{}
+	if !lvl.IsEntrance && ctx.Data.PlayerUnit.Area != dst {
+		objects := ctx.Data.Areas[lvl.Area].Objects
+		// Sort objects by the distance from me
+		sort.Slice(objects, func(i, j int) bool {
+			distanceI := ctx.PathFinder.DistanceFromMe(objects[i].Position)
+			distanceJ := ctx.PathFinder.DistanceFromMe(objects[j].Position)
+
+			return distanceI < distanceJ
+		})
+
+		// Let's try to find any random object to use as a destination point, once we enter the level we will exit this flow
+		for _, obj := range objects {
+			_, _, found := ctx.PathFinder.GetPath(obj.Position)
+			if found {
+				cachedPos = obj.Position
+				break
+			}
+		}
+
+		if cachedPos == (data.Position{}) {
+			cachedPos = lvl.Position
+		}
+	}
+
 	toFun := func() (data.Position, bool) {
 		// Check for death during movement target evaluation
 		if err := checkPlayerDeath(ctx); err != nil {
@@ -189,24 +214,7 @@ func MoveToArea(dst area.ID) error {
 			return lvl.Position, true
 		}
 
-		objects := ctx.Data.Areas[lvl.Area].Objects
-		// Sort objects by the distance from me
-		sort.Slice(objects, func(i, j int) bool {
-			distanceI := ctx.PathFinder.DistanceFromMe(objects[i].Position)
-			distanceJ := ctx.PathFinder.DistanceFromMe(objects[j].Position)
-
-			return distanceI < distanceJ
-		})
-
-		// Let's try to find any random object to use as a destination point, once we enter the level we will exit this flow
-		for _, obj := range objects {
-			_, _, found := ctx.PathFinder.GetPath(obj.Position)
-			if found {
-				return obj.Position, true
-			}
-		}
-
-		return lvl.Position, true
+		return cachedPos, true
 	}
 
 	var err error
