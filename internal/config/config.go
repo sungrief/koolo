@@ -94,6 +94,13 @@ type CharacterCfg struct {
 
 	ConfigFolderName string `yaml:"-"`
 
+	// Packet casting options (disabled by default for safety)
+	PacketCasting struct {
+		UseForEntranceInteraction bool `yaml:"useForEntranceInteraction"`
+		UseForItemPickup          bool `yaml:"useForItemPickup"`
+		UseForTpInteraction       bool `yaml:"useForTpInteraction"`
+	} `yaml:"packetCasting"`
+
 	Scheduler Scheduler `yaml:"scheduler"`
 	Health    struct {
 		HealingPotionAt     int `yaml:"healingPotionAt"`
@@ -123,6 +130,14 @@ type CharacterCfg struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
 		} `yaml:"berserker_barb"`
+		BlizzardSorceress struct {
+			UseMoatTrick        bool `yaml:"use_moat_trick"`
+			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
+		} `yaml:"blizzard_sorceress"`
+		SorceressLeveling struct {
+			UseMoatTrick        bool `yaml:"use_moat_trick"`
+			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
+		} `yaml:"sorceress_leveling"`
 		NovaSorceress struct {
 			BossStaticThreshold int `yaml:"boss_static_threshold"`
 		} `yaml:"nova_sorceress"`
@@ -133,14 +148,6 @@ type CharacterCfg struct {
 			UseBladesOfIce    bool `yaml:"useBladesOfIce"`
 			UseFistsOfFire    bool `yaml:"useFistsOfFire"`
 		} `yaml:"mosaic_sin"`
-		BlizzardSorceress struct {
-			UseMoatTrick        bool `yaml:"useMoatTrick"`
-			UseStaticOnMephisto bool `yaml:"useStaticOnMephisto"`
-		} `yaml:"blizzardSorceress"`
-		SorceressLeveling struct {
-			UseMoatTrick        bool `yaml:"useMoatTrick"`
-			UseStaticOnMephisto bool `yaml:"useStaticOnMephisto"`
-		} `yaml:"sorceressLeveling"`
 	} `yaml:"character"`
 
 	Game struct {
@@ -276,6 +283,15 @@ type CharacterCfg struct {
 		Enabled bool        `yaml:"enabled"`
 		Items   []item.Name `yaml:"items"`
 	} `yaml:"gambling"`
+	Muling struct {
+		Enabled      bool     `yaml:"enabled"`
+		SwitchToMule string   `yaml:"switchToMule"`
+		ReturnTo     string   `yaml:"returnTo"`
+		MuleProfiles []string `yaml:"muleProfiles"`
+	} `yaml:"muling"`
+	MulingState struct {
+		CurrentMuleIndex int `yaml:"currentMuleIndex"`
+	} `yaml:"mulingState"`
 	CubeRecipes struct {
 		Enabled              bool     `yaml:"enabled"`
 		EnabledRecipes       []string `yaml:"enabledRecipes"`
