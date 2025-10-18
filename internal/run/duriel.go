@@ -43,56 +43,10 @@ func (d Duriel) Name() string {
 }
 
 func (d Duriel) Run() error {
-
-	if d.ctx.CharacterCfg.Game.Duriel.UseThawing {
-
-		potsToBuy := 6
-		if d.ctx.Data.MercHPPercent() > 0 && !d.ctx.CharacterCfg.HidePortraits {
-			potsToBuy = 12
-		}
-
-		action.VendorRefill(false, true)
-		action.BuyAtVendor(npc.Lysander, action.VendorItemRequest{
-			Item:     "ThawingPotion",
-			Quantity: potsToBuy,
-			Tab:      4,
-		})
-
-		d.ctx.HID.PressKeyBinding(d.ctx.Data.KeyBindings.Inventory)
-
-		x := 0
-		for _, itm := range d.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-			if itm.Name != "ThawingPotion" {
-				continue
-			}
-			pos := ui.GetScreenCoordsForItem(itm)
-			utils.Sleep(500)
-
-			if x > 5 {
-
-				d.ctx.HID.Click(game.LeftButton, pos.X, pos.Y)
-				utils.Sleep(300)
-				if d.ctx.Data.LegacyGraphics {
-					d.ctx.HID.Click(game.LeftButton, ui.MercAvatarPositionXClassic, ui.MercAvatarPositionYClassic)
-				} else {
-					d.ctx.HID.Click(game.LeftButton, ui.MercAvatarPositionX, ui.MercAvatarPositionY)
-				}
-
-			} else {
-				d.ctx.HID.Click(game.RightButton, pos.X, pos.Y)
-			}
-			x++
-		}
-		step.CloseAllMenus()
-
-	}
-
 	err := action.WayPoint(area.CanyonOfTheMagi)
 	if err != nil {
 		return err
 	}
-
-	action.Buff()
 
 	// Find and move to the real Tal Rasha tomb
 	realTalRashaTomb, err := d.findRealTomb()
@@ -104,8 +58,6 @@ func (d Duriel) Run() error {
 	if err != nil {
 		return err
 	}
-
-	action.Buff()
 
 	// Wait for area to fully load and get synchronized
 	utils.Sleep(500)
