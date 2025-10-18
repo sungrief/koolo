@@ -243,6 +243,7 @@ func (a Leveling) setupLevelOneConfig() {
 		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	}
 	a.ctx.CharacterCfg.Game.InteractWithShrines = true
+	a.ctx.CharacterCfg.Game.MinGoldPickupThreshold = 2000
 	a.ctx.CharacterCfg.Inventory.HealingPotionCount = 4
 	a.ctx.CharacterCfg.Inventory.ManaPotionCount = 8
 	a.ctx.CharacterCfg.Inventory.RejuvPotionCount = 0
@@ -257,7 +258,8 @@ func (a Leveling) AdjustDifficultyConfig() {
 	lvl, _ := a.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
 
 	a.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = a.GetRunewords()
-	if lvl.Value >= 4 && lvl.Value < 12 {
+	a.ctx.CharacterCfg.Game.MinGoldPickupThreshold = 2000 * lvl.Value
+	if lvl.Value >= 4 && lvl.Value < 24 {
 		a.ctx.CharacterCfg.Health.HealingPotionAt = 85
 
 		if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
@@ -537,4 +539,3 @@ func (a Leveling) shouldFarmCountessForRunes() bool {
 	a.ctx.Logger.Info("All required runes are present. Skipping Countess farm.")
 	return false
 }
-
