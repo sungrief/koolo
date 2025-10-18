@@ -7,7 +7,7 @@ require (
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/hectorgimenez/d2go v0.0.0-20250324070559-dba9a7b5a54f
+	github.com/hectorgimenez/d2go v0.0.0-20250314185000-169a76515285
 	github.com/inkeliz/gowebview v1.0.1
 	github.com/lxn/win v0.0.0-20210218163916-a377121e959e
 	github.com/otiai10/copy v1.14.0
@@ -24,4 +24,4 @@ require (
 	golang.org/x/crypto v0.31.0 // indirect
 )
 
-replace github.com/hectorgimenez/d2go => ../d2go
+replace github.com/hectorgimenez/d2go => github.com/kwader2k/d2go v0.0.0-20251018090433-e882b40af472
