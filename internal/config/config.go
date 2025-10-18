@@ -210,6 +210,7 @@ type CharacterCfg struct {
 		Tristram struct {
 			ClearPortal       bool `yaml:"clearPortal"`
 			FocusOnElitePacks bool `yaml:"focusOnElitePacks"`
+			OnlyFarmRejuvs    bool `yaml:"onlyFarmRejuvs"`
 		} `yaml:"tristram"`
 		Nihlathak struct {
 			ClearArea bool `yaml:"clearArea"`

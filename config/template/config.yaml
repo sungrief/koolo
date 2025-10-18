@@ -102,6 +102,7 @@ game:
   tristram:
     focusOnElitePacks: false # Will clear only Elite monsters
     clearPortal: true # Kills Rakanishu and makes easier selecting the portal
+    onlyFarmRejuvs: false # If set to true, bot will only farm until it has a full belt of rejuvenation potions
   nihlathak:
     clearArea: true
   diablo:

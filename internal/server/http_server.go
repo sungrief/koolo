@@ -1228,6 +1228,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Mephisto.ExitToA4 = r.Form.Has("gameMephistoExitToA4")
 		cfg.Game.Tristram.ClearPortal = r.Form.Has("gameTristramClearPortal")
 		cfg.Game.Tristram.FocusOnElitePacks = r.Form.Has("gameTristramFocusOnElitePacks")
+		cfg.Game.Tristram.OnlyFarmRejuvs = r.Form.Has("gameTristramOnlyFarmRejuvs")
 		cfg.Game.Nihlathak.ClearArea = r.Form.Has("gameNihlathakClearArea")
 
 		cfg.Game.Baal.KillBaal = r.Form.Has("gameBaalKillBaal")
