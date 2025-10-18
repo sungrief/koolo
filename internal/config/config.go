@@ -231,7 +231,8 @@ type CharacterCfg struct {
 			BuffOnNewArea     bool `yaml:"buffOnNewArea"`
 		} `yaml:"tristram"`
 		Nihlathak struct {
-			ClearArea bool `yaml:"clearArea"`
+			ClearArea     bool `yaml:"clearArea"`
+			BuffOnNewArea bool `yaml:"buffOnNewArea"`
 		} `yaml:"nihlathak"`
 		Diablo struct {
 			KillDiablo                    bool `yaml:"killDiablo"`
