@@ -747,16 +747,13 @@ Click on any of the runs to expand them and see more details and options.
                         const newEntry = document.createElement('div');
                         newEntry.classList.add('mule-profile-entry');
 
-                        // Get available profiles from first dropdown
-                        const firstSelect = list.querySelector('select');
+                        // Build options from available mule profiles array
                         let optionsHTML = '<option value="">-- Select a mule profile --</option>';
-                        if (firstSelect) {
-                            Array.from(firstSelect.options).forEach(opt => {
-                                if (opt.value) {
-                                    optionsHTML += '<option value="' + opt.value + '">' + opt.textContent + '</option>';
-                                }
-                            });
-                        }
+                        availableMuleProfiles.forEach(function(profile) {
+                            if (profile) {
+                                optionsHTML += '<option value="' + profile + '">' + profile + '</option>';
+                            }
+                        });
 
                         newEntry.innerHTML = '<select name="mulingMuleProfiles[]" required>' + optionsHTML + '</select>' +
                             '<button type="button" class="remove-mule-profile secondary" title="Remove this mule">-</button>';
