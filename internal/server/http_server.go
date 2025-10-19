@@ -1364,13 +1364,20 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 	dayNames := []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
 
-	// Get list of all available profiles for the dropdown
-	availableProfiles := []string{}
+	// Get list of mule profiles (for farmer's mule dropdown)
+	// and farmer profiles (for mule's return character dropdown)
+	muleProfiles := []string{}
+	farmerProfiles := []string{}
 	allCharacters := config.GetCharacters()
-	for profileName := range allCharacters {
-		availableProfiles = append(availableProfiles, profileName)
+	for profileName, profileCfg := range allCharacters {
+		if strings.ToLower(profileCfg.Character.Class) == "mule" {
+			muleProfiles = append(muleProfiles, profileName)
+		} else {
+			farmerProfiles = append(farmerProfiles, profileName)
+		}
 	}
-	sort.Strings(availableProfiles)
+	sort.Strings(muleProfiles)
+	sort.Strings(farmerProfiles)
 
 	s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
 		Supervisor:         supervisor,
@@ -1381,7 +1388,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		AvailableTZs:       availableTZs,
 		RecipeList:         config.AvailableRecipes,
 		RunewordRecipeList: config.AvailableRunewordRecipes,
-		AvailableProfiles:  availableProfiles,
+		AvailableProfiles:  muleProfiles,
+		FarmerProfiles:     farmerProfiles,
 	})
 }
 
@@ -1514,3 +1522,4 @@ func (s *HttpServer) resetDroplogs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "dir": dir, "removed": removed})
 }
+
