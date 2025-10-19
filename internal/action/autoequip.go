@@ -85,6 +85,9 @@ func AutoEquip() error {
 		playerChanged, err := equipBestItems(playerItems, playerScores, item.LocationEquipped)
 		if err != nil {
 			ctx.Logger.Error(fmt.Sprintf("Player equip error: %v. Continuing...", err))
+			if errors.Is(err, ErrNotEnoughSpace) {
+				return err
+			}
 		}
 
 		// Mercenary
@@ -553,6 +556,9 @@ func equipBestItems(itemsByLoc map[item.LocationType][]data.Item, itemScores map
 			}
 			equippedSomething = true // We made a change (selling junk), so we should re-evaluate
 			*ctx.Data = ctx.GameReader.GetData()
+			if _, found := findInventorySpace(currentlyEquipped); !found {
+				return false, err
+			}
 			continue
 		}
 
