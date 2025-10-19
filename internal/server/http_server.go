@@ -47,6 +47,7 @@ type HttpServer struct {
 	manager   *bot.SupervisorManager
 	templates *template.Template
 	wsServer  *WebSocketServer
+	pickitAPI *PickitAPI
 }
 
 var (
@@ -218,10 +219,17 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager) (*HttpServer, erro
 		return nil, err
 	}
 
+	// Debug: List all loaded templates
+	logger.Info("Loaded templates:")
+	for _, t := range templates.Templates() {
+		logger.Info("  - " + t.Name())
+	}
+
 	return &HttpServer{
 		logger:    logger,
 		manager:   manager,
 		templates: templates,
+		pickitAPI: NewPickitAPI(),
 	}, nil
 }
 
@@ -400,7 +408,7 @@ func (s *HttpServer) getStatusData() IndexData {
 		// Enrich with lightweight live character overview for UI
 		if data := s.manager.GetData(supervisorName); data != nil {
 			// Defaults
-			var lvl, exp, life, maxLife, mana, maxMana, mf, gold, gf int
+			var lvl, exp, life, maxLife, mana, maxMana, mf, gf, gold int
 			var lastExp, nextExp int
 			var fr, cr, lr, pr int
 			var mfr, mcr, mlr, mpr int
@@ -432,11 +440,12 @@ func (s *HttpServer) getStatusData() IndexData {
 			if v, ok := data.PlayerUnit.FindStat(stat.MagicFind, 0); ok {
 				mf = v.Value
 			}
-			// Total gold from inventory and private stash
-			gold = data.PlayerUnit.TotalPlayerGold()
 			if v, ok := data.PlayerUnit.FindStat(stat.GoldFind, 0); ok {
 				gf = v.Value
 			}
+
+			gold = data.PlayerUnit.TotalPlayerGold()
+
 			if v, ok := data.PlayerUnit.FindStat(stat.FireResist, 0); ok {
 				fr = v.Value
 			}
@@ -519,23 +528,23 @@ func (s *HttpServer) getStatusData() IndexData {
 				Mana:            mana,
 				MaxMana:         maxMana,
 				MagicFind:       mf,
-				Gold:            gold,
 				GoldFind:        gf,
 				FireResist:      fr,
 				ColdResist:      cr,
 				LightningResist: lr,
 				PoisonResist:    pr,
+				Gold:            gold,
 			}
 		}
 
 		// Check if this is a companion follower
-		cfg, found := config.GetCharacter(supervisorName)
+		cfg, found := config.Characters[supervisorName]
 		if found {
 			// Add companion information to the stats
 			if cfg.Companion.Enabled && !cfg.Companion.Leader {
 				// This is a companion follower
 				stats.IsCompanionFollower = true
-				stats.MuleEnabled = cfg.Muling.Enabled
+				//stats.MuleEnabled = cfg.Muling.Enabled
 			}
 		}
 
@@ -579,7 +588,29 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/initial-data", s.initialData)         // Web socket data
 	http.HandleFunc("/api/reload-config", s.reloadConfig)   // New handler
 	http.HandleFunc("/api/companion-join", s.companionJoin) // Companion join handler
-	http.HandleFunc("/reset-muling", s.resetMuling)
+	//http.HandleFunc("/reset-muling", s.resetMuling)
+
+	// Pickit Editor routes
+	http.HandleFunc("/pickit-editor", s.pickitEditorPage)
+	http.HandleFunc("/api/pickit/items", s.pickitAPI.handleGetItems)
+	http.HandleFunc("/api/pickit/items/search", s.pickitAPI.handleSearchItems)
+	http.HandleFunc("/api/pickit/items/categories", s.pickitAPI.handleGetCategories)
+	http.HandleFunc("/api/pickit/stats", s.pickitAPI.handleGetStats)
+	http.HandleFunc("/api/pickit/templates", s.pickitAPI.handleGetTemplates)
+	http.HandleFunc("/api/pickit/presets", s.pickitAPI.handleGetPresets)
+	http.HandleFunc("/api/pickit/rules", s.pickitAPI.handleGetRules)
+	http.HandleFunc("/api/pickit/rules/create", s.pickitAPI.handleCreateRule)
+	http.HandleFunc("/api/pickit/rules/update", s.pickitAPI.handleUpdateRule)
+	http.HandleFunc("/api/pickit/rules/delete", s.pickitAPI.handleDeleteRule)
+	http.HandleFunc("/api/pickit/rules/validate", s.pickitAPI.handleValidateRule)
+	http.HandleFunc("/api/pickit/rules/validate-nip", s.pickitAPI.handleValidateNIPLine)
+	http.HandleFunc("/api/pickit/files", s.pickitAPI.handleGetFiles)
+	http.HandleFunc("/api/pickit/files/import", s.pickitAPI.handleImportFile)
+	http.HandleFunc("/api/pickit/files/export", s.pickitAPI.handleExportFile)
+	http.HandleFunc("/api/pickit/files/rules/delete", s.pickitAPI.handleDeleteFileRule)
+	http.HandleFunc("/api/pickit/files/rules/update", s.pickitAPI.handleUpdateFileRule)
+	http.HandleFunc("/api/pickit/files/rules/append", s.pickitAPI.handleAppendNIPLine)
+	http.HandleFunc("/api/pickit/simulate", s.pickitAPI.handleSimulate)
 
 	assets, _ := fs.Sub(assetsFS, "assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
@@ -659,12 +690,29 @@ func (s *HttpServer) debugHandler(w http.ResponseWriter, r *http.Request) {
 	s.templates.ExecuteTemplate(w, "debug.gohtml", nil)
 }
 
+func (s *HttpServer) pickitEditorPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Try without templates/ prefix first (like debug.gohtml)
+	err := s.templates.ExecuteTemplate(w, "pickit_editor.gohtml", nil)
+	if err != nil {
+		// If that fails, log what templates we have
+		s.logger.Error("Failed to execute pickit_editor template", "error", err)
+		s.logger.Info("Available templates:")
+		for _, t := range s.templates.Templates() {
+			s.logger.Info("  - " + t.Name())
+		}
+		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
 func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 	supervisorList := s.manager.AvailableSupervisors()
 	Supervisor := r.URL.Query().Get("characterName")
 
 	// Get the current auth method for the supervisor we wanna start
-	supCfg, currFound := config.GetCharacter(Supervisor)
+	supCfg, currFound := config.Characters[Supervisor]
 	if !currFound {
 		// There's no config for the current supervisor. THIS SHOULDN'T HAPPEN
 		return
@@ -686,7 +734,7 @@ func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Prevent launching if another client that is using token auth is starting
-			sCfg, found := config.GetCharacter(sup)
+			sCfg, found := config.Characters[sup]
 			if found {
 				if sCfg.AuthMethod == "TokenAuth" {
 					return
@@ -737,7 +785,7 @@ func (s *HttpServer) index(w http.ResponseWriter) {
 
 func (s *HttpServer) drops(w http.ResponseWriter, r *http.Request) {
 	sup := r.URL.Query().Get("supervisor")
-	cfg, found := config.GetCharacter(sup)
+	cfg, found := config.Characters[sup]
 	if !found {
 		http.Error(w, "Can't fetch drop data because the configuration "+sup+" wasn't found", http.StatusNotFound)
 		return
@@ -992,7 +1040,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		supervisorName := r.Form.Get("name")
-		cfg, found := config.GetCharacter(supervisorName)
+		cfg, found := config.Characters[supervisorName]
 		if !found {
 			err = config.CreateFromTemplate(supervisorName)
 			if err != nil {
@@ -1003,6 +1051,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 				return
 			}
+			cfg = config.Characters["template"]
 		}
 
 		cfg.MaxGameLength, _ = strconv.Atoi(r.Form.Get("maxGameLength"))
@@ -1143,6 +1192,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.MosaicSin.UseFistsOfFire = r.Form.Has("mosaicUseFistsOfFire")
 		}
 
+		// Blizzard Sorc specific options
 		if cfg.Character.Class == "sorceress" {
 			cfg.Character.BlizzardSorceress.UseMoatTrick = r.Form.Has("useMoatTrick")
 			cfg.Character.BlizzardSorceress.UseStaticOnMephisto = r.Form.Has("useStaticOnMephisto")
@@ -1153,6 +1203,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.SorceressLeveling.UseMoatTrick = r.Form.Has("useMoatTrick")
 			cfg.Character.SorceressLeveling.UseStaticOnMephisto = r.Form.Has("useStaticOnMephisto")
 		}
+
 		for y, row := range cfg.Inventory.InventoryLock {
 			for x := range row {
 				if r.Form.Has(fmt.Sprintf("inventoryLock[%d][%d]", y, x)) {
@@ -1320,9 +1371,9 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.BackToTown.EquipmentBroken = r.Form.Has("equipmentBroken")
 
 		// Muling
-		cfg.Muling.Enabled = r.FormValue("mulingEnabled") == "on"
-		cfg.Muling.MuleProfiles = r.Form["mulingMuleProfiles[]"]
-		cfg.Muling.ReturnTo = r.FormValue("mulingReturnTo")
+		//cfg.Muling.Enabled = r.FormValue("mulingEnabled") == "on"
+		//cfg.Muling.MuleProfiles = r.Form["mulingMuleProfiles[]"]
+		//cfg.Muling.ReturnTo = r.FormValue("mulingReturnTo")
 
 		config.SaveSupervisorConfig(supervisorName, cfg)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -1330,9 +1381,9 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	supervisor := r.URL.Query().Get("supervisor")
-	cfg, _ := config.GetCharacter("template")
+	cfg := config.Characters["template"]
 	if supervisor != "" {
-		cfg, _ = config.GetCharacter(supervisor)
+		cfg = config.Characters[supervisor]
 	}
 
 	enabledRuns := make([]string, 0)
@@ -1364,14 +1415,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 	dayNames := []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
 
-	// Get list of all available profiles for the dropdown
-	availableProfiles := []string{}
-	allCharacters := config.GetCharacters()
-	for profileName := range allCharacters {
-		availableProfiles = append(availableProfiles, profileName)
-	}
-	sort.Strings(availableProfiles)
-
 	s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
 		Supervisor:         supervisor,
 		Config:             cfg,
@@ -1381,7 +1424,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		AvailableTZs:       availableTZs,
 		RecipeList:         config.AvailableRecipes,
 		RunewordRecipeList: config.AvailableRunewordRecipes,
-		AvailableProfiles:  availableProfiles,
 	})
 }
 
@@ -1405,7 +1447,7 @@ func (s *HttpServer) companionJoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the supervisor exists and is a companion
-	cfg, found := config.GetCharacter(requestData.Supervisor)
+	cfg, found := config.Characters[requestData.Supervisor]
 	if !found {
 		http.Error(w, "Supervisor not found", http.StatusNotFound)
 		return
@@ -1438,14 +1480,14 @@ func (s *HttpServer) resetMuling(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, found := config.GetCharacter(characterName)
+	cfg, found := config.Characters[characterName]
 	if !found {
 		http.Error(w, "Character config not found", http.StatusNotFound)
 		return
 	}
 
 	s.logger.Info("Resetting muling index for character", "character", characterName)
-	cfg.MulingState.CurrentMuleIndex = 0
+	//cfg.MulingState.CurrentMuleIndex = 0
 
 	err := config.SaveSupervisorConfig(characterName, cfg)
 	if err != nil {
