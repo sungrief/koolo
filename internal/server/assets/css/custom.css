@@ -591,3 +591,72 @@
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Muling Configuration Styles */
+#mule-profiles-container {
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#mule-profiles-container h6 {
+    margin-top: 0;
+    color: #7aa6ff;
+}
+
+#mule-profiles-container p {
+    margin-bottom: 1rem;
+}
+
+.mule-profile-entry {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    align-items: center;
+}
+
+.mule-profile-entry select {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.mule-profile-entry .remove-mule-profile {
+    width: 40px;
+    min-width: 40px;
+    padding: 0.5rem;
+    margin-bottom: 0;
+    background-color: var(--pico-del-color);
+    border-color: var(--pico-del-color);
+}
+
+.mule-profile-entry .remove-mule-profile:hover {
+    background-color: #c23934;
+}
+
+#add-mule-profile {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+#mule-character-info {
+    padding: 1rem;
+    background-color: rgba(122, 166, 255, 0.1);
+    border-left: 4px solid #7aa6ff;
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+#mule-character-info i {
+    color: #7aa6ff;
+    margin-right: 0.5rem;
+}
+
+#mule-settings {
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+}
