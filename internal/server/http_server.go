@@ -1051,7 +1051,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 				return
 			}
-			cfg = config.Characters("template")
 		}
 
 		cfg.MaxGameLength, _ = strconv.Atoi(r.Form.Get("maxGameLength"))
@@ -1565,4 +1564,5 @@ func (s *HttpServer) resetDroplogs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "dir": dir, "removed": removed})
 }
+
 
