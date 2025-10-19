@@ -704,7 +704,7 @@ Click on any of the runs to expand them and see more details and options.
                         <span>Return to Character (after muling completes)</span>
                         <select name="mulingReturnTo">
                             <option value="">-- Select farming character --</option>
-                            {{ range $profile := $.AvailableProfiles }}
+                            {{ range $profile := $.FarmerProfiles }}
                             <option value="{{ $profile }}" {{ if eq $profile $.Config.Muling.ReturnTo }}selected{{ end }}>{{ $profile }}</option>
                             {{ end }}
                         </select>
@@ -715,6 +715,13 @@ Click on any of the runs to expand them and see more details and options.
 
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
+                    // Store available mule profiles for dynamic dropdown creation
+                    const availableMuleProfiles = [
+                        {{ range $profile := $.AvailableProfiles }}
+                        "{{ $profile }}",
+                        {{ end }}
+                    ];
+
                     const mulingEnabledCheckbox = document.getElementById('mulingEnabled');
                     const muleSettings = document.getElementById('mule-settings');
                     const classSelect = document.querySelector('select[name="characterClass"]');
