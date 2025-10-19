@@ -209,6 +209,19 @@ Paladin
                 </div>
             </div>
 
+            <h5>Create Runewords</h5>
+            <div style="margin-left: 20px; margin-bottom: 20px;">
+                <input type="text" id="search-runewords" placeholder="Search runewords..." style="margin-bottom: 10px; width: 100%; max-width: 300px;">
+                <div class="recipe-grid" id="runeword-recipe-grid">
+                    {{ range $index, $recipe := .RunewordRecipeList }}
+                        <label class="runeword-item" style="display: none;"> <!-- Initially hidden -->
+                            <input type="checkbox" name="gameLevelingEnabledRunewordRecipes" value="{{ $recipe }}" {{ if contains $.Config.Game.Leveling.EnabledRunewordRecipes $recipe }}checked{{ end }}>
+                            <span class="runeword-name">{{ $recipe }}</span>
+                        </label>
+                    {{ end }}
+                </div>
+            </div>
+
             <fieldset class="grid">
                 <label>
 
@@ -259,6 +272,10 @@ Paladin
                     <label>
                         <input type="checkbox" name="packetCastingUseForItemPickup" {{ if .Config.PacketCasting.UseForItemPickup }}checked{{ end }}/>
                         Use packets for item pickup
+                    </label>
+                    <label>
+                        <input type="checkbox" name="packetCastingUseForEntranceInteraction" {{ if .Config.PacketCasting.UseForEntranceInteraction }}checked{{ end }}/>
+                        Use packets for entrance interaction
                     </label>
                 </fieldset>
                 <fieldset class="grid">
