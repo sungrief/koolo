@@ -33,7 +33,15 @@ func InteractEntrance(targetArea area.ID) error {
 	// Check if packet casting is enabled for entrance interaction
 	if ctx.CharacterCfg.PacketCasting.UseForEntranceInteraction {
 		ctx.Logger.Debug("Attempting entrance interaction via packet method")
-		return InteractEntrancePacket(targetArea)
+		err := InteractEntrancePacket(targetArea)
+		if err != nil {
+			// Fallback to mouse interaction if packet method fails
+			ctx.Logger.Warn("Packet entrance interaction failed, falling back to mouse method",
+				"error", err.Error(),
+				"targetArea", targetArea.Area().Name)
+			return InteractEntranceMouse(targetArea)
+		}
+		return nil
 	}
 
 	// Use mouse-based interaction (original implementation)

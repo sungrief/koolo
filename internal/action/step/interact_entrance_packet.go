@@ -158,6 +158,9 @@ func InteractEntrancePacket(targetArea area.ID) error {
 // waitForAreaTransition polls the game data waiting for area transition to complete
 // Returns true if transition succeeded within timeout, false otherwise
 func waitForAreaTransition(ctx *context.Status, targetArea area.ID, timeout time.Duration) bool {
+	// Wait 300ms before checking to allow server to process the transition
+	time.Sleep(300 * time.Millisecond)
+
 	deadline := time.Now().Add(timeout)
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
