@@ -46,6 +46,7 @@ type CharacterSettings struct {
 	RecipeList         []string
 	RunewordRecipeList []string
 	AvailableProfiles  []string
+	FarmerProfiles     []string
 }
 
 type ConfigData struct {
