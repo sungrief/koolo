@@ -34,6 +34,7 @@ type MoveOpts struct {
 	stationaryMaxDistance *int
 	ignoreShrines         bool
 	ignoreMonsters        bool
+	ignoreItems           bool
 }
 
 type MoveOption func(*MoveOpts)
@@ -53,16 +54,34 @@ func WithStationaryDistance(min, max int) MoveOption {
 	}
 }
 
+func WithIgnoreMonsters() MoveOption {
+	return func(opts *MoveOpts) {
+		opts.ignoreMonsters = true
+	}
+}
+
+func WithIgnoreItems() MoveOption {
+	return func(opts *MoveOpts) {
+		opts.ignoreItems = true
+	}
+}
+
 func IgnoreShrines() MoveOption {
 	return func(opts *MoveOpts) {
 		opts.ignoreShrines = true
 	}
 }
 
-func WithIgnoreMonsters() MoveOption {
-	return func(opts *MoveOpts) {
-		opts.ignoreMonsters = true
-	}
+func (opts MoveOpts) DistanceToFinish() *int {
+	return opts.distanceOverride
+}
+
+func (opts MoveOpts) IgnoreMonsters() bool {
+	return opts.ignoreMonsters
+}
+
+func (opts MoveOpts) IgnoreItems() bool {
+	return opts.ignoreItems
 }
 
 // calculateDistance returns the Euclidean distance between two positions.
@@ -230,7 +249,7 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 			}
 		}
 
-		if currentDistanceToDest < minDistanceToFinishMoving {
+		if currentDistanceToDest <= minDistanceToFinishMoving {
 			/*
 				if shrineDestination != (data.Position{}) && shrineDestination == currentDest {
 					shrineFound := false
@@ -253,10 +272,10 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 					continue
 				}
 			*/
-
-			if currentDest == dest {
+			return nil
+			/*if utils.IsSamePosition(currentDest, dest) {
 				return nil
-			}
+			}*/
 		}
 
 		currentPosition := ctx.Data.PlayerUnit.Position
@@ -288,6 +307,12 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 				ctx.HID.Click(game.LeftButton, x, y)
 
 				time.Sleep(time.Millisecond * 100)
+			} else if door, found := ctx.PathFinder.GetClosestDoor(ctx.Data.PlayerUnit.Position); found {
+				doorToOpen := *door
+				InteractObject(doorToOpen, func() bool {
+					door, found := ctx.Data.Objects.FindByID(door.ID)
+					return found && !door.Selectable
+				})
 			} else {
 				if stuckCheckStartTime.IsZero() {
 					stuckCheckStartTime = time.Now()
@@ -330,7 +355,8 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 			}
 		}
 
-		path, distance, found := ctx.PathFinder.GetPath(currentDest)
+		path, _, found := ctx.PathFinder.GetPath(currentDest)
+		//path, distance, found := ctx.PathFinder.GetPath(currentDest)
 		if !found {
 			/*if currentDest == shrineDestination {
 				ctx.Logger.Warn(fmt.Sprintf("Path to shrine at %v could not be calculated. Marking shrine as unreachable for a few minutes.", currentDest))
@@ -338,21 +364,23 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 				shrineDestination = data.Position{}
 				return nil
 			}*/
-			if opts.stationaryMinDistance == nil || opts.stationaryMaxDistance == nil ||
+			/*if opts.stationaryMinDistance == nil || opts.stationaryMaxDistance == nil ||
 				currentDistanceToDest < *opts.stationaryMinDistance || currentDistanceToDest > *opts.stationaryMaxDistance {
 				if ctx.PathFinder.DistanceFromMe(currentDest) < minDistanceToFinishMoving+5 {
 					return nil
 				}
 				ctx.Logger.Debug("path could not be calculated. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", currentDest.X, currentDest.Y) + "]")
 				return ErrNoPath
-			}
-			return nil
+			}*/
+			ctx.Logger.Debug("path could not be calculated. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", currentDest.X, currentDest.Y) + "]")
+			return ErrNoPath
 		}
-		if distance <= minDistanceToFinishMoving || len(path) <= minDistanceToFinishMoving || len(path) == 0 {
-			if currentDest == dest {
+		if /*distance <= minDistanceToFinishMoving || len(path) <= minDistanceToFinishMoving || */ len(path) == 0 {
+			return nil
+			/*if utils.IsSamePosition(currentDest, dest) { {
 				return nil
 			}
-			/*if currentDest == shrineDestination {
+			if currentDest == shrineDestination {
 				shrineDestination = data.Position{}
 				continue
 			}*/

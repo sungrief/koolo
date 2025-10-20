@@ -99,7 +99,9 @@ func (a Quests) clearDenQuest() error {
 		a.ctx.Logger.Error("Failed to save character configuration: %s", err.Error())
 	}
 
-	action.ClearCurrentLevel(false, data.MonsterAnyFilter())
+	if err := action.ClearCurrentLevel(false, data.MonsterAnyFilter()); err != nil {
+		return err
+	}
 
 	_, isLevelingChar := a.ctx.Char.(context.LevelingCharacter)
 	if !isLevelingChar {
@@ -181,7 +183,9 @@ func (a Quests) rescueCainQuest() error {
 
 		// Clear a large area around the new position.
 		a.ctx.Logger.Info(fmt.Sprintf("Clearing a %d unit radius around the current position...", clearRadius))
-		action.ClearAreaAroundPlayer(clearRadius, data.MonsterAnyFilter())
+		if err := action.ClearAreaAroundPlayer(clearRadius, data.MonsterAnyFilter()); err != nil {
+			return err
+		}
 	}
 
 	// --- End of new segmented approach ---

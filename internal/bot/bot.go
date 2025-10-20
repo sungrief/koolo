@@ -200,6 +200,8 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 					continue
 				}
 
+				_, isLevelingChar := b.ctx.Char.(botCtx.LevelingCharacter)
+
 				// Update activity for high-priority actions as they indicate bot is processing.
 				b.updateActivityAndPosition()
 
@@ -236,7 +238,15 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 
 				// Perform item pickup if enabled
 				if b.ctx.CurrentGame.PickupItems {
-					action.ItemPickup(30)
+					canPickup := true
+					if isLevelingChar {
+						if enemyFound, _ := action.IsAnyEnemyAroundPlayer(max(b.ctx.CharacterCfg.Character.ClearPathDist*2, 30)); enemyFound {
+							canPickup = false
+						}
+					}
+					if canPickup {
+						action.ItemPickup(30)
+					}
 				}
 				action.BuffIfRequired()
 

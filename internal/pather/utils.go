@@ -308,10 +308,6 @@ func (pf *PathFinder) GetClosestDoor(position data.Position) (*data.Object, bool
 }
 
 func (pf *PathFinder) GetClosestChest(position data.Position) (*data.Object, bool) {
-	standsTypes := []object.Name{
-		object.ArmorStandLeft, object.ArmorStandRight, object.ExpansionArmorStandLeft, object.ExpansionArmorStandRight,
-		object.WeaponRackLeft, object.WeaponRackRight, object.ExpansionWeaponRackLeft, object.ExpansionWeaponRackRight}
-
 	var closestObject *data.Object
 	minDistance := 20.0
 
@@ -319,15 +315,7 @@ func (pf *PathFinder) GetClosestChest(position data.Position) (*data.Object, boo
 	for _, o := range pf.data.Objects {
 		if o.Selectable {
 			if !o.IsChest() && !o.IsSuperChest() {
-				isStand := false
-				for _, stand := range standsTypes {
-					if o.Name == stand {
-						isStand = true
-					}
-				}
-				if !isStand {
-					continue
-				}
+				continue
 			}
 
 			distanceToObj := utils.CalculateDistance(position, o.Position)

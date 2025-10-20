@@ -227,37 +227,7 @@ func MoveToArea(dst area.ID) error {
 		dst == area.TowerCellarLevel3 && ctx.Data.PlayerUnit.Area == area.TowerCellarLevel2 ||
 		dst == area.TowerCellarLevel4 && ctx.Data.PlayerUnit.Area == area.TowerCellarLevel3 ||
 		dst == area.TowerCellarLevel5 && ctx.Data.PlayerUnit.Area == area.TowerCellarLevel4 {
-
-		// Use a custom loop to integrate the distance override with monster handling.
-		entrancePosition, _ := toFun()
-
-		for {
-			moveErr := step.MoveTo(entrancePosition, step.WithDistanceToFinish(7))
-
-			if moveErr != nil {
-				if errors.Is(moveErr, step.ErrMonstersInPath) {
-					// RE-INTRODUCING COMBAT LOGIC FROM MoveTo(toFun)
-					clearPathDist := ctx.CharacterCfg.Character.ClearPathDist
-					ctx.Logger.Debug("Monster detected while using distance override. Engaging.")
-
-					if time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
-						actionLastMonsterHandlingTime = time.Now()
-						_ = ClearAreaAroundPosition(ctx.Data.PlayerUnit.Position, clearPathDist, data.MonsterAnyFilter())
-
-						lootErr := ItemPickup(lootAfterCombatRadius)
-						if lootErr != nil {
-							ctx.Logger.Warn("Error picking up items after combat (Tower/Harem/Sewers)", slog.String("error", lootErr.Error()))
-						}
-					}
-					continue
-				}
-				// Handle other errors (like pathfinding failure or death)
-				err = moveErr
-				break
-			}
-			err = nil
-			break
-		}
+		err = MoveTo(toFun, step.WithDistanceToFinish(7))
 	} else {
 		err = MoveTo(toFun)
 	}
@@ -321,7 +291,7 @@ func MoveToArea(dst area.ID) error {
 	return nil
 }
 
-func MoveToCoords(to data.Position) error {
+func MoveToCoords(to data.Position, options ...step.MoveOption) error {
 	ctx := context.Get()
 
 	// Proactive death check at the start of the action
@@ -335,7 +305,7 @@ func MoveToCoords(to data.Position) error {
 
 	return MoveTo(func() (data.Position, bool) {
 		return to, true
-	})
+	}, options...)
 }
 
 func onSafeNavigation() {
@@ -370,9 +340,22 @@ func getPathOffsets(to data.Position) (int, int) {
 	return minOffsetX, minOffsetY
 }
 
-func MoveTo(toFunc func() (data.Position, bool)) error {
+func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) error {
 	ctx := context.Get()
 	ctx.SetLastAction("MoveTo")
+
+	// Initialize options
+	opts := &step.MoveOpts{}
+
+	// Apply any provided options
+	for _, o := range options {
+		o(opts)
+	}
+
+	minDistanceToFinishMoving := step.DistanceToFinishMoving
+	if opts.DistanceToFinish() != nil {
+		minDistanceToFinishMoving = *opts.DistanceToFinish()
+	}
 
 	// Proactive death check at the start of the action
 	if err := checkPlayerDeath(ctx); err != nil {
@@ -403,6 +386,8 @@ func MoveTo(toFunc func() (data.Position, bool)) error {
 	var path pather.Path
 	var pathDistance int
 	var pathFound bool
+	var pathErrors int
+	blacklistedInteractions := map[data.UnitID]bool{}
 
 	// Initial sync check
 	if err := ensureAreaSync(ctx, ctx.Data.PlayerUnit.Area); err != nil {
@@ -425,39 +410,49 @@ func MoveTo(toFunc func() (data.Position, bool)) error {
 
 		targetPosition = to
 
+		isSafe := true
 		if !ctx.Data.AreaData.Area.IsTown() {
 			//Safety first
-			if time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
+			if !opts.IgnoreMonsters() && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 				actionLastMonsterHandlingTime = time.Now()
 				_ = ClearAreaAroundPosition(ctx.Data.PlayerUnit.Position, clearPathDist, data.MonsterAnyFilter())
-				// After clearing, immediately try to pick up items
-				lootErr := ItemPickup(lootAfterCombatRadius)
-				if lootErr != nil {
-					ctx.Logger.Warn("Error picking up items after combat (teleporter)", slog.String("error", lootErr.Error()))
+				if !opts.IgnoreItems() {
+					// After clearing, immediately try to pick up items
+					lootErr := ItemPickup(lootAfterCombatRadius)
+					if lootErr != nil {
+						ctx.Logger.Warn("Error picking up items after combat (teleporter)", slog.String("error", lootErr.Error()))
+					}
 				}
 			}
 
 			//Check shrine nearby
 			if !ignoreShrines && shrine.ID == 0 {
 				if closestShrine := findClosestShrine(50.0); closestShrine != nil {
-					shrine = *closestShrine
-					ctx.Logger.Debug(fmt.Sprintf("MoveTo: Found shrine at %v, redirecting destination from %v", closestShrine.Position, targetPosition))
+					blacklisted, exists := blacklistedInteractions[closestShrine.ID]
+					if !exists || !blacklisted {
+						shrine = *closestShrine
+						ctx.Logger.Debug(fmt.Sprintf("MoveTo: Found shrine at %v, redirecting destination from %v", closestShrine.Position, targetPosition))
 
-					chest = (data.Object{})
+						chest = (data.Object{})
+					}
 				}
 			}
 
 			//Check chests nearby
 			if ctx.CharacterCfg.Game.InteractWithChests && shrine.ID == 0 && chest.ID == 0 {
 				if closestChest, chestFound := ctx.PathFinder.GetClosestChest(ctx.Data.PlayerUnit.Position); chestFound {
-					chest = *closestChest
-					targetPosition = chest.Position
-					ctx.Logger.Debug(fmt.Sprintf("MoveTo: Found chest at %v, redirecting destination from %v", chest.Position, targetPosition))
+					blacklisted, exists := blacklistedInteractions[closestChest.ID]
+					if !exists || !blacklisted {
+						chest = *closestChest
+						ctx.Logger.Debug(fmt.Sprintf("MoveTo: Found chest at %v, redirecting destination from %v", chest.Position, targetPosition))
+					}
 				}
 			}
 
 			if enemyFound, _ := IsAnyEnemyAroundPlayer(max(clearPathDist*2, 30)); !enemyFound {
 				onSafeNavigation()
+			} else {
+				isSafe = false
 			}
 		}
 
@@ -477,10 +472,38 @@ func MoveTo(toFunc func() (data.Position, bool)) error {
 		}
 
 		if !pathFound {
-			return errors.New("path could not be calculated. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", to.X, to.Y) + "]")
+			//We're in town for some reason, use tp
+			if ctx.Data.PlayerUnit.Area.IsTown() && !ctx.Data.AreaData.IsInside(targetPosition) {
+				if err := UsePortalInTown(); err != nil {
+					return errors.New("path failed during moveto. player in town, target position outside of town and no tp")
+				}
+			} else {
+				pathErrors++
+				//Try some randome movements to help pathfinding
+				if pathErrors < 5 {
+					ctx.Logger.Warn("No path found, trying random movement to fix")
+					ctx.PathFinder.RandomMovement()
+					utils.Sleep(200)
+				} else {
+					return errors.New("path could not be calculated. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", to.X, to.Y) + "]")
+				}
+			}
+		} else {
+			pathErrors = 0
 		}
 
-		if pathDistance <= step.DistanceToFinishMoving {
+		finishMoveDist := step.DistanceToFinishMoving
+		var moveOptions = make([]step.MoveOption, len(options))
+		copy(moveOptions, options)
+		if minDistanceToFinishMoving != step.DistanceToFinishMoving {
+			if utils.IsSamePosition(to, targetPosition) {
+				finishMoveDist = minDistanceToFinishMoving
+			} else {
+				moveOptions = append(moveOptions, step.WithDistanceToFinish(step.DistanceToFinishMoving))
+			}
+		}
+
+		if pathDistance <= finishMoveDist {
 			if shrine.ID != 0 && targetPosition == shrine.Position {
 				if err := InteractObject(shrine, func() bool {
 					obj, found := ctx.Data.Objects.FindByID(shrine.ID)
@@ -488,6 +511,7 @@ func MoveTo(toFunc func() (data.Position, bool)) error {
 				}); err != nil {
 					ctx.Logger.Warn("Failed to interact with shrine", slog.Any("error", err))
 				}
+				blacklistedInteractions[shrine.ID] = true
 				shrine = data.Object{}
 				continue
 			} else if door.ID != 0 && targetPosition == door.Position {
@@ -505,10 +529,13 @@ func MoveTo(toFunc func() (data.Position, bool)) error {
 					return found && !obj.Selectable
 				}); err != nil {
 					ctx.Logger.Warn("Failed to interact with chest", slog.Any("error", err))
+					blacklistedInteractions[chest.ID] = true
 				}
-				lootErr := ItemPickup(lootAfterCombatRadius)
-				if lootErr != nil {
-					ctx.Logger.Warn("Error picking up items after chest opening", slog.String("error", lootErr.Error()))
+				if !opts.IgnoreItems() {
+					lootErr := ItemPickup(lootAfterCombatRadius)
+					if lootErr != nil {
+						ctx.Logger.Warn("Error picking up items after chest opening", slog.String("error", lootErr.Error()))
+					}
 				}
 				chest = data.Object{}
 				continue
@@ -523,14 +550,19 @@ func MoveTo(toFunc func() (data.Position, bool)) error {
 			maxPathStep := 30
 			//Restrict path step when walking
 			if !ctx.Data.CanTeleport() {
-				maxPathStep = 8
+				if isSafe {
+					maxPathStep = 8
+				} else {
+					//baby steps
+					maxPathStep = 3
+				}
 			}
 			pathStep = min(maxPathStep, len(path)-1)
 			nextPathPos := path[pathStep]
 			nextPosition = utils.PositionAddCoords(nextPathPos, pathOffsetX, pathOffsetY)
 		}
 
-		moveErr := step.MoveTo(nextPosition)
+		moveErr := step.MoveTo(nextPosition, moveOptions...)
 		if moveErr != nil {
 			if errors.Is(moveErr, step.ErrMonstersInPath) {
 				previousTargetPosition = (data.Position{})
@@ -654,8 +686,12 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 	ctx := context.Get()
 
 	// Check if the bot is dead or chickened before proceeding.
-	if ctx.Data.PlayerUnit.HPPercent() <= 0 || ctx.Data.PlayerUnit.HPPercent() <= ctx.Data.CharacterCfg.Health.ChickenAt || ctx.Data.AreaData.Area.IsTown() || ctx.Data.AreaData.Area == area.TowerCellarLevel5 {
+	if ctx.Data.PlayerUnit.HPPercent() <= 0 || ctx.Data.PlayerUnit.HPPercent() <= ctx.Data.CharacterCfg.Health.ChickenAt || ctx.Data.AreaData.Area.IsTown() {
 		ctx.Logger.Debug("Bot is dead or chickened, skipping shrine search.")
+		return nil
+	}
+
+	if ctx.Data.AreaData.Area == area.TowerCellarLevel5 {
 		return nil
 	}
 

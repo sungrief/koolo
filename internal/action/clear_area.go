@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -26,15 +27,31 @@ func ClearAreaAroundPosition(pos data.Position, radius int, filter data.MonsterF
 	defer ctx.EnableItemPickup()
 
 	return ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
-		for _, m := range d.Monsters.Enemies(filter) {
+		enemies := d.Monsters.Enemies(filter)
+
+		sort.Slice(enemies, func(i, j int) bool {
+			distanceI := ctx.PathFinder.DistanceFromMe(enemies[i].Position)
+			distanceJ := ctx.PathFinder.DistanceFromMe(enemies[j].Position)
+
+			return distanceI < distanceJ
+		})
+
+		for _, m := range enemies {
 			distanceToTarget := pather.DistanceFromPoint(pos, m.Position)
-			hasDoorBetween, _ := ctx.PathFinder.HasDoorBetween(ctx.Data.PlayerUnit.Position, m.Position)
-			if ctx.Data.AreaData.IsWalkable(m.Position) && distanceToTarget <= radius && (ctx.Data.CanTeleport() || !hasDoorBetween) {
-				return m.UnitID, true
+			if ctx.Data.AreaData.IsWalkable(m.Position) && distanceToTarget <= radius {
+				validEnemy := true
+				if !ctx.Data.CanTeleport() {
+					if hasDoorBetween, _ := ctx.PathFinder.HasDoorBetween(ctx.Data.PlayerUnit.Position, m.Position); hasDoorBetween {
+						validEnemy = false
+					}
+				}
+				if validEnemy {
+					return m.UnitID, true
+				}
 			}
 		}
 
-		return 0, false
+		return data.UnitID(0), false
 	}, nil)
 }
 
