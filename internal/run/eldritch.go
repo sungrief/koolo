@@ -34,10 +34,6 @@ func (e Eldritch) Run() error {
 		return err
 	}
 
-	if e.ctx.CharacterCfg.Game.Eldritch.BuffOnNewArea {
-		action.Buff()
-	}
-
 	// Kill Eldritch
 	e.ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
 		if m, found := d.Monsters.FindOne(npc.MinionExp, data.MonsterTypeSuperUnique); found {

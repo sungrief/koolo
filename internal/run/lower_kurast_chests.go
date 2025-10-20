@@ -41,10 +41,6 @@ func (run LowerKurastChests) Run() error {
 		return err
 	}
 
-	if run.ctx.CharacterCfg.Game.LowerKurastChest.BuffOnNewArea {
-		action.Buff()
-	}
-
 	// Get bonfires from cached map data
 	var bonFirePositions []data.Position
 	if areaData, ok := run.ctx.GameReader.GetData().Areas[area.LowerKurast]; ok {

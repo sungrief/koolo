@@ -52,10 +52,6 @@ func (t Tristram) Run() error {
 		return err
 	}
 
-	if t.ctx.CharacterCfg.Game.Tristram.BuffOnNewArea {
-		action.Buff()
-	}
-
 	// Find the Cairn Stone Alpha
 	cairnStone := data.Object{}
 	for _, o := range t.ctx.Data.Objects {
@@ -100,10 +96,6 @@ func (t Tristram) Run() error {
 
 	// Open a TP if we're the leader
 	action.OpenTPIfLeader()
-
-	if t.ctx.CharacterCfg.Game.Tristram.BuffOnNewArea {
-		action.Buff()
-	}
 
 	// Check if Cain is rescued
 	if o, found := t.ctx.Data.Objects.FindOne(object.CainGibbet); found && o.Selectable {

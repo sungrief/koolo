@@ -252,6 +252,10 @@ func MoveToArea(dst area.ID) error {
 			// Try to interact with the entrance
 			err = step.InteractEntrance(dst)
 			if err == nil {
+				if ctx.CharacterCfg.Game.Nihlathak.BuffOnNewArea {
+					Buff()
+				}
+
 				break
 			}
 

@@ -42,10 +42,6 @@ func (d *Diablo) Run() error {
 		return err
 	}
 
-	if d.ctx.CharacterCfg.Game.Diablo.BuffOnNewArea {
-		action.Buff()
-	}
-
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 
 	action.MoveToArea(area.ChaosSanctuary)
