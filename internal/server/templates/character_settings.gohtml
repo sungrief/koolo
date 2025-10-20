@@ -524,7 +524,7 @@
                         <span>Return to Character (after muling completes)</span>
                         <select name="mulingReturnTo">
                             <option value="">-- Select farming character --</option>
-                            {{ range $profile := $.AvailableProfiles }}
+                            {{ range $profile := $.FarmerProfiles }}
                             <option value="{{ $profile }}" {{ if eq $profile $.Config.Muling.ReturnTo }}selected{{ end }}>{{ $profile }}</option>
                             {{ end }}
                         </select>
@@ -534,6 +534,13 @@
             </div>
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
+                    // Store available mule profiles for dynamic dropdown creation
+                    const availableMuleProfiles = [
+                        {{ range $profile := $.AvailableProfiles }}
+                        "{{ $profile }}",
+                        {{ end }}
+                    ];
+
                     const mulingEnabledCheckbox = document.getElementById('mulingEnabled');
                     const muleSettings = document.getElementById('mule-settings');
                     const classSelect = document.querySelector('select[name="characterClass"]');
@@ -561,16 +568,15 @@
                         const list = document.getElementById('mule-profiles-list');
                         const newEntry = document.createElement('div');
                         newEntry.classList.add('mule-profile-entry');
-                        // Get available profiles from first dropdown
-                        const firstSelect = list.querySelector('select');
+
+                        // Build options from available mule profiles array
                         let optionsHTML = '<option value="">-- Select a mule profile --</option>';
-                        if (firstSelect) {
-                            Array.from(firstSelect.options).forEach(opt => {
-                                if (opt.value) {
-                                    optionsHTML += '<option value="' + opt.value + '">' + opt.textContent + '</option>';
-                                }
-                            });
-                        }
+                        availableMuleProfiles.forEach(function(profile) {
+                            if (profile) {
+                                optionsHTML += '<option value="' + profile + '">' + profile + '</option>';
+                            }
+                        });
+
                         newEntry.innerHTML = '<select name="mulingMuleProfiles[]" required>' + optionsHTML + '</select>' +
                             '<button type="button" class="remove-mule-profile secondary" title="Remove this mule">-</button>';
                         list.appendChild(newEntry);
