@@ -141,13 +141,10 @@
             </div>
             <fieldset class="grid">
                 <label>
+                    <input type="checkbox" id="characterUseExtraBuffs" name="characterUseExtraBuffs" {{ if .Config.Character.UseExtraBuffs }}checked{{ end }}/>Enable extra buff features
+                </label>
+                <label>
                     <input type="checkbox" id="characterUseTeleport" name="characterUseTeleport" {{ if .Config.Character.UseTeleport }}checked{{ end }}/>Use teleport when available
-                </label>
-                <label>
-                    <input type="checkbox" id="characterBuffOnNewArea" name="characterBuffOnNewArea" {{ if .Config.Character.BuffOnNewArea }}checked{{ end }}/>Buff after entering areas
-                </label>
-                <label>
-                    <input type="checkbox" id="characterBuffAfterWP" name="characterBuffAfterWP" {{ if .Config.Character.BuffAfterWP }}checked{{ end }}/>Buff after taking WP
                 </label>
                 <label>
                     <input type="checkbox" name="characterStashToShared" {{ if .Config.Character.StashToShared }}checked{{ end }}/>
@@ -198,6 +195,27 @@
                     </label>
                 </fieldset>
             </article>
+
+            <fieldset class="grid">
+                <label style="width: auto;">
+                    <div id="useExtraBuffsDistContainer" class="conditional-field" {{ if .Config.Character.UseExtraBuffs }}style="display: none;"{{ end }}>
+                        <div class="walking-radius-container">
+                            <label>Extra buffs</label>
+                        </div>
+                        <div>
+                            <label>
+                                <input type="checkbox" id="characterBuffOnNewArea" name="characterBuffOnNewArea" {{ if .Config.Character.BuffOnNewArea }}checked{{ end }}/>Buff after entering areas
+                            </label>
+                            <label>
+                                <input type="checkbox" id="characterBuffAfterWP" name="characterBuffAfterWP" {{ if .Config.Character.BuffAfterWP }}checked{{ end }}/>Buff after taking WP
+                            </label>
+                            <hr/>
+                            <div class="input-info">Enable additional buffing for all runs.</div>
+                        </div>
+                    </div>
+                </label>
+            </fieldset>
+
             <fieldset class="grid">
                 <label>
                     <div id="clearPathDistContainer" class="conditional-field" {{ if .Config.Character.UseTeleport }}style="display: none;"{{ end }}>

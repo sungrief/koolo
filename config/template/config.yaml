@@ -70,6 +70,7 @@ character:
   useTeleport: true # If set to false, bot will not use teleport skill and will walk to the destination
   clearPathDist: 7 # Distance (in game units) to clear enemies while walking through areas
   shouldHireAct2MercFrozenAura: false # If true, bot will try to hire Act 2 merc with Frozen Aura skill
+  useExtraBuffs: false # If true, bot will enable the extra buffs functionality
   buffOnNewArea: false # If true, bot will apply buffs when entering a new area
   buffAfterWP: false # If true, bot will apply buffs after using a waypoint
 

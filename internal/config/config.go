@@ -126,6 +126,7 @@ type CharacterCfg struct {
 		UseTeleport                  bool   `yaml:"useTeleport"`
 		ClearPathDist                int    `yaml:"clearPathDist"`
 		ShouldHireAct2MercFrozenAura bool   `yaml:"shouldHireAct2MercFrozenAura"`
+		UseExtraBuffs                bool   `yaml:"useExtraBuffs"`
 		BuffOnNewArea                bool   `yaml:"buffOnNewArea"`
 		BuffAfterWP                  bool   `yaml:"buffAfterWP"`
 		BerserkerBarb                struct {
