@@ -38,12 +38,19 @@ func (s AmazonLeveling) KillMonsterSequence(
 	monsterSelector func(d game.Data) (data.UnitID, bool),
 	skipOnImmunities []stat.Resist,
 ) error {
+	ctx := context.Get()
 	completedAttackLoops := 0
 	previousUnitID := 0
-	const numOfLightningFuries = 3
+	const numOfLightningFuries = 2
+	const minCloseMonstersFury = 5
+	const maxDistanceFromPlayerFury = 0
+	const maxPackDetectionDistance = 10
+	const delayBetweenFury = 10
+	const minStackToAllowThrow = 5
+	var lastFury time.Time
 
 	for {
-		context.Get().PauseIfNotPriority()
+		ctx.PauseIfNotPriority()
 
 		id, found := monsterSelector(*s.Data)
 		if !found {
@@ -76,11 +83,13 @@ func (s AmazonLeveling) KillMonsterSequence(
 			if mob.IsPet() || mob.IsMerc() || mob.IsGoodNPC() || mob.IsSkip() || monster.Stats[stat.Life] <= 0 && mob.UnitID != monster.UnitID {
 				continue
 			}
-			if pather.DistanceFromPoint(mob.Position, monster.Position) <= 15 {
-				closeMonsters++
-			}
-			if closeMonsters >= 3 {
+			playerDistance := pather.DistanceFromPoint(s.Data.PlayerUnit.Position, monster.Position)
+			mobDistance := pather.DistanceFromPoint(mob.Position, monster.Position)
+			if playerDistance <= maxDistanceFromPlayerFury {
+				closeMonsters = 0
 				break
+			} else if mobDistance <= maxPackDetectionDistance {
+				closeMonsters++
 			}
 		}
 
@@ -90,13 +99,14 @@ func (s AmazonLeveling) KillMonsterSequence(
 			continue
 		}
 
-		canRangeAttack := throwStack > 5
+		canRangeAttack := throwStack > minStackToAllowThrow && previousUnitID != int(id) && time.Since(lastFury) > time.Second*delayBetweenFury
 		rangedAttack := false
 		if canRangeAttack {
 			if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.LightningFury); found {
-				if closeMonsters >= 3 {
+				if closeMonsters >= minCloseMonstersFury {
 					if step.SecondaryAttack(skill.LightningFury, id, numOfLightningFuries, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance)) == nil {
 						rangedAttack = true
+						lastFury = time.Now()
 					}
 				}
 			}
@@ -260,6 +270,7 @@ func (s AmazonLeveling) KillIzual() error {
 }
 
 func (s AmazonLeveling) KillDiablo() error {
+
 	timeout := time.Second * 20
 	startTime := time.Now()
 	diabloFound := false
@@ -285,7 +296,7 @@ func (s AmazonLeveling) KillDiablo() error {
 		diabloFound = true
 		s.Logger.Info("Diablo detected, attacking")
 
-		return s.killMonster(npc.Diablo, data.MonsterTypeUnique)
+		return s.killBoss(npc.Diablo, data.MonsterTypeUnique)
 	}
 }
 
@@ -335,8 +346,8 @@ func (s AmazonLeveling) ShouldResetSkills() bool {
 }
 
 func (s AmazonLeveling) getRemainingThrowables() int {
-	for _, itm := range s.Data.Inventory.ByLocation(item.LocLeftArm) {
-		if itm.Location.LocationType == item.LocationEquipped {
+	for _, itm := range s.Data.Inventory.ByLocation(item.LocationEquipped) {
+		if itm.Location.BodyLocation == item.LocLeftArm {
 			if qty, twoHanded := itm.FindStat(stat.Quantity, 0); twoHanded {
 				return qty.Value
 			}
