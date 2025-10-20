@@ -212,9 +212,9 @@ Paladin
             <fieldset class="grid">
                 <label>
 
-    <input type="checkbox" id="characterUseTeleport" name="characterUseTeleport" {{ if .Config.Character.UseTeleport }}checked{{ end }}/>
-                    Use teleport when available
-                </label>
+    <input type="checkbox" id="characterUseTeleport" name="characterUseTeleport" {{ if .Config.Character.UseTeleport }}checked{{ end }}/>Use teleport when available</label>
+    <input type="checkbox" id="characterBuffOnNewArea" name="characterBuffOnNewArea" {{ if .Config.Character.BuffOnNewArea }}checked{{ end }}/>Buff after entering areas</label>
+
                 <label>
                     <input type="checkbox" name="characterStashToShared" {{ if .Config.Character.StashToShared }}checked{{ end }}/>
 

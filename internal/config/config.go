@@ -126,6 +126,7 @@ type CharacterCfg struct {
 		UseTeleport                  bool   `yaml:"useTeleport"`
 		ClearPathDist                int    `yaml:"clearPathDist"`
 		ShouldHireAct2MercFrozenAura bool   `yaml:"shouldHireAct2MercFrozenAura"`
+		BuffOnNewArea                bool   `yaml:"buffOnNewArea"`
 		BerserkerBarb                struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
@@ -168,8 +169,7 @@ type CharacterCfg struct {
 			BuffOnNewArea    bool          `yaml:"buffOnNewArea"`
 		} `yaml:"pindleskin"`
 		Cows struct {
-			OpenChests    bool `yaml:"openChests"`
-			BuffOnNewArea bool `yaml:"buffOnNewArea"`
+			OpenChests bool `yaml:"openChests"`
 		} `yaml:"cows"`
 		Pit struct {
 			MoveThroughBlackMarsh bool `yaml:"moveThroughBlackMarsh"`
@@ -179,13 +179,11 @@ type CharacterCfg struct {
 			BuffOnNewArea         bool `yaml:"buffOnNewArea"`
 		} `yaml:"pit"`
 		Countess struct {
-			ClearFloors   bool `yaml:"clearFloors"`
-			BuffOnNewArea bool `yaml:"buffOnNewArea"`
+			ClearFloors bool `yaml:"clearFloors"`
 		}
 		Andariel struct {
-			ClearRoom     bool `yaml:"clearRoom"`
-			UseAntidoes   bool `yaml:"useAntidoes"`
-			BuffOnNewArea bool `yaml:"buffOnNewArea"`
+			ClearRoom   bool `yaml:"clearRoom"`
+			UseAntidoes bool `yaml:"useAntidoes"`
 		}
 		Duriel struct {
 			UseThawing bool `yaml:"useThawing"`
@@ -231,8 +229,7 @@ type CharacterCfg struct {
 			BuffOnNewArea     bool `yaml:"buffOnNewArea"`
 		} `yaml:"tristram"`
 		Nihlathak struct {
-			ClearArea     bool `yaml:"clearArea"`
-			BuffOnNewArea bool `yaml:"buffOnNewArea"`
+			ClearArea bool `yaml:"clearArea"`
 		} `yaml:"nihlathak"`
 		Diablo struct {
 			KillDiablo                    bool `yaml:"killDiablo"`
@@ -250,12 +247,10 @@ type CharacterCfg struct {
 			OnlyElites  bool `yaml:"onlyElites"`
 		} `yaml:"baal"`
 		Eldritch struct {
-			KillShenk     bool `yaml:"killShenk"`
-			BuffOnNewArea bool `yaml:"buffOnNewArea"`
+			KillShenk bool `yaml:"killShenk"`
 		} `yaml:"eldritch"`
 		LowerKurastChest struct {
-			OpenRacks     bool `yaml:"openRacks"`
-			BuffOnNewArea bool `yaml:"buffOnNewArea"`
+			OpenRacks bool `yaml:"openRacks"`
 		} `yaml:"lowerkurastchests"`
 		TerrorZone struct {
 			FocusOnElitePacks bool          `yaml:"focusOnElitePacks"`

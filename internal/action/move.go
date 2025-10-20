@@ -252,10 +252,6 @@ func MoveToArea(dst area.ID) error {
 			// Try to interact with the entrance
 			err = step.InteractEntrance(dst)
 			if err == nil {
-				if ctx.CharacterCfg.Game.Nihlathak.BuffOnNewArea {
-					Buff()
-				}
-
 				break
 			}
 
@@ -274,6 +270,11 @@ func MoveToArea(dst area.ID) error {
 		// Wait for area transition to complete
 		if err := ensureAreaSync(ctx, dst); err != nil {
 			return err
+		}
+
+		// apply buffs after entering a new area if configured
+		if ctx.CharacterCfg.Character.BuffOnNewArea {
+			Buff()
 		}
 	}
 
