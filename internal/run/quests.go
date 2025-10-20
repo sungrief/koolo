@@ -805,11 +805,13 @@ func (a Quests) killAncientsQuest() error {
 
 	// Store the original configuration
 	originalBackToTownCfg := a.ctx.CharacterCfg.BackToTown
+	originalTownChicken := a.ctx.CharacterCfg.Health.TownChickenAt
 
 	// Defer the restoration of the configuration.
 	// This will run when the function exits, regardless of how.
 	defer func() {
 		a.ctx.CharacterCfg.BackToTown = originalBackToTownCfg
+		a.ctx.CharacterCfg.Health.TownChickenAt = originalTownChicken
 		a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.")
 	}()
 
@@ -849,6 +851,7 @@ func (a Quests) killAncientsQuest() error {
 	a.ctx.CharacterCfg.BackToTown.NoMpPotions = false
 	a.ctx.CharacterCfg.BackToTown.EquipmentBroken = false
 	a.ctx.CharacterCfg.BackToTown.MercDied = false
+	a.ctx.CharacterCfg.Health.TownChickenAt = 0
 
 	for {
 		ancients := a.ctx.Data.Monsters.Enemies(data.MonsterEliteFilter())

@@ -256,6 +256,11 @@ func (d *Diablo) killSealElite(boss string) error {
 		}
 
 		time.Sleep(sleepInterval)
+		//Reset time
+		if d.ctx.Data.PlayerUnit.Area.IsTown() {
+			d.ctx.PauseIfNotPriority()
+			startTime = time.Now()
+		}
 	}
 
 	return fmt.Errorf("no seal elite found for %s within %v seconds", boss, timeout.Seconds())
