@@ -60,9 +60,6 @@ func (d *Diablo) Run() error {
 		//open portal if leader
 		if d.ctx.CharacterCfg.Companion.Leader {
 			action.OpenTPIfLeader()
-			if d.ctx.CharacterCfg.Game.Diablo.BuffOnNewArea {
-				action.Buff()
-			}
 			action.ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
 		}
 
@@ -79,9 +76,6 @@ func (d *Diablo) Run() error {
 		//open portal in entrance
 		if d.ctx.CharacterCfg.Companion.Leader {
 			action.OpenTPIfLeader()
-			if d.ctx.CharacterCfg.Game.Diablo.BuffOnNewArea {
-				action.Buff()
-			}
 			action.ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
 		}
 		//path through towards vizier

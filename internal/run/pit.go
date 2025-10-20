@@ -37,10 +37,6 @@ func (p Pit) Run() error {
 			return err
 		}
 
-		if p.ctx.CharacterCfg.Game.SpiderCavern.BuffOnNewArea {
-			action.Buff()
-		}
-
 		if err = action.MoveToArea(area.MonasteryGate); err != nil {
 			return err
 		}
@@ -52,10 +48,6 @@ func (p Pit) Run() error {
 		err := action.WayPoint(area.BlackMarsh)
 		if err != nil {
 			return err
-		}
-
-		if p.ctx.CharacterCfg.Game.SpiderCavern.BuffOnNewArea {
-			action.Buff()
 		}
 
 		if err = action.MoveToArea(area.TamoeHighland); err != nil {

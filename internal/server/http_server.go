@@ -1085,6 +1085,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Character.StashToShared = r.Form.Has("characterStashToShared")
 		cfg.Character.UseTeleport = r.Form.Has("characterUseTeleport")
 		cfg.Character.BuffOnNewArea = r.Form.Has("characterBuffOnNewArea")
+		cfg.Character.BuffAfterWP = r.Form.Has("characterBuffAfterWP")
 
 		// Process ClearPathDist - only relevant when teleport is disabled
 		if !cfg.Character.UseTeleport {
