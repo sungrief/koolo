@@ -20,11 +20,24 @@ func (a Leveling) Name() string {
 }
 
 func (a Leveling) Run() error {
-	a.act1()
-	a.act2()
-	a.act3()
-	a.act4()
-	a.act5()
+	// Adjust settings based on difficulty
+	a.AdjustDifficultyConfig()
+
+	if err := a.act1(); err != nil {
+		return err
+	}
+	if err := a.act2(); err != nil {
+		return err
+	}
+	if err := a.act3(); err != nil {
+		return err
+	}
+	if err := a.act4(); err != nil {
+		return err
+	}
+	if err := a.act5(); err != nil {
+		return err
+	}
 
 	return nil
 }
