@@ -944,6 +944,8 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Discord.EnableRunFinishMessages = r.Form.Has("enable_run_finish_messages")
 		newConfig.Discord.EnableDiscordChickenMessages = r.Form.Has("enable_discord_chicken_messages")
 		newConfig.Discord.EnableDiscordErrorMessages = r.Form.Has("enable_discord_error_messages")
+		newConfig.Discord.Token = r.Form.Get("discord_token")
+		newConfig.Discord.ChannelID = r.Form.Get("discord_channel_id")
 
 		// Discord admins who can use bot commands
 		discordAdmins := r.Form.Get("discord_admins")
@@ -1514,3 +1516,4 @@ func (s *HttpServer) resetDroplogs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "dir": dir, "removed": removed})
 }
+
