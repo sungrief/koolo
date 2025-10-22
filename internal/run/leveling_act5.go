@@ -115,12 +115,36 @@ func (a Leveling) act5() error {
 
 	// Logic for Act5RiteOfPassage quest completion
 	if a.ctx.Data.Quests[quest.Act5RiteOfPassage].Completed() && a.ctx.Data.Quests[quest.Act5PrisonOfIce].Completed() {
-		a.ctx.Logger.Info("Starting Baal run...")
+
+		//Still in Nightmare lvl 70, might need more runes
+		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && lvl.Value >= 70 {
+			if err := NewCountess().Run(); err != nil {
+				return err
+			}
+			if err := action.ReturnTown(); err != nil {
+				return err
+			}
+		}
+
 		if a.ctx.CharacterCfg.Game.Difficulty != difficulty.Normal {
 			a.ctx.CharacterCfg.Game.Baal.SoulQuit = true
 		}
-		NewBaal(nil).Run()
+		a.ctx.Logger.Info("Starting Baal run...")
+		if err := NewBaal(nil).Run(); err != nil {
+			return err
+		}
 
+		//Still in Nightmare lvl 70, might need more base, doing cows last cause it's a bit buggy :(
+		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && lvl.Value >= 70 {
+			if a.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {
+				if err := NewCows().Run(); err != nil {
+					return err
+				}
+				if err := action.ReturnTown(); err != nil {
+					return err
+				}
+			}
+		}
 		return nil
 	}
 
