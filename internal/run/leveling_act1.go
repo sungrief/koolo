@@ -87,6 +87,11 @@ func (a Leveling) act1() error {
 		return NewQuests().clearDenQuest()
 	}
 
+	// Farming for normal difficulty below 300 gold
+	if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && a.ctx.Data.PlayerUnit.TotalPlayerGold() < 300 && !a.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() {
+		return NewTristramEarlyGoldfarm().Run()
+	}
+
 	// Blood Raven quest
 	if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && !a.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() {
 		return a.killRavenGetMerc()
