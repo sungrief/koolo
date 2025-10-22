@@ -18,6 +18,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/memory"
@@ -302,6 +303,9 @@ func UpdateQuestLog(fullUpdate bool) error {
 	utils.Sleep(1000)
 
 	currentAct := ctx.Data.PlayerUnit.Area.Act()
+	if fullUpdate {
+		currentAct = 5
+	}
 	startAct := currentAct
 
 	actWaitTimeMS := 300
@@ -325,6 +329,28 @@ func UpdateQuestLog(fullUpdate bool) error {
 			utils.Sleep(actWaitTimeMS)
 		} else {
 			ctx.Logger.Warn(fmt.Sprintf("Could not find Quest Log button coordinates for current Act: %d", i))
+		}
+		ctx.RefreshGameData()
+
+		if fullUpdate {
+			switch i {
+			case 1:
+				if !ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed() {
+					i = currentAct + 1
+				}
+			case 2:
+				if !ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+					i = currentAct + 1
+				}
+			case 3:
+				if !ctx.Data.Quests[quest.Act3TheGuardian].Completed() {
+					i = currentAct + 1
+				}
+			case 4:
+				if !ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
+					i = currentAct + 1
+				}
+			}
 		}
 	}
 
