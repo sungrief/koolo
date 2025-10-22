@@ -114,17 +114,7 @@ func (f *FireEye) Run() error {
 		return nil
 	}
 
-	action.ClearAreaAroundPlayer(30, func(m data.Monsters) []data.Monster {
-		var filteredMonsters []data.Monster
-
-		for _, mo := range m {
-			if !(mo.IsImmune(stat.FireImmune) && mo.IsImmune(stat.ColdImmune)) {
-				filteredMonsters = append(filteredMonsters, mo)
-			}
-		}
-
-		return filteredMonsters
-	})
+	action.ClearAreaAroundPlayer(30, data.MonsterEliteFilter())
 
 	return nil
 }

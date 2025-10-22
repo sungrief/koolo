@@ -31,36 +31,33 @@ func (s Summoner) Run() error {
 	if s.ctx.CharacterCfg.Game.Summoner.KillFireEye {
 		NewFireEye().Run()
 
-		if s.ctx.CharacterCfg.Game.Summoner.KillFireEye {
+		obj, _ := s.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
 
-			obj, _ := s.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
-
-			err := action.InteractObject(obj, func() bool {
-				updatedObj, found := s.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
-				if found {
-					if !updatedObj.Selectable {
-						s.ctx.Logger.Debug("Interacted with ArcaneSanctuaryPortal")
-					}
-					return !updatedObj.Selectable
+		err := action.InteractObject(obj, func() bool {
+			updatedObj, found := s.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
+			if found {
+				if !updatedObj.Selectable {
+					s.ctx.Logger.Debug("Interacted with ArcaneSanctuaryPortal")
 				}
-				return false
-			})
-
-			if err != nil {
-				return err
+				return !updatedObj.Selectable
 			}
+			return false
+		})
 
-			err = action.InteractObject(obj, func() bool {
-				return s.ctx.Data.PlayerUnit.Area == area.ArcaneSanctuary
-			})
-
-			if err != nil {
-				return err
-			}
-
-			utils.Sleep(300)
-
+		if err != nil {
+			return err
 		}
+
+		err = action.InteractObject(obj, func() bool {
+			return s.ctx.Data.PlayerUnit.Area == area.ArcaneSanctuary
+		})
+
+		if err != nil {
+			return err
+		}
+
+		utils.Sleep(300)
+
 	}
 
 	if !s.ctx.CharacterCfg.Game.Summoner.KillFireEye {
