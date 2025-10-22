@@ -24,14 +24,21 @@ func (s Summoner) Name() string {
 
 func (s Summoner) Run() error {
 	// Use the waypoint to get to Arcane Sanctuary
-	err := action.WayPoint(area.ArcaneSanctuary)
-	if err != nil {
-		return err
+	if s.ctx.CharacterCfg.Game.Summoner.KillFireEye {
+		NewFireEye().Run()
+	}
+
+	if !s.ctx.CharacterCfg.Game.Summoner.KillFireEye {
+		err := action.WayPoint(area.ArcaneSanctuary)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Get the Summoner's position from the cached map data
 	areaData := s.ctx.Data.Areas[area.ArcaneSanctuary]
 	summonerNPC, found := areaData.NPCs.FindOne(npc.Summoner)
+	var err error
 	if !found || len(summonerNPC.Positions) == 0 {
 		return err
 	}
