@@ -187,46 +187,19 @@ func (n *NecromancerLeveling) KillMonsterSequence(
 	completedAttackLoops := 0
 	previousUnitID := 0
 	bonePrisonnedMonsters := make(map[data.UnitID]time.Time)
-
+	ctx := context.Get()
 	// Initialize line of sight tracking map
 	if n.lastLineOfSight == nil {
 		n.lastLineOfSight = make(map[data.UnitID]time.Time)
 	}
 
-	priorityMonsters := []npc.ID{npc.FallenShaman, npc.MummyGenerator, npc.BaalSubjectMummy, npc.FetishShaman, npc.CarverShaman}
-
 	for {
 		var id data.UnitID
 		var found bool
 
-		// Check for priority monsters first
-		var closestPriorityMonster data.Monster
-		minDistance := -1
+		ctx.PauseIfNotPriority()
 
-		for _, monsterNpcID := range priorityMonsters {
-			for _, m := range n.Data.Monsters {
-				if m.Name == monsterNpcID && m.Stats[stat.Life] > 0 {
-					distance := n.PathFinder.DistanceFromMe(m.Position)
-					if distance < priorityMonsterSearchRange {
-						if minDistance == -1 || distance < minDistance {
-							minDistance = distance
-							closestPriorityMonster = m
-						}
-					}
-				}
-			}
-		}
-
-		if minDistance != -1 {
-			id = closestPriorityMonster.UnitID
-			found = true
-			n.Logger.Debug("Priority monster found", "name", closestPriorityMonster.Name, "distance", minDistance)
-		}
-
-		// Fall back to regular monster selector if no priority monster found
-		if !found {
-			id, found = monsterSelector(*n.Data)
-		}
+		id, found = monsterSelector(*n.Data)
 
 		if !found {
 			return nil
