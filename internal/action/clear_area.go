@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
@@ -14,6 +15,26 @@ import (
 
 func ClearAreaAroundPlayer(radius int, filter data.MonsterFilter) error {
 	return ClearAreaAroundPosition(context.Get().Data.PlayerUnit.Position, radius, filter)
+}
+
+func IsPriorityMonster(m data.Monster) bool {
+	priorityMonsters := []npc.ID{
+		npc.FallenShaman,
+		npc.CarverShaman,
+		npc.DevilkinShaman,
+		npc.DarkShaman,
+		npc.WarpedShaman,
+		npc.MummyGenerator,
+		npc.BaalSubjectMummy,
+		npc.FetishShaman,
+	}
+
+	for _, priorityMonster := range priorityMonsters {
+		if m.Name == priorityMonster {
+			return true
+		}
+	}
+	return false
 }
 
 func ClearAreaAroundPosition(pos data.Position, radius int, filter data.MonsterFilter) error {
@@ -30,8 +51,20 @@ func ClearAreaAroundPosition(pos data.Position, radius int, filter data.MonsterF
 		enemies := d.Monsters.Enemies(filter)
 
 		sort.Slice(enemies, func(i, j int) bool {
-			distanceI := ctx.PathFinder.DistanceFromMe(enemies[i].Position)
-			distanceJ := ctx.PathFinder.DistanceFromMe(enemies[j].Position)
+			monsterI := enemies[i]
+			monsterJ := enemies[j]
+
+			isPriorityI := IsPriorityMonster(monsterI)
+			isPriorityJ := IsPriorityMonster(monsterJ)
+
+			distanceI := ctx.PathFinder.DistanceFromMe(monsterI.Position)
+			distanceJ := ctx.PathFinder.DistanceFromMe(monsterJ.Position)
+
+			if isPriorityI && !isPriorityJ {
+				return true
+			} else if !isPriorityI && isPriorityJ {
+				return false
+			}
 
 			return distanceI < distanceJ
 		})
