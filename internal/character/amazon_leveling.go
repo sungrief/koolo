@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
+	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	maxAmazonLevelingAttackLoops = 10
+	maxAmazonLevelingAttackLoops = 25
 	minAmazonLevelingDistance    = 10
 	maxAmazonLevelingDistance    = 30
 )
@@ -41,13 +42,20 @@ func (s AmazonLeveling) KillMonsterSequence(
 	ctx := context.Get()
 	completedAttackLoops := 0
 	previousUnitID := 0
-	const numOfLightningFuries = 2
-	const minCloseMonstersFury = 5
+	numOfLightningFuries := 2
+	minCloseMonstersFury := 5
+	delayBetweenFury := time.Duration(5)
 	const maxDistanceFromPlayerFury = 0
 	const maxPackDetectionDistance = 10
-	const delayBetweenFury = 10
 	const minStackToAllowThrow = 5
 	var lastFury time.Time
+
+	//adjust fury settings for NM & Hell difficulties - skill should be 10+ by then
+	if ctx.CharacterCfg.Game.Difficulty != difficulty.Normal {
+		numOfLightningFuries = 3
+		minCloseMonstersFury = 3
+		delayBetweenFury = 2
+	}
 
 	for {
 		ctx.PauseIfNotPriority()
@@ -94,24 +102,20 @@ func (s AmazonLeveling) KillMonsterSequence(
 		}
 
 		throwStack := s.getRemainingThrowables()
-		if throwStack == 0 {
+		if throwStack <= minStackToAllowThrow {
 			action.InRunReturnTownRoutine()
 			continue
 		}
 
-		canRangeAttack := throwStack > minStackToAllowThrow && previousUnitID != int(id) && time.Since(lastFury) > time.Second*delayBetweenFury
 		rangedAttack := false
-		if canRangeAttack {
-			if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.LightningFury); found {
-				if closeMonsters >= minCloseMonstersFury {
-					if step.SecondaryAttack(skill.LightningFury, id, numOfLightningFuries, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance)) == nil {
-						rangedAttack = true
-						lastFury = time.Now()
-					}
+		if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.LightningFury); found {
+			if throwStack > minStackToAllowThrow && time.Since(lastFury) > time.Second*delayBetweenFury && closeMonsters >= minCloseMonstersFury {
+				if ctx.PathFinder.LineOfSight(ctx.Data.PlayerUnit.Position, monster.Position) {
+					step.SecondaryAttack(skill.LightningFury, id, numOfLightningFuries, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance))
+					rangedAttack = true
+					lastFury = time.Now()
 				}
 			}
-		} else {
-			//Back to town ?
 		}
 
 		if !rangedAttack {
@@ -129,6 +133,8 @@ func (s AmazonLeveling) KillBossSequence(
 ) error {
 	completedAttackLoops := 0
 	previousUnitID := 0
+	var lastValkyrie time.Time
+	const delayBetweenValkyrieSummons = 5
 	//const numOfAttacks = 5
 
 	for {
@@ -160,7 +166,10 @@ func (s AmazonLeveling) KillBossSequence(
 		previousUnitID = int(id)
 
 		if s.shouldSummonValkyrie() {
-			step.SecondaryAttack(skill.Valkyrie, id, 1, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance))
+			if time.Since(lastValkyrie) > delayBetweenValkyrieSummons {
+				step.SecondaryAttack(skill.Valkyrie, id, 1, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance))
+				lastValkyrie = time.Now()
+			}
 		} else {
 			step.SecondaryAttack(s.getMeleeSkill(monster), id, 1, step.Distance(1, 1))
 		}
