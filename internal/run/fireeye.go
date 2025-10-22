@@ -126,36 +126,5 @@ func (f *FireEye) Run() error {
 		return filteredMonsters
 	})
 
-	if f.ctx.CharacterCfg.Game.Summoner.KillFireEye {
-
-		obj, _ := f.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
-
-		err = action.InteractObject(obj, func() bool {
-			updatedObj, found := f.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
-			if found {
-				if !updatedObj.Selectable {
-					f.ctx.Logger.Debug("Interacted with ArcaneSanctuaryPortal")
-				}
-				return !updatedObj.Selectable
-			}
-			return false
-		})
-
-		if err != nil {
-			return err
-		}
-
-		err = action.InteractObject(obj, func() bool {
-			return f.ctx.Data.PlayerUnit.Area == area.ArcaneSanctuary
-		})
-
-		if err != nil {
-			return err
-		}
-
-		utils.Sleep(300)
-
-	}
-
 	return nil
 }
