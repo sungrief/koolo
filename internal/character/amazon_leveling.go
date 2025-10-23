@@ -17,12 +17,14 @@ import (
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/pather"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 const (
 	maxAmazonLevelingAttackLoops = 25
 	minAmazonLevelingDistance    = 10
 	maxAmazonLevelingDistance    = 30
+	delayBetweenValkyrieSummons  = 5 * time.Second
 )
 
 type AmazonLeveling struct {
@@ -35,6 +37,13 @@ func (s AmazonLeveling) CheckKeyBindings() []skill.ID {
 	return []skill.ID{}
 }
 
+func (s AmazonLeveling) ShouldIgnoreMonster(m data.Monster) bool {
+	if !game.IsActBoss(m) && !game.IsQuestEnemy(m) {
+		return m.IsImmune(stat.LightImmune)
+	}
+	return false
+}
+
 func (s AmazonLeveling) KillMonsterSequence(
 	monsterSelector func(d game.Data) (data.UnitID, bool),
 	skipOnImmunities []stat.Resist,
@@ -44,17 +53,22 @@ func (s AmazonLeveling) KillMonsterSequence(
 	previousUnitID := 0
 	numOfLightningFuries := 2
 	minCloseMonstersFury := 5
-	delayBetweenFury := time.Duration(5)
+	delayBetweenFury := 5 * time.Second
 	const maxDistanceFromPlayerFury = 0
 	const maxPackDetectionDistance = 10
 	const minStackToAllowThrow = 5
 	var lastFury time.Time
+	var lastValkyrie time.Time
 
 	//adjust fury settings for NM & Hell difficulties - skill should be 10+ by then
 	if ctx.CharacterCfg.Game.Difficulty != difficulty.Normal {
 		numOfLightningFuries = 3
 		minCloseMonstersFury = 3
-		delayBetweenFury = 2
+		if ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare {
+			delayBetweenFury = 2 * time.Second
+		} else {
+			delayBetweenFury = 500 * time.Millisecond
+		}
 	}
 
 	for {
@@ -68,18 +82,19 @@ func (s AmazonLeveling) KillMonsterSequence(
 			completedAttackLoops = 0
 		}
 
-		if !s.preBattleChecks(id, skipOnImmunities) {
-			return nil
-		}
-
 		monster, found := s.Data.Monsters.FindByID(id)
 		if !found {
 			s.Logger.Info("Monster not found", slog.String("monster", fmt.Sprintf("%v", monster)))
 			return nil
 		}
 
+		isOptionnalKill := !game.IsActBoss(monster) && !game.IsQuestEnemy(monster)
+		if isOptionnalKill && !s.preBattleChecks(id, skipOnImmunities) {
+			return nil
+		}
+
 		if completedAttackLoops >= maxAmazonLevelingAttackLoops {
-			if !game.IsActBoss(monster) && !game.IsQuestEnemy(monster) {
+			if isOptionnalKill {
 				return nil
 			} else {
 				completedAttackLoops = 0
@@ -96,7 +111,7 @@ func (s AmazonLeveling) KillMonsterSequence(
 			if playerDistance <= maxDistanceFromPlayerFury {
 				closeMonsters = 0
 				break
-			} else if mobDistance <= maxPackDetectionDistance {
+			} else if mobDistance <= maxPackDetectionDistance && !mob.IsImmune(stat.LightImmune) {
 				closeMonsters++
 			}
 		}
@@ -107,11 +122,20 @@ func (s AmazonLeveling) KillMonsterSequence(
 			continue
 		}
 
+		if s.shouldSummonValkyrie() {
+			if time.Since(lastValkyrie) > delayBetweenValkyrieSummons {
+				step.SecondaryAttack(skill.Valkyrie, id, 1, step.Distance(1, maxAmazonLevelingDistance))
+				lastValkyrie = time.Now()
+				utils.Sleep(200)
+				continue
+			}
+		}
+
 		rangedAttack := false
 		if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.LightningFury); found {
-			if throwStack > minStackToAllowThrow && time.Since(lastFury) > time.Second*delayBetweenFury && closeMonsters >= minCloseMonstersFury {
+			if throwStack > minStackToAllowThrow && time.Since(lastFury) > delayBetweenFury && closeMonsters >= minCloseMonstersFury {
 				if ctx.PathFinder.LineOfSight(ctx.Data.PlayerUnit.Position, monster.Position) {
-					step.SecondaryAttack(skill.LightningFury, id, numOfLightningFuries, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance))
+					step.SecondaryAttack(skill.LightningFury, id, numOfLightningFuries, step.Distance(1, maxAmazonLevelingDistance))
 					rangedAttack = true
 					lastFury = time.Now()
 				}

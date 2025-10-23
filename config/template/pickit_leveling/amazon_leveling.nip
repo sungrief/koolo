@@ -64,16 +64,44 @@
 
 
 //gear 
-[name] == ceremonialjavelin && [quality] == unique && [flag] == ethereal # [enhanceddamage] >= 200 && [lifeleech] >= 9 # [tier] == 10000 //titans
+//belt
 [name] == sharkskinbelt && [quality] == unique # [enhanceddefense] >= 150 # [tier] == 10000 //razortail
+[name] == WarBelt && [quality] == unique # [enhanceddefense] >= 100 # [tier] == 5000 //thundergods vigor
+
+//Rings
 [type] == ring && [quality] == unique # [dexterity] >= 15 && [tohit] >= 150 # [tier] == 10000 //ravenfrost
+[type] == ring && [quality] >= magic # [lifeleech] >= 2 && [manaleech] >= 2 # [tier] == 3000
+[type] == ring && [quality] == unique # [magicdamagereduction] >= 12 # [tier] == (2000) //dwarf
+[type] == ring && [quality] >= magic # [lifeleech] >= 2 || [manaleech] >= 2 # [tier] == 1000
+
+
+//Amulet
 [type] == amulet && [quality] == unique # [dexterity] >= 25	# [tier] == 10000 //cat's eye
+
+//Boots
 [name] == scarabshellboots && [quality] == unique && [flag] != ethereal # [enhanceddefense] >= 140 # [tier] == 10000 // sandstorm trek
 [name] == sharkskinboots && [quality] == unique && [flag] != ethereal # [enhanceddefense] >= 180 # [tier] == 8000 // waterwalk
 [name] == battleboots && [quality] == set # [fireresist] >= 40 # [tier] == 6000	// aldur's advance
 
-[type] == javelin || [type] == amazonjavelin # [itemreplenishquantity] >= 1 # [tier] == 2000
-[type] == javelin || [type] == amazonjavelin # # [tier] == 1000
+//Weapon
+[name] == ceremonialjavelin && [quality] == unique && [flag] == ethereal # [enhanceddamage] >= 200 && [lifeleech] >= 9 # [tier] == 10000 //titans
+
+([type] == javelin || [type] == amazonjavelin) && [Class] == elite # [itemreplenishquantity] >= 1 # [tier] == 6000
+([type] == javelin || [type] == amazonjavelin) && [Class] == elite # # [tier] == 5000
+
+([type] == javelin || [type] == amazonjavelin) && [Class] == exceptional # [itemreplenishquantity] >= 1 # [tier] == 4000
+([type] == javelin || [type] == amazonjavelin) && [Class] == exceptional # # [tier] == 3000
+
+([type] == javelin || [type] == amazonjavelin) # [itemreplenishquantity] >= 1 # [tier] == 2000
+([type] == javelin || [type] == amazonjavelin) # # [tier] == 1000
+
+//Gloves
+[type] == gloves && [quality] >= magic && [flag] != ethereal # [ias] >= 10 && [javelinandspearskilltab] >= 1 # [tier] == 2000
+[type] == gloves && [quality] >= magic && [flag] != ethereal # [ias] >= 10 # [tier] == 1000
+
+//Shields
+[name] == monarch && [quality] == unique # # [tier] == 10000 //stormshield
+[name] == roundshield && [quality] == unique # # [tier] == 9000 //moser
 
 //Bases
 
