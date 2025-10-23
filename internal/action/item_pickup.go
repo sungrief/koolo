@@ -152,7 +152,7 @@ func ItemPickup(maxDistance int) error {
 						Y: itemToPickup.Position.Y - 3,
 					}
 				case 5:
-					MoveToCoords(ctx.PathFinder.BeyondPosition(ctx.Data.PlayerUnit.Position, itemToPickup.Position, 4))
+					MoveToCoords(ctx.PathFinder.BeyondPosition(ctx.Data.PlayerUnit.Position, itemToPickup.Position, 4), step.WithIgnoreItems())
 				}
 			}
 
@@ -219,7 +219,7 @@ func ItemPickup(maxDistance int) error {
 
 				// Try moving beyond the item for better line of sight
 				beyondPos := ctx.PathFinder.BeyondPosition(ctx.Data.PlayerUnit.Position, itemToPickup.Position, 2+attempt)
-				if mvErr := MoveToCoords(beyondPos); mvErr == nil {
+				if mvErr := MoveToCoords(beyondPos, step.WithIgnoreItems()); mvErr == nil {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moved for LOS. Retrying pickup. Attempt %d", attempt))
 					err = step.PickupItem(itemToPickup, attempt)
 					if err == nil {
