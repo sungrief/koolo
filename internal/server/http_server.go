@@ -1312,6 +1312,13 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		cfg.Game.TerrorZone.Areas = tzAreas
 
+		// Utility
+		if parkingActStr := r.Form.Get("gameUtilityParkingAct"); parkingActStr != "" {
+			if parkingAct, err := strconv.Atoi(parkingActStr); err == nil {
+				cfg.Game.Utility.ParkingAct = parkingAct
+			}
+		}
+
 		// Gambling
 		cfg.Gambling.Enabled = r.Form.Has("gamblingEnabled")
 
@@ -1538,4 +1545,3 @@ func (s *HttpServer) resetDroplogs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "dir": dir, "removed": removed})
 }
-
