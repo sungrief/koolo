@@ -18,6 +18,10 @@ type MuleCharacter struct {
 	BaseCharacter
 }
 
+func (s MuleCharacter) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 // CheckKeyBindings returns an empty list, as mules do not require any specific skills to be bound.
 func (m MuleCharacter) CheckKeyBindings() []skill.ID {
 	return []skill.ID{}

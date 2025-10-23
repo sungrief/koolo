@@ -29,6 +29,10 @@ type AssassinLeveling struct {
 	BaseCharacter
 }
 
+func (s AssassinLeveling) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s AssassinLeveling) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{}
 	missingKeybindings := []skill.ID{}

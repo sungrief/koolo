@@ -29,6 +29,10 @@ const (
 	maxAttackAttempts = 20
 )
 
+func (s Berserker) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s *Berserker) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.BattleCommand, skill.BattleOrders, skill.Shout, skill.FindItem, skill.Berserk}
 	missingKeybindings := []skill.ID{}

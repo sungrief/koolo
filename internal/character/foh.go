@@ -32,6 +32,10 @@ type Foh struct {
 	lastCastTime time.Time
 }
 
+func (s Foh) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (f Foh) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.Conviction, skill.HolyShield, skill.TomeOfTownPortal, skill.FistOfTheHeavens, skill.HolyBolt}
 	missingKeybindings := make([]skill.ID, 0)

@@ -25,6 +25,10 @@ type Javazon struct {
 	BaseCharacter
 }
 
+func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s Javazon) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.LightningFury, skill.TomeOfTownPortal}
 	missingKeybindings := []skill.ID{}

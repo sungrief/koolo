@@ -24,6 +24,10 @@ type HydraOrbSorceress struct {
 	BaseCharacter
 }
 
+func (s HydraOrbSorceress) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s HydraOrbSorceress) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.FrozenOrb, skill.Hydra, skill.Teleport, skill.TomeOfTownPortal, skill.ShiverArmor, skill.StaticField}
 	missingKeybindings := []skill.ID{}
