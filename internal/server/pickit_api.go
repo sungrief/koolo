@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/hectorgimenez/koolo/internal/pickit"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 // PickitAPI handles all pickit editor endpoints
@@ -47,6 +48,7 @@ func (api *PickitAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/pickit/files/rules/delete", api.handleDeleteFileRule)
 	mux.HandleFunc("/api/pickit/files/rules/update", api.handleUpdateFileRule)
 	mux.HandleFunc("/api/pickit/files/rules/append", api.handleAppendNIPLine)
+	mux.HandleFunc("/api/pickit/browse-folder", api.handleBrowseFolder)
 
 	// Template endpoints
 	mux.HandleFunc("/api/pickit/templates", api.handleGetTemplates)
@@ -279,12 +281,25 @@ func (api *PickitAPI) handleGetFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Support both 'path' (new) and 'character' (legacy) parameters
+	pickitPath := r.URL.Query().Get("path")
 	characterID := r.URL.Query().Get("character")
 	fileName := r.URL.Query().Get("file")
 
+	// Determine the directory to use
+	var directory string
+	if pickitPath != "" {
+		directory = pickitPath
+	} else if characterID != "" {
+		directory = filepath.Join("config", characterID, "pickit")
+	} else {
+		api.sendError(w, "Either 'path' or 'character' parameter required", http.StatusBadRequest)
+		return
+	}
+
 	// If file parameter is provided, return the content of that specific file
 	if fileName != "" {
-		rules, err := api.loadPickitFileRules(characterID, fileName)
+		rules, err := api.loadPickitFileRulesFromPath(directory, fileName)
 		if err != nil {
 			api.sendError(w, fmt.Sprintf("Error loading file: %v", err), http.StatusInternalServerError)
 			return
@@ -294,7 +309,7 @@ func (api *PickitAPI) handleGetFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Otherwise return list of all files
-	files, err := api.getCharacterFiles(characterID)
+	files, err := api.getPickitFilesFromPath(directory)
 	if err != nil {
 		api.sendError(w, fmt.Sprintf("Error loading files: %v", err), http.StatusInternalServerError)
 		return
@@ -775,6 +790,78 @@ func (api *PickitAPI) getCharacterFiles(characterID string) ([]pickit.PickitFile
 	return files, nil
 }
 
+// getPickitFilesFromPath returns all .nip files from a custom directory path
+func (api *PickitAPI) getPickitFilesFromPath(pickitDir string) ([]pickit.PickitFile, error) {
+	files := []pickit.PickitFile{}
+
+	entries, err := os.ReadDir(pickitDir)
+	if err != nil {
+		return files, err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".nip") {
+			info, _ := entry.Info()
+			files = append(files, pickit.PickitFile{
+				ID:           entry.Name(),
+				Name:         entry.Name(),
+				CharacterID:  "", // Not applicable when using custom path
+				FilePath:     filepath.Join(pickitDir, entry.Name()),
+				LastModified: info.ModTime().Format("2006-01-02 15:04:05"),
+			})
+		}
+	}
+
+	return files, nil
+}
+
+// loadPickitFileRulesFromPath loads rules from a specific file in a custom directory
+func (api *PickitAPI) loadPickitFileRulesFromPath(pickitDir, fileName string) ([]pickit.PickitRule, error) {
+	rules := []pickit.PickitRule{}
+
+	filePath := filepath.Join(pickitDir, fileName)
+
+	// Check if file exists
+	fileInfo, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		return rules, fmt.Errorf("file does not exist: %s", filePath)
+	}
+	if err != nil {
+		return rules, fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	// Log file size for debugging
+	log.Printf("Loading pickit file: %s (size: %d bytes)", filePath, fileInfo.Size())
+
+	// Read file content
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return rules, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Parse NIP rules (basic parsing for now)
+	lines := strings.Split(string(content), "\n")
+	validLineCount := 0
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "//") {
+			continue
+		}
+
+		validLineCount++
+		rule := pickit.PickitRule{
+			ID:           fmt.Sprintf("%s_%d", fileName, i),
+			FileName:     fileName,
+			GeneratedNIP: line,
+			Enabled:      true,
+		}
+		rules = append(rules, rule)
+	}
+
+	log.Printf("Loaded %d valid rules from %s", validLineCount, filePath)
+	return rules, nil
+}
+
 // handleDeleteFileRule deletes a specific rule from a loaded .nip file
 func (api *PickitAPI) handleDeleteFileRule(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -782,12 +869,13 @@ func (api *PickitAPI) handleDeleteFileRule(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	pickitPath := r.URL.Query().Get("path")
 	characterID := r.URL.Query().Get("character")
 	fileName := r.URL.Query().Get("file")
 	ruleID := r.URL.Query().Get("id")
 
-	if characterID == "" || fileName == "" || ruleID == "" {
-		api.sendError(w, "Missing required parameters: character, file, id", http.StatusBadRequest)
+	if fileName == "" || ruleID == "" {
+		api.sendError(w, "Missing required parameters: file, id", http.StatusBadRequest)
 		return
 	}
 
@@ -805,8 +893,18 @@ func (api *PickitAPI) handleDeleteFileRule(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Determine file path
+	var filePath string
+	if pickitPath != "" {
+		filePath = filepath.Join(pickitPath, fileName)
+	} else if characterID != "" {
+		filePath = filepath.Join("config", characterID, "pickit", fileName)
+	} else {
+		api.sendError(w, "Either 'path' or 'character' parameter required", http.StatusBadRequest)
+		return
+	}
+
 	// Read the file
-	filePath := filepath.Join("config", characterID, "pickit", fileName)
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		api.sendError(w, fmt.Sprintf("Failed to read file: %v", err), http.StatusInternalServerError)
@@ -847,12 +945,13 @@ func (api *PickitAPI) handleUpdateFileRule(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	pickitPath := r.URL.Query().Get("path")
 	characterID := r.URL.Query().Get("character")
 	fileName := r.URL.Query().Get("file")
 	ruleID := r.URL.Query().Get("id")
 
-	if characterID == "" || fileName == "" || ruleID == "" {
-		api.sendError(w, "Missing required parameters: character, file, id", http.StatusBadRequest)
+	if fileName == "" || ruleID == "" {
+		api.sendError(w, "Missing required parameters: file, id", http.StatusBadRequest)
 		return
 	}
 
@@ -890,8 +989,18 @@ func (api *PickitAPI) handleUpdateFileRule(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Determine file path
+	var filePath string
+	if pickitPath != "" {
+		filePath = filepath.Join(pickitPath, fileName)
+	} else if characterID != "" {
+		filePath = filepath.Join("config", characterID, "pickit", fileName)
+	} else {
+		api.sendError(w, "Either 'path' or 'character' parameter required", http.StatusBadRequest)
+		return
+	}
+
 	// Read the file
-	filePath := filepath.Join("config", characterID, "pickit", fileName)
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		api.sendError(w, fmt.Sprintf("Failed to read file: %v", err), http.StatusInternalServerError)
@@ -932,11 +1041,12 @@ func (api *PickitAPI) handleAppendNIPLine(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	pickitPath := r.URL.Query().Get("path")
 	characterID := r.URL.Query().Get("character")
 	fileName := r.URL.Query().Get("file")
 
-	if characterID == "" || fileName == "" {
-		api.sendError(w, "Missing required parameters: character, file", http.StatusBadRequest)
+	if fileName == "" {
+		api.sendError(w, "Missing required parameter: file", http.StatusBadRequest)
 		return
 	}
 
@@ -960,8 +1070,16 @@ func (api *PickitAPI) handleAppendNIPLine(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Get character's pickit directory
-	pickitDir := filepath.Join("config", characterID, "pickit")
+	// Determine pickit directory
+	var pickitDir string
+	if pickitPath != "" {
+		pickitDir = pickitPath
+	} else if characterID != "" {
+		pickitDir = filepath.Join("config", characterID, "pickit")
+	} else {
+		api.sendError(w, "Either 'path' or 'character' parameter required", http.StatusBadRequest)
+		return
+	}
 
 	// Ensure directory exists
 	if err := os.MkdirAll(pickitDir, 0755); err != nil {
@@ -1097,5 +1215,58 @@ func (api *PickitAPI) handleValidateNIPLine(w http.ResponseWriter, r *http.Reque
 		"errors":   errors,
 		"warnings": warnings,
 		"nipLine":  nipLine,
+	})
+}
+
+// handleBrowseFolder allows browsing for a folder using native Windows dialog
+// handleBrowseFolder opens a native Windows folder browser dialog
+func (api *PickitAPI) handleBrowseFolder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		api.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Open native Windows folder browser
+	selectedPath, err := utils.BrowseForFolder("Select Pickit Folder")
+	if err != nil {
+		api.sendJSON(w, map[string]interface{}{
+			"path":  "",
+			"error": fmt.Sprintf("Error opening folder browser: %v", err),
+		})
+		return
+	}
+
+	// If user cancelled (empty path), return without error
+	if selectedPath == "" {
+		api.sendJSON(w, map[string]interface{}{
+			"path":      "",
+			"cancelled": true,
+		})
+		return
+	}
+
+	// Validate that the selected path exists and is a directory
+	fileInfo, err := os.Stat(selectedPath)
+	if err != nil {
+		api.sendJSON(w, map[string]interface{}{
+			"path":  "",
+			"error": fmt.Sprintf("Selected path does not exist: %v", err),
+		})
+		return
+	}
+
+	if !fileInfo.IsDir() {
+		api.sendJSON(w, map[string]interface{}{
+			"path":  "",
+			"error": "Selected path is not a directory",
+		})
+		return
+	}
+
+	// Return the selected path
+	log.Printf("User selected pickit folder: %s", selectedPath)
+	api.sendJSON(w, map[string]interface{}{
+		"path":    selectedPath,
+		"success": true,
 	})
 }

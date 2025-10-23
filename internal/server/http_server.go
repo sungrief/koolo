@@ -610,6 +610,7 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/pickit/files/rules/delete", s.pickitAPI.handleDeleteFileRule)
 	http.HandleFunc("/api/pickit/files/rules/update", s.pickitAPI.handleUpdateFileRule)
 	http.HandleFunc("/api/pickit/files/rules/append", s.pickitAPI.handleAppendNIPLine)
+	http.HandleFunc("/api/pickit/browse-folder", s.pickitAPI.handleBrowseFolder)
 	http.HandleFunc("/api/pickit/simulate", s.pickitAPI.handleSimulate)
 
 	assets, _ := fs.Sub(assetsFS, "assets")
@@ -1463,7 +1464,7 @@ func (s *HttpServer) companionJoin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the supervisor exists and is a companion
-	cfg, found := config.GetCharacter(requestData.Supervisor)	
+	cfg, found := config.GetCharacter(requestData.Supervisor)
 	if !found {
 		http.Error(w, "Supervisor not found", http.StatusNotFound)
 		return
@@ -1572,4 +1573,3 @@ func (s *HttpServer) resetDroplogs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "dir": dir, "removed": removed})
 }
-
