@@ -85,6 +85,9 @@ func AutoEquip() error {
 		playerChanged, err := equipBestItems(playerItems, playerScores, item.LocationEquipped)
 		if err != nil {
 			ctx.Logger.Error(fmt.Sprintf("Player equip error: %v. Continuing...", err))
+			if errors.Is(err, ErrNotEnoughSpace) {
+				return err
+			}
 		}
 
 		// Mercenary
@@ -514,6 +517,9 @@ func equipBestItems(itemsByLoc map[item.LocationType][]data.Item, itemScores map
 		var bestCandidate data.Item
 		foundCandidate := false
 		for _, itm := range items { // Changed "item" to "itm" here
+			if itm.InTradeOrStoreScreen {
+				continue
+			}
 			// A valid candidate is an item that is not equipped, OR is already equipped in the current slot we are checking.
 			if itm.Location.LocationType != item.LocationEquipped || itm.Location.BodyLocation == loc { // And here
 				bestCandidate = itm // And here
@@ -589,6 +595,9 @@ func equipBestItems(itemsByLoc map[item.LocationType][]data.Item, itemScores map
 			}
 			equippedSomething = true // We made a change (selling junk), so we should re-evaluate
 			*ctx.Data = ctx.GameReader.GetData()
+			if _, found := findInventorySpace(currentlyEquipped); !found {
+				return false, err
+			}
 			continue
 		}
 
@@ -927,7 +936,7 @@ func findInventorySpace(itm data.Item) (data.Position, bool) {
 // GetEquippedItem is a new helper function to search for the currently equipped item in a specific location
 func GetEquippedItem(inventory data.Inventory, loc item.LocationType) data.Item {
 	for _, itm := range inventory.ByLocation(item.LocationEquipped) {
-		if itm.Location.BodyLocation == loc {
+		if itm.Location.BodyLocation == loc && !itm.InTradeOrStoreScreen {
 			return itm
 		}
 	}
@@ -937,7 +946,7 @@ func GetEquippedItem(inventory data.Inventory, loc item.LocationType) data.Item 
 // GetMercEquippedItem is a new helper function for the merc
 func GetMercEquippedItem(inventory data.Inventory, loc item.LocationType) data.Item {
 	for _, itm := range inventory.ByLocation(item.LocationMercenary) {
-		if itm.Location.BodyLocation == loc {
+		if itm.Location.BodyLocation == loc && !itm.InTradeOrStoreScreen {
 			return itm
 		}
 	}

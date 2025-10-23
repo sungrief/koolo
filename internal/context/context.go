@@ -59,8 +59,8 @@ type Context struct {
 	ForceAttack          bool
 	StopSupervisorFn     StopFunc
 	CleanStopRequested   bool
-	RestartWithCharacter string // Used to indicate which character to start after a clean stop
-	//PacketSender       *game.PacketSender
+	RestartWithCharacter string
+	PacketSender         *game.PacketSender
 }
 
 type Debug struct {
@@ -113,9 +113,8 @@ func NewContext(name string) *Status {
 		SkillPointIndex: 0,
 		ForceAttack:     false,
 	}
-	botContexts[getGoroutineID()] = &Status{Priority: PriorityNormal, Context: ctx}
-
-	return botContexts[getGoroutineID()]
+	ctx.AttachRoutine(PriorityNormal)
+	return Get()
 }
 
 func NewGameHelper() *CurrentGameHelper {
@@ -153,6 +152,10 @@ func getGoroutineID() uint64 {
 
 func (ctx *Context) RefreshGameData() {
 	*ctx.Data = ctx.GameReader.GetData()
+}
+
+func (ctx *Context) RefreshInventory() {
+	ctx.Data.Inventory = ctx.GameReader.GetInventory()
 }
 
 func (ctx *Context) Detach() {
