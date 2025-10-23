@@ -4,15 +4,15 @@ let selectedItem = null;
 let availableStats = [];
 let currentCategory = 'All';
 let selectedRowIndex = null;
-let currentCharacter = '';
+let currentPickitPath = '';
 let availableFiles = [];
 
 // Check if file config exists on page load
 window.addEventListener('DOMContentLoaded', function () {
-    const savedCharacter = localStorage.getItem('pickitCharacter');
+    const savedPath = localStorage.getItem('pickitPath');
 
-    if (savedCharacter) {
-        currentCharacter = savedCharacter;
+    if (savedPath) {
+        currentPickitPath = savedPath;
         loadCharacterFiles();
     }
 
@@ -26,30 +26,59 @@ function showFileConfigModal() {
     modal.classList.add('active');
 
     // Pre-fill if saved
-    const savedCharacter = localStorage.getItem('pickitCharacter');
     const savedPath = localStorage.getItem('pickitPath');
-    if (savedCharacter) {
-        document.getElementById('characterName').value = savedCharacter;
-    }
     if (savedPath) {
         document.getElementById('pickitPath').value = savedPath;
     }
 }
 
-function closeFileConfigModal() {
+async function browseFolder() {
+    try {
+        const response = await fetch('/api/pickit/browse-folder', {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+            alert('Error: ' + data.error);
+            return;
+        }
+
+        if (data.cancelled) {
+            // User cancelled the dialog, do nothing
+            return;
+        }
+
+        if (data.path && data.path !== '') {
+            document.getElementById('pickitPath').value = data.path;
+            // Automatically scan after selecting folder
+            await scanForFiles();
+        } else {
+            alert('No folder was selected. Please try again or enter the path manually.\n\nExample: G:\\koolo\\config\\MyChar\\pickit');
+        }
+    } catch (error) {
+        console.error('Error browsing folder:', error);
+        alert('Failed to open folder browser: ' + error.message + '\n\nPlease enter the full path to your pickit folder manually.\n\nExample: G:\\koolo\\config\\MyChar\\pickit');
+    }
+} function closeFileConfigModal() {
     const modal = document.getElementById('fileConfigModal');
     modal.classList.remove('active');
 }
 
 async function scanForFiles() {
-    const characterName = document.getElementById('characterName').value.trim();
-    if (!characterName) {
-        alert('Please enter a bot profile name');
+    const pickitPath = document.getElementById('pickitPath').value.trim();
+    if (!pickitPath) {
+        alert('Please enter or browse to a pickit folder path');
         return;
     }
 
     try {
-        const response = await fetch(`/api/pickit/files?character=${characterName}`);
+        const response = await fetch(`/api/pickit/files?path=${encodeURIComponent(pickitPath)}`);
         if (!response.ok) {
             throw new Error('Failed to load files');
         }
@@ -62,7 +91,7 @@ async function scanForFiles() {
             filesList.innerHTML = '<p style="color: #4CAF50;">Found ' + files.length + ' .nip files:</p>' +
                 files.map(f => `<div class="file-item">${f.name || f}</div>`).join('');
         } else {
-            filesList.innerHTML = '<p style="color: #ff9800;">No .nip files found. Click Continue to create new ones.</p>';
+            filesList.innerHTML = '<p style="color: #ff9800;">No .nip files found in this directory.</p>';
         }
     } catch (error) {
         document.getElementById('foundFiles').innerHTML = '<p style="color: #f44336;">Error: ' + error.message + '</p>';
@@ -70,19 +99,14 @@ async function scanForFiles() {
 }
 
 function saveFileConfig() {
-    const characterName = document.getElementById('characterName').value.trim();
-    if (!characterName) {
-        alert('Please enter a bot profile name');
+    const pickitPath = document.getElementById('pickitPath').value.trim();
+    if (!pickitPath) {
+        alert('Please enter or browse to a pickit folder path');
         return;
     }
 
-    currentCharacter = characterName;
-    localStorage.setItem('pickitCharacter', characterName);
-
-    const customPath = document.getElementById('pickitPath').value.trim();
-    if (customPath) {
-        localStorage.setItem('pickitPath', customPath);
-    }
+    currentPickitPath = pickitPath;
+    localStorage.setItem('pickitPath', pickitPath);
 
     closeFileConfigModal();
     loadData();
@@ -90,10 +114,10 @@ function saveFileConfig() {
 }
 
 async function loadCharacterFiles() {
-    if (!currentCharacter) return;
+    if (!currentPickitPath) return;
 
     try {
-        const response = await fetch(`/api/pickit/files?character=${currentCharacter}`);
+        const response = await fetch(`/api/pickit/files?path=${encodeURIComponent(currentPickitPath)}`);
         if (response.ok) {
             const files = await response.json();
             const select = document.getElementById('pickitFile');
@@ -533,8 +557,8 @@ async function saveRule() {
         return;
     }
 
-    if (!currentCharacter) {
-        showValidation('error', 'Please select a bot profile first (use the Select Bot Profile button)');
+    if (!currentPickitPath) {
+        showValidation('error', 'Please select a pickit folder first (use the Select Pickit Folder button)');
         return;
     }
 
@@ -542,7 +566,7 @@ async function saveRule() {
 
     try {
         // Use the simple append endpoint that doesn't require validation
-        const response = await fetch(`/api/pickit/files/rules/append?character=${currentCharacter}&file=${fileName}`, {
+        const response = await fetch(`/api/pickit/files/rules/append?path=${encodeURIComponent(currentPickitPath)}&file=${fileName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -623,7 +647,7 @@ async function loadPickitFile() {
     }
 
     try {
-        const response = await fetch(`/api/pickit/files?character=${currentCharacter}&file=${fileName}`);
+        const response = await fetch(`/api/pickit/files?path=${encodeURIComponent(currentPickitPath)}&file=${fileName}`);
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to load file');
@@ -648,8 +672,8 @@ async function loadPickitFile() {
 }
 
 function createNewFile() {
-    if (!currentCharacter) {
-        showValidation('error', 'Please select a bot profile first (use the Select Bot Profile button)');
+    if (!currentPickitPath) {
+        showValidation('error', 'Please select a pickit folder first (use the Select Pickit Folder button)');
         return;
     }
 
@@ -744,7 +768,7 @@ async function editRule(ruleId) {
     }
 
     try {
-        const response = await fetch(`/api/pickit/files/rules/update?character=${currentCharacter}&file=${currentLoadedFile}&id=${ruleId}`, {
+        const response = await fetch(`/api/pickit/files/rules/update?path=${encodeURIComponent(currentPickitPath)}&file=${currentLoadedFile}&id=${ruleId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -793,7 +817,7 @@ async function deleteRule(ruleId) {
     }
 
     try {
-        const response = await fetch(`/api/pickit/files/rules/delete?character=${currentCharacter}&file=${currentLoadedFile}&id=${ruleId}`, {
+        const response = await fetch(`/api/pickit/files/rules/delete?path=${encodeURIComponent(currentPickitPath)}&file=${currentLoadedFile}&id=${ruleId}`, {
             method: 'POST'
         });
 
@@ -819,7 +843,7 @@ async function reloadCurrentFile() {
     }
 
     try {
-        const response = await fetch(`/api/pickit/files?character=${currentCharacter}&file=${currentLoadedFile}`);
+        const response = await fetch(`/api/pickit/files?path=${encodeURIComponent(currentPickitPath)}&file=${currentLoadedFile}`);
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to reload file');
