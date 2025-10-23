@@ -11,9 +11,12 @@ import (
 var (
 	shell32                 = windows.NewLazySystemDLL("shell32.dll")
 	ole32                   = windows.NewLazySystemDLL("ole32.dll")
+	user32                  = windows.NewLazySystemDLL("user32.dll")
 	procSHBrowseForFolder   = shell32.NewProc("SHBrowseForFolderW")
 	procSHGetPathFromIDList = shell32.NewProc("SHGetPathFromIDListW")
 	procCoTaskMemFree       = ole32.NewProc("CoTaskMemFree")
+	procGetForegroundWindow = user32.NewProc("GetForegroundWindow")
+	procSetForegroundWindow = user32.NewProc("SetForegroundWindow")
 )
 
 type browseInfo struct {
@@ -48,11 +51,14 @@ func ShowDialog(title, message string) {
 
 // BrowseForFolder opens a native Windows folder selection dialog
 func BrowseForFolder(title string) (string, error) {
+	// Get the current foreground window to use as parent
+	hwnd, _, _ := procGetForegroundWindow.Call()
+
 	displayName := make([]uint16, windows.MAX_PATH)
 	titlePtr, _ := syscall.UTF16PtrFromString(title)
 
 	bi := browseInfo{
-		hwndOwner:      0,
+		hwndOwner:      hwnd, // Use the active window as parent
 		pidlRoot:       0,
 		pszDisplayName: &displayName[0],
 		lpszTitle:      titlePtr,
@@ -77,5 +83,11 @@ func BrowseForFolder(title string) (string, error) {
 
 	// Convert UTF16 to string
 	path := syscall.UTF16ToString(pathBuffer)
+
+	// Restore focus to the original window
+	if hwnd != 0 {
+		procSetForegroundWindow.Call(hwnd)
+	}
+
 	return path, nil
 }
