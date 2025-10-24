@@ -107,8 +107,15 @@ func (s *Baal) Run() error {
 		if _, found := s.ctx.Data.Monsters.FindOne(npc.BaalsMinion, data.MonsterTypeMinion); found {
 			lastWave = true
 		}
+
+		if baalPortal, foundPortal := s.ctx.Data.Objects.FindOne(object.BaalsPortal); foundPortal {
+			if baalPortal.Selectable {
+				lastWave = true
+			}
+		}
+
 		// Return to throne position between waves
-		_ = action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter())
+		err = action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter())
 		if err != nil {
 			return err
 		}

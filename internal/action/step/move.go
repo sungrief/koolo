@@ -123,6 +123,14 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		ctx.RefreshGameData()
 		currentDest := dest
 
+		//Compute distance to destination
+		currentDistanceToDest := ctx.PathFinder.DistanceFromMe(currentDest)
+
+		//We've reached the destination, stop movement
+		if currentDistanceToDest <= minDistanceToFinishMoving {
+			return nil
+		}
+
 		//Check for Doors on path & open them
 		if !ctx.Data.CanTeleport() {
 			if doorFound, doorObj := ctx.PathFinder.HasDoorBetween(ctx.Data.PlayerUnit.Position, currentDest); doorFound {
@@ -135,9 +143,6 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 				}
 			}
 		}
-
-		//Compute distance to destination
-		currentDistanceToDest := ctx.PathFinder.DistanceFromMe(currentDest)
 
 		//Handle stationary distance (not sure what it refers to...)
 		if opts.stationaryMinDistance != nil && opts.stationaryMaxDistance != nil {
@@ -162,7 +167,7 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 			clearPathDist := ctx.CharacterCfg.Character.ClearPathDist
 
 			for _, m := range ctx.Data.Monsters.Enemies() {
-				if m.Stats[stat.Life] <= 0 {
+				if m.Stats[stat.Life] <= 0 || ctx.Char.ShouldIgnoreMonster(m) {
 					continue
 				}
 				//Check distance first as it is cheaper
@@ -182,11 +187,6 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 			if monsterFound {
 				return ErrMonstersInPath
 			}
-		}
-
-		//We've reached the destination, stop movement
-		if currentDistanceToDest <= minDistanceToFinishMoving {
-			return nil
 		}
 
 		currentPosition := ctx.Data.PlayerUnit.Position

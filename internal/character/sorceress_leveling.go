@@ -141,6 +141,9 @@ var blizzardSkillSequence = []skill.ID{
 }
 
 // --- End Skill Point Sequences ---
+func (s SorceressLeveling) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
 
 func (s SorceressLeveling) isPlayerDead() bool {
 	return s.Data.PlayerUnit.HPPercent() <= 0

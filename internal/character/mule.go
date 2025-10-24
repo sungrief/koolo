@@ -9,6 +9,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/data/state"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 )
 
@@ -16,6 +17,10 @@ import (
 // It's used for mule profiles to prevent keybinding errors and allow the bot to load.
 type MuleCharacter struct {
 	BaseCharacter
+}
+
+func (s MuleCharacter) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
 }
 
 // CheckKeyBindings returns an empty list, as mules do not require any specific skills to be bound.
@@ -54,6 +59,8 @@ func (m MuleCharacter) KillMonsterSequence(
 	lsOpts := step.Distance(fireballSorceressLSMinDistance, fireballSorceressLSMaxDistance)
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		id, found := monsterSelector(*m.Data)
 		if !found {
 			return nil
