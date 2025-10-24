@@ -35,6 +35,10 @@ type BlizzardSorceress struct {
 	BaseCharacter
 }
 
+func (s BlizzardSorceress) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s BlizzardSorceress) isPlayerDead2() bool {
 	return s.Data.PlayerUnit.HPPercent() <= 0
 }

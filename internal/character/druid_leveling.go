@@ -36,6 +36,10 @@ const (
 	DruidMaxAttackRange = 8
 )
 
+func (s DruidLeveling) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 // Verify that required skills are bound to keys
 func (s DruidLeveling) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{}

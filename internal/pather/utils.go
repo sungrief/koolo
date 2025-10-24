@@ -307,7 +307,7 @@ func (pf *PathFinder) GetClosestDoor(position data.Position) (*data.Object, bool
 	return nil, false
 }
 
-func (pf *PathFinder) GetClosestChest(position data.Position) (*data.Object, bool) {
+func (pf *PathFinder) GetClosestChest(position data.Position, losCheck bool) (*data.Object, bool) {
 	var closestObject *data.Object
 	minDistance := 20.0
 
@@ -320,8 +320,10 @@ func (pf *PathFinder) GetClosestChest(position data.Position) (*data.Object, boo
 
 			distanceToObj := utils.CalculateDistance(position, o.Position)
 			if distanceToObj < minDistance {
-				minDistance = distanceToObj
-				closestObject = &o
+				if !losCheck || pf.LineOfSight(position, o.Position) {
+					minDistance = distanceToObj
+					closestObject = &o
+				}
 			}
 		}
 	}
