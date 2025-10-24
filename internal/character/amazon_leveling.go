@@ -22,9 +22,13 @@ import (
 
 const (
 	maxAmazonLevelingAttackLoops = 25
-	minAmazonLevelingDistance    = 10
+	minAmazonLevelingDistance    = 4
 	maxAmazonLevelingDistance    = 30
 	delayBetweenValkyrieSummons  = 5 * time.Second
+	AmazonDangerDistance         = 4
+	AmazonSafeDistance           = 10
+	AmazonMinAttackRange         = 6
+	AmazonMaxAttackRange         = 30
 )
 
 type AmazonLeveling struct {
@@ -59,6 +63,7 @@ func (s AmazonLeveling) KillMonsterSequence(
 	const minStackToAllowThrow = 5
 	var lastFury time.Time
 	var lastValkyrie time.Time
+	var lastReposition time.Time
 
 	//adjust fury settings for NM & Hell difficulties - skill should be 10+ by then
 	if ctx.CharacterCfg.Game.Difficulty != difficulty.Normal {
@@ -122,6 +127,20 @@ func (s AmazonLeveling) KillMonsterSequence(
 			continue
 		}
 
+		repositioned := false
+		if ctx.CharacterCfg.Game.Difficulty == difficulty.Hell && closeMonsters > 3 {
+			if time.Since(lastReposition) > time.Second*1 {
+				isAnyEnemyNearby, _ := action.IsAnyEnemyAroundPlayer(AmazonDangerDistance)
+				if isAnyEnemyNearby {
+					if safePos, found := action.FindSafePosition(monster, AmazonDangerDistance, AmazonSafeDistance, AmazonMinAttackRange, AmazonMaxAttackRange); found {
+						step.MoveTo(safePos, step.WithIgnoreMonsters())
+						lastReposition = time.Now()
+						repositioned = true
+					}
+				}
+			}
+		}
+
 		if s.shouldSummonValkyrie() {
 			if time.Since(lastValkyrie) > delayBetweenValkyrieSummons {
 				step.SecondaryAttack(skill.Valkyrie, id, 1, step.Distance(1, maxAmazonLevelingDistance))
@@ -135,15 +154,19 @@ func (s AmazonLeveling) KillMonsterSequence(
 		if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.LightningFury); found {
 			if throwStack > minStackToAllowThrow && time.Since(lastFury) > delayBetweenFury && closeMonsters >= minCloseMonstersFury {
 				if ctx.PathFinder.LineOfSight(ctx.Data.PlayerUnit.Position, monster.Position) {
-					step.SecondaryAttack(skill.LightningFury, id, numOfLightningFuries, step.Distance(1, maxAmazonLevelingDistance))
+					step.SecondaryAttack(skill.LightningFury, id, numOfLightningFuries, step.Distance(minAmazonLevelingDistance, maxAmazonLevelingDistance))
 					rangedAttack = true
 					lastFury = time.Now()
 				}
 			}
 		}
 
-		if !rangedAttack {
-			step.SecondaryAttack(s.getMeleeSkill(monster), id, 1, step.Distance(1, 1))
+		if !rangedAttack && !repositioned {
+			if err := step.SecondaryAttack(s.getMeleeSkill(monster), id, 1, step.Distance(1, 1)); err != nil {
+				if err == step.ErrPlayerStuck {
+					return err
+				}
+			}
 		}
 
 		completedAttackLoops++
@@ -160,8 +183,10 @@ func (s AmazonLeveling) KillBossSequence(
 	var lastValkyrie time.Time
 	const delayBetweenValkyrieSummons = 5
 	//const numOfAttacks = 5
+	ctx := context.Get()
 
 	for {
+		ctx.PauseIfNotPriority()
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			return nil
