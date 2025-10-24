@@ -61,6 +61,7 @@ type Context struct {
 	CleanStopRequested   bool
 	RestartWithCharacter string
 	PacketSender         *game.PacketSender
+	IsLevelingCharacter  *bool
 }
 
 type Debug struct {
@@ -152,6 +153,12 @@ func getGoroutineID() uint64 {
 
 func (ctx *Context) RefreshGameData() {
 	*ctx.Data = ctx.GameReader.GetData()
+	if ctx.IsLevelingCharacter == nil {
+		_, isLevelingCharacter := ctx.Char.(LevelingCharacter)
+		ctx.IsLevelingCharacter = &isLevelingCharacter
+	}
+	ctx.Data.IsLevelingCharacter = *ctx.IsLevelingCharacter
+
 }
 
 func (ctx *Context) RefreshInventory() {

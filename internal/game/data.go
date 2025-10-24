@@ -21,7 +21,8 @@ type Data struct {
 	Areas    map[area.ID]AreaData `json:"-"`
 	AreaData AreaData             `json:"-"`
 	data.Data
-	CharacterCfg config.CharacterCfg
+	CharacterCfg        config.CharacterCfg
+	IsLevelingCharacter bool
 }
 
 func (d Data) CanTeleport() bool {
@@ -101,7 +102,7 @@ func (d Data) CanTeleport() bool {
 	}
 
 	currentManaStat, foundMana := d.PlayerUnit.FindStat(stat.Mana, 0) //
-	if (!foundMana || currentManaStat.Value < 24) && lvl.Value < 60 {
+	if (!foundMana || currentManaStat.Value < 24) && d.IsLevelingCharacter && d.CharacterCfg.Game.Difficulty != difficulty.Hell {
 		return false
 	}
 
