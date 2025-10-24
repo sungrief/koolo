@@ -315,9 +315,12 @@ func onSafeNavigation() {
 	if _, isLevelingChar := ctx.Char.(context.LevelingCharacter); isLevelingChar {
 		statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 		if hasUnusedPoints && statPoints.Value > 0 {
+			ctx.PauseIfNotPriority()
+			ctx.DisableItemPickup()
 			EnsureSkillPoints()
 			EnsureStatPoints()
 			EnsureSkillBindings()
+			ctx.EnableItemPickup()
 		}
 	}
 }
