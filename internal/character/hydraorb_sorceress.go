@@ -11,6 +11,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/data/state"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 )
 
@@ -64,6 +65,8 @@ func (s HydraOrbSorceress) KillMonsterSequence(
 	// previousSelfHydra := time.Time{}
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			return nil

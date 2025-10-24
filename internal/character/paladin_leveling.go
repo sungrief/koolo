@@ -60,6 +60,8 @@ func (s PaladinLeveling) KillMonsterSequence(
 	priorityMonsters := []npc.ID{npc.FallenShaman, npc.MummyGenerator, npc.BaalSubjectMummy, npc.FetishShaman, npc.CarverShaman}
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		var id data.UnitID
 		var found bool
 

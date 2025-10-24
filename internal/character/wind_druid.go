@@ -93,6 +93,8 @@ func (s WindDruid) KillMonsterSequence(
 	}
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		if time.Since(lastRefresh) > time.Millisecond*100 {
 			ctx.RefreshGameData()
 			lastRefresh = time.Now()

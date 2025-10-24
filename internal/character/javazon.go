@@ -11,6 +11,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/pather"
 )
@@ -55,6 +56,8 @@ func (s Javazon) KillMonsterSequence(
 	const numOfAttacks = 5
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			return nil
@@ -110,6 +113,8 @@ func (s Javazon) KillBossSequence(
 	const numOfAttacks = 5
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			return nil

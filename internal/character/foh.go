@@ -128,6 +128,8 @@ func (f Foh) KillMonsterSequence(monsterSelector func(d game.Data) (data.UnitID,
 	}
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		// Refresh game data periodically
 		if time.Since(lastRefresh) > time.Millisecond*100 {
 			ctx.RefreshGameData()

@@ -50,6 +50,8 @@ func (s MosaicSin) KillMonsterSequence(
 	lastRefresh := time.Now()
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		// Limit refresh rate to 10 times per second to avoid excessive CPU usage
 		if time.Since(lastRefresh) > time.Millisecond*100 {
 			ctx.RefreshGameData()
