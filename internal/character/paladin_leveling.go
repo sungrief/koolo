@@ -28,6 +28,10 @@ type PaladinLeveling struct {
 	BaseCharacter
 }
 
+func (s PaladinLeveling) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s PaladinLeveling) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{}
 	missingKeybindings := []skill.ID{}
@@ -56,6 +60,8 @@ func (s PaladinLeveling) KillMonsterSequence(
 	priorityMonsters := []npc.ID{npc.FallenShaman, npc.MummyGenerator, npc.BaalSubjectMummy, npc.FetishShaman, npc.CarverShaman}
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		var id data.UnitID
 		var found bool
 

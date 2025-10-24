@@ -32,6 +32,9 @@ func ClearCurrentLevel(openChests bool, filter data.MonsterFilter) error {
 	const pickupRadius = 20
 	rooms := ctx.PathFinder.OptimizeRoomsTraverseOrder()
 	for _, r := range rooms {
+		if errDeath := checkPlayerDeath(ctx); errDeath != nil {
+			return errDeath
+		}
 		// First, clear the room of monsters
 		err := clearRoom(r, filter)
 		if err != nil {
@@ -90,18 +93,33 @@ func clearRoom(room data.Room, filter data.MonsterFilter) error {
 	}
 
 	for {
+		ctx.PauseIfNotPriority()
+
+		if err := checkPlayerDeath(ctx); err != nil {
+			return err
+		}
+
 		monsters := getMonstersInRoom(room, filter)
 		if len(monsters) == 0 {
 			return nil
 		}
 
 		// Check if there are monsters that can summon new monsters, and kill them first
-		targetMonster := monsters[0]
+		targetMonster := data.Monster{}
 		for _, m := range monsters {
-			if m.IsMonsterRaiser() {
-				targetMonster = m
-				break
+			if !ctx.Char.ShouldIgnoreMonster(m) {
+				if m.IsMonsterRaiser() {
+					targetMonster = m
+					break
+				} else if targetMonster.UnitID == 0 {
+					targetMonster = m
+				}
 			}
+		}
+
+		if targetMonster.UnitID == 0 {
+			//No valid targets, done
+			return nil
 		}
 
 		_, _, mPathFound := ctx.PathFinder.GetPath(targetMonster.Position)
