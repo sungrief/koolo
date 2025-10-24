@@ -371,7 +371,7 @@ func ensureEnemyIsInRange(monster data.Monster, state *attackState, maxDistance,
 	// Any close-range combat (mosaic,barb...) should move directly to target
 	// This is general movement, not triggered by needsRepositioning (no damage), so don't touch repositionAttempts.
 	if maxDistance <= 3 {
-		return MoveTo(monster.Position, WithIgnoreMonsters())
+		return MoveTo(monster.Position, WithIgnoreMonsters(), WithDistanceToFinish(max(2, maxDistance)))
 	}
 
 	// Get path to monster
