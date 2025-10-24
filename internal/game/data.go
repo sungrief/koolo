@@ -101,7 +101,7 @@ func (d Data) CanTeleport() bool {
 	}
 
 	currentManaStat, foundMana := d.PlayerUnit.FindStat(stat.Mana, 0) //
-	if !foundMana || currentManaStat.Value < 24 {                     //
+	if (!foundMana || currentManaStat.Value < 24) && lvl.Value < 60 {
 		return false
 	}
 
