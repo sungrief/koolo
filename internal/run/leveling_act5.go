@@ -44,13 +44,16 @@ func (a Leveling) act5() error {
 			//Disable teleport when farming gold while clearing areas. Mana pots are costly
 			oldUseTeleport := a.ctx.CharacterCfg.Character.UseTeleport
 			a.ctx.CharacterCfg.Character.UseTeleport = false
+			oldInteractWithShrines := a.ctx.CharacterCfg.Game.InteractWithShrines
+			a.ctx.CharacterCfg.Game.InteractWithShrines = false
 			defer func() {
 				a.ctx.CharacterCfg.Character.UseTeleport = oldUseTeleport
+				a.ctx.CharacterCfg.Game.InteractWithShrines = oldInteractWithShrines
 			}()
 
-			a.ctx.Logger.Info("Low on gold. Initiating Crystalline Passage gold farm.")
-			if err := a.CrystallinePassage(); err != nil {
-				a.ctx.Logger.Error("Error during Crystalline Passage gold farm: %v", err)
+			a.ctx.Logger.Info("Low on gold. Initiating Diablo gold farm.")
+			if err := NewDiablo().Run(); err != nil {
+				a.ctx.Logger.Error("Error during Diablo gold farm: %v", err)
 				return err // Propagate error if farming fails
 			}
 			a.ctx.Logger.Info("Gold farming completed. Quitting current run to re-evaluate in next game.")
@@ -299,25 +302,4 @@ func (a Leveling) act5() error {
 	}
 
 	return nil
-}
-
-func (a Leveling) CrystallinePassage() error {
-	a.ctx.Logger.Info("Entering Crystalline Passage for gold farming...")
-
-	err := action.WayPoint(area.CrystallinePassage)
-	if err != nil {
-		a.ctx.Logger.Error("Failed to move to Crystalline Passage area: %v", err)
-		return err
-	}
-	a.ctx.Logger.Info("Successfully reached Crystalline Passage.")
-
-	err = action.ClearCurrentLevel(false, data.MonsterAnyFilter())
-	if err != nil {
-		a.ctx.Logger.Error("Failed to clear Crystalline Passage area: %v", err)
-		return err
-	}
-	a.ctx.Logger.Info("Successfully cleared Crystalline Passage area.")
-
-	return nil
-
 }
