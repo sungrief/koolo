@@ -418,7 +418,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		}
 
 		isSafe := true
-		if !ctx.Data.AreaData.Area.IsTown() {
+		if !ctx.Data.AreaData.Area.IsTown() && !ctx.Data.CanTeleport() {
 			//Safety first, handle enemies
 			if !opts.IgnoreMonsters() && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 				actionLastMonsterHandlingTime = time.Now()
