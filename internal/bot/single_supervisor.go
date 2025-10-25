@@ -13,7 +13,6 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
-	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	ct "github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
@@ -286,10 +285,11 @@ func (s *SinglePlayerSupervisor) Start() error {
 
 						// After 90 seconds stuck, try dropping mouse item
 						if stuckDuration > 90*time.Second && !droppedMouseItem {
-							s.bot.ctx.Logger.Warn("Player stuck for 60 seconds. Attempting to drop any item on cursor...")
-							action.DropMouseItem()
+							s.bot.ctx.Logger.Warn("Player stuck for 90 seconds. Attempting to drop any item on cursor...")
+							// Click to drop any item that might be stuck on cursor
+							s.bot.ctx.HID.Click(game.LeftButton, 500, 500)
 							droppedMouseItem = true
-							s.bot.ctx.Logger.Info("Dropped mouse item (if any). Continuing to monitor for movement...")
+							s.bot.ctx.Logger.Info("Clicked to drop mouse item (if any). Continuing to monitor for movement...")
 						}
 
 						// After 3 minutes stuck, force restart
