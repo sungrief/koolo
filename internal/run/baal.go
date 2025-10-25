@@ -123,7 +123,7 @@ func (s *Baal) Run() error {
 		action.MoveToCoords(baalThronePosition)
 
 		// Preattack between waves (inspired by kolbot baal.js)
-		s.preAttackBaalWaves()
+		//s.preAttackBaalWaves() //tempoarily disabled until fixed
 	}
 
 	// Let's be sure everything is dead
