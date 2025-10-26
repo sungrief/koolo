@@ -832,3 +832,11 @@ func (n *NecromancerLeveling) getUsableCorpses() []data.Monster {
 
 	return corpses
 }
+
+func (s NecromancerLeveling) InitialCharacterConfigSetup() {
+
+}
+
+func (s NecromancerLeveling) AdjustCharacterConfig() {
+
+}

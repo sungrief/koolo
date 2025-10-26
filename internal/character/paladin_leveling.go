@@ -609,3 +609,11 @@ func (s PaladinLeveling) GetAdditionalRunewords() []string {
 	additionalRunewords = append(additionalRunewords, "Steel")
 	return additionalRunewords
 }
+
+func (s PaladinLeveling) InitialCharacterConfigSetup() {
+
+}
+
+func (s PaladinLeveling) AdjustCharacterConfig() {
+
+}
