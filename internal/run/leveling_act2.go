@@ -602,6 +602,11 @@ func (a Leveling) duriel() error {
 }
 
 func buyAct2Belt(ctx *context.Status) error {
+	// Only buy belts in Normal difficulty
+	if ctx.CharacterCfg.Game.Difficulty != difficulty.Normal {
+		return nil
+	}
+
 	// Check equipped and inventory for a suitable belt first
 	for _, itm := range ctx.Data.Inventory.ByLocation(item.LocationEquipped) {
 		if itm.Name == "Belt" || itm.Name == "HeavyBelt" || itm.Name == "PlatedBelt" {
@@ -708,3 +713,4 @@ func (a Leveling) DurielFilter() data.MonsterFilter {
 		return filteredMonsters
 	}
 }
+
