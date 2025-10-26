@@ -110,6 +110,7 @@ type CharacterCfg struct {
 		MercHealingPotionAt int `yaml:"mercHealingPotionAt"`
 		MercRejuvPotionAt   int `yaml:"mercRejuvPotionAt"`
 		ChickenAt           int `yaml:"chickenAt"`
+		TownChickenAt       int `yaml:"townChickenAt"`
 		MercChickenAt       int `yaml:"mercChickenAt"`
 	} `yaml:"health"`
 	Inventory struct {
@@ -280,6 +281,9 @@ type CharacterCfg struct {
 			RescueAnya     bool `yaml:"rescueAnya"`
 			KillAncients   bool `yaml:"killAncients"`
 		} `yaml:"quests"`
+		Utility struct {
+			ParkingAct int `yaml:"parkingAct"`
+		} `yaml:"utility"`
 	} `yaml:"game"`
 	Companion struct {
 		Enabled               bool   `yaml:"enabled"`
