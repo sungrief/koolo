@@ -102,7 +102,7 @@ func main() {
 		w, err := gowebview.New(&gowebview.Config{URL: "http://localhost:8087", WindowConfig: &gowebview.WindowConfig{
 			Title: "Koolo",
 			Size: &gowebview.Point{
-				X: int64(1280 * displayScale),
+				X: int64(1040 * displayScale),
 				Y: int64(720 * displayScale),
 			},
 		}})
@@ -112,7 +112,7 @@ func main() {
 		}
 
 		w.SetSize(&gowebview.Point{
-			X: int64(1280 * displayScale),
+			X: int64(1040 * displayScale),
 			Y: int64(720 * displayScale),
 		}, gowebview.HintFixed)
 
