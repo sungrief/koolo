@@ -26,7 +26,7 @@ const (
 	maxAmazonLevelingDistance    = 30
 	delayBetweenValkyrieSummons  = 5 * time.Second
 	AmazonDangerDistance         = 4
-	AmazonSafeDistance           = 10
+	AmazonSafeDistance           = 6
 	AmazonMinAttackRange         = 6
 	AmazonMaxAttackRange         = 30
 )
@@ -128,8 +128,8 @@ func (s AmazonLeveling) KillMonsterSequence(
 		}
 
 		repositioned := false
-		if ctx.CharacterCfg.Game.Difficulty == difficulty.Hell && closeMonsters > 3 {
-			if time.Since(lastReposition) > time.Second*1 {
+		if ctx.CharacterCfg.Game.Difficulty == difficulty.Hell && (closeMonsters > 3 || monster.IsImmune(stat.LightImmune)) {
+			if time.Since(lastReposition) > time.Second*4 {
 				isAnyEnemyNearby, _ := action.IsAnyEnemyAroundPlayer(AmazonDangerDistance)
 				if isAnyEnemyNearby {
 					if safePos, found := action.FindSafePosition(monster, AmazonDangerDistance, AmazonSafeDistance, AmazonMinAttackRange, AmazonMaxAttackRange); found {
@@ -584,4 +584,14 @@ func (s AmazonLeveling) SkillPoints() []skill.ID {
 func (s AmazonLeveling) GetAdditionalRunewords() []string {
 	additionalRunewords := action.GetCastersCommonRunewords()
 	return additionalRunewords
+}
+
+func (s AmazonLeveling) InitialCharacterConfigSetup() {
+
+}
+
+func (s AmazonLeveling) AdjustCharacterConfig() {
+	if s.CharacterCfg.Game.Difficulty == difficulty.Hell {
+		s.CharacterCfg.Character.ClearPathDist = 25
+	}
 }
