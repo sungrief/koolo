@@ -32,10 +32,9 @@ type Foh struct {
 	lastCastTime time.Time
 }
 
+
 func (f Foh) ensurePrebuffBeforeCombat() {
-	if action.IsRebuffRequired() {
-		action.Buff()
-	}
+	action.ForceBuffIfRequired()
 }
 
 func (f Foh) CheckKeyBindings() []skill.ID {
