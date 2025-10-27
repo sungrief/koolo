@@ -18,7 +18,6 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
-	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/memory"
@@ -288,73 +287,6 @@ func ResetBindings() error {
 
 	ctx.Logger.Info("TomeOfTownPortal binding to F1-F8 sequence completed.")
 	return nil
-}
-
-func UpdateQuestLog(fullUpdate bool) error {
-	ctx := context.Get()
-	ctx.SetLastAction("UpdateQuestLog")
-
-	if _, isLevelingChar := ctx.Char.(context.LevelingCharacter); !isLevelingChar {
-		ctx.Logger.Debug("Update quest log : early exit not LevelingCharacter")
-		return nil
-	}
-
-	ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.QuestLog)
-	utils.Sleep(1000)
-
-	currentAct := ctx.Data.PlayerUnit.Area.Act()
-	if fullUpdate {
-		currentAct = 5
-	}
-	startAct := currentAct
-
-	actWaitTimeMS := 300
-	if fullUpdate {
-		startAct = 1
-		actWaitTimeMS = 1000
-	}
-
-	var actButtonPositions map[int]data.Position
-	if ctx.Data.LegacyGraphics {
-		actButtonPositions = uiQuestLogActButtonsLegacy
-	} else {
-		actButtonPositions = uiQuestLogActButtonsD2R
-	}
-
-	for i := startAct; i <= currentAct; i++ {
-		if pos, found := actButtonPositions[i]; found {
-			ctx.Logger.Debug(fmt.Sprintf("Clicking Quest Log Act %d button at (%d, %d)", i, pos.X, pos.Y))
-
-			ctx.HID.Click(game.LeftButton, pos.X, pos.Y)
-			utils.Sleep(actWaitTimeMS)
-		} else {
-			ctx.Logger.Warn(fmt.Sprintf("Could not find Quest Log button coordinates for current Act: %d", i))
-		}
-		ctx.RefreshGameData()
-
-		if fullUpdate {
-			switch i {
-			case 1:
-				if !ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed() {
-					i = currentAct + 1
-				}
-			case 2:
-				if !ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
-					i = currentAct + 1
-				}
-			case 3:
-				if !ctx.Data.Quests[quest.Act3TheGuardian].Completed() {
-					i = currentAct + 1
-				}
-			case 4:
-				if !ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
-					i = currentAct + 1
-				}
-			}
-		}
-	}
-
-	return step.CloseAllMenus()
 }
 
 // isMercenaryPresent checks for the existence of an Act 2 mercenary

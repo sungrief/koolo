@@ -58,8 +58,6 @@ func (a Leveling) Run() error {
 }
 
 func (a Leveling) GoToCurrentProgressionTown() error {
-	action.UpdateQuestLog(true)
-
 	if !a.ctx.Data.PlayerUnit.Area.IsTown() {
 		if err := action.ReturnTown(); err != nil {
 			return err

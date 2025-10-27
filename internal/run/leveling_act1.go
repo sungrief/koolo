@@ -28,8 +28,6 @@ func (a Leveling) act1() error {
 		return nil
 	}
 
-	action.UpdateQuestLog(false)
-
 	// Check player level and set configuration for level 1
 	lvl, _ := a.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
 	if lvl.Value == 1 {

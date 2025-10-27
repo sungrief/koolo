@@ -33,8 +33,6 @@ func (a Leveling) act2() error {
 
 	running = true
 
-	action.UpdateQuestLog(false)
-
 	// Buy a 12 slot belt if we don't have one
 	if err := buyAct2Belt(a.ctx); err != nil {
 		return err
@@ -159,9 +157,8 @@ func (a Leveling) act2() error {
 		action.AutoEquip()
 	}
 
-	// Priority 2: Check if Duriel is defeated but not yet reported (StatusInProgress5)
-	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress5) {
-		a.ctx.Logger.Info("The Seven Tombs quest in progress 5. Speaking to Jerhyn.")
+	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusLeaveTown + quest.StatusInProgress1) {
+		a.ctx.Logger.Info("Speaking to Jerhyn.")
 		action.MoveToCoords(data.Position{
 			X: 5092,
 			Y: 5144,
@@ -272,7 +269,7 @@ func (a Leveling) act2() error {
 		}
 	}
 
-	if !a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusQuestNotStarted) {
+	if !a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].NotStarted() {
 		a.ctx.Logger.Info("Starting summoner quest (Summoner not yet completed).")
 		action.InteractNPC(npc.Drognan)
 		err := NewSummoner().Run()
@@ -312,11 +309,10 @@ func (a Leveling) act2() error {
 			return err
 		}
 		a.ctx.Logger.Info("Summoner quest chain (journal, portal, WP) completed.")
-		action.UpdateQuestLog(false)
 		return nil // Return to re-evaluate after completing this chain.
 	}
 
-	if a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusQuestNotStarted) {
+	if a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].NotStarted() {
 		err := NewTalRashaTombs().Run()
 		if err != nil {
 			return err
@@ -354,11 +350,10 @@ func (a Leveling) act2() error {
 			return err
 		}
 		a.ctx.Logger.Info("Summoner quest chain (journal, portal, WP) completed.")
-		action.UpdateQuestLog(false)
 		return nil // Return to re-evaluate after completing this chain.
 	}
 
-	if !a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusQuestNotStarted) {
+	if !a.ctx.Data.Quests[quest.Act2TheSevenTombs].NotStarted() {
 		// Try to get level 24 (or Bone Prison for Necromancer) before moving to Duriel and Act3
 		a.ctx.Logger.Info("Character class check", "class", a.ctx.CharacterCfg.Character.Class)
 
@@ -454,9 +449,6 @@ func (a Leveling) findStaff() error {
 }
 
 func (a Leveling) findAmulet() error {
-
-	action.UpdateQuestLog(false)
-
 	action.InteractNPC(npc.Drognan)
 
 	err := action.WayPoint(area.LostCity)
@@ -515,8 +507,6 @@ func (a Leveling) findAmulet() error {
 
 	// This stops us being blocked from getting into Palace
 	action.InteractNPC(npc.Drognan)
-
-	action.UpdateQuestLog(false)
 
 	return nil
 }
@@ -595,8 +585,6 @@ func (a Leveling) duriel() error {
 	}
 
 	action.ReturnTown()
-
-	action.UpdateQuestLog(false)
 
 	return nil
 }
