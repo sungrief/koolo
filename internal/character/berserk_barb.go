@@ -58,17 +58,26 @@ func (s *Berserker) KillMonsterSequence(
 	monsterSelector func(d game.Data) (data.UnitID, bool),
 	skipOnImmunities []stat.Resist,
 ) error {
+	monsterDetected := false
+	var previousEnemyId data.UnitID
+
 	for attackAttempts := 0; attackAttempts < maxAttackAttempts; attackAttempts++ {
 		context.Get().PauseIfNotPriority()
 
 		id, found := monsterSelector(*s.Data)
 		if !found {
-			if !s.isKillingCouncil.Load() {
+			if !s.isKillingCouncil.Load() && monsterDetected {
 				s.FindItemOnNearbyCorpses(maxHorkRange)
 			}
 			return nil
 		}
 
+		if id != previousEnemyId {
+			previousEnemyId = id
+			attackAttempts = 0
+		}
+
+		monsterDetected = true
 		if !s.preBattleChecks(id, skipOnImmunities) {
 			return nil
 		}
@@ -91,6 +100,7 @@ func (s *Berserker) KillMonsterSequence(
 		time.Sleep(50 * time.Millisecond)
 	}
 
+	s.FindItemOnNearbyCorpses(maxHorkRange)
 	return nil
 }
 
@@ -116,7 +126,6 @@ func (s *Berserker) PerformBerserkAttack(monsterID data.UnitID) {
 func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	ctx := context.Get()
 	ctx.PauseIfNotPriority()
-	s.SwapToSlot(1)
 
 	findItemKey, found := s.Data.KeyBindings.KeyBindingForSkill(skill.FindItem)
 	if !found {
@@ -125,29 +134,32 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	}
 
 	corpses := s.getSortedHorkableCorpses(s.Data.Corpses, maxRange)
-	s.Logger.Debug("Horkable corpses found", slog.Int("count", len(corpses)))
 
-	for _, corpse := range corpses {
-		err := step.MoveTo(corpse.Position)
-		if err != nil {
-			s.Logger.Warn("Failed to move to corpse", slog.String("error", err.Error()))
-			continue
+	if len(corpses) > 0 {
+		s.Logger.Debug("Horkable corpses found", slog.Int("count", len(corpses)))
+		s.SwapToSlot(1)
+		for _, corpse := range corpses {
+			err := step.MoveTo(corpse.Position, step.WithIgnoreMonsters())
+			if err != nil {
+				s.Logger.Warn("Failed to move to corpse", slog.String("error", err.Error()))
+				continue
+			}
+
+			if s.Data.PlayerUnit.RightSkill != skill.FindItem {
+				ctx.HID.PressKeyBinding(findItemKey)
+				time.Sleep(time.Millisecond * 50)
+			}
+
+			clickPos := s.getOptimalClickPosition(corpse)
+			screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(clickPos.X, clickPos.Y)
+			ctx.HID.Click(game.RightButton, screenX, screenY)
+			s.Logger.Debug("Find Item used on corpse", slog.Any("corpse_id", corpse.UnitID))
+
+			time.Sleep(time.Millisecond * 300)
 		}
 
-		if s.Data.PlayerUnit.RightSkill != skill.FindItem {
-			ctx.HID.PressKeyBinding(findItemKey)
-			time.Sleep(time.Millisecond * 50)
-		}
-
-		clickPos := s.getOptimalClickPosition(corpse)
-		screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(clickPos.X, clickPos.Y)
-		ctx.HID.Click(game.RightButton, screenX, screenY)
-		s.Logger.Debug("Find Item used on corpse", slog.Any("corpse_id", corpse.UnitID))
-
-		time.Sleep(time.Millisecond * 300)
+		s.SwapToSlot(0)
 	}
-
-	s.SwapToSlot(0)
 }
 
 func (s *Berserker) getSortedHorkableCorpses(corpses data.Monsters, maxRange int) []data.Monster {
