@@ -33,7 +33,9 @@ type Foh struct {
 }
 
 func (f Foh) ensurePrebuffBeforeCombat() {
-	action.ForceBuffIfRequired()
+	if action.IsRebuffRequired() {
+		action.Buff()
+	}
 }
 
 func (f Foh) CheckKeyBindings() []skill.ID {
