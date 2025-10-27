@@ -71,6 +71,9 @@ func MoveToArea(dst area.ID) error {
 		return err
 	}
 
+	// Ensure we refresh essential buffs before starting a potentially long travel sequence.
+	BuffIfRequired()
+
 	if err := ensureAreaSync(ctx, ctx.Data.PlayerUnit.Area); err != nil {
 		return err
 	}
@@ -192,6 +195,7 @@ func MoveToArea(dst area.ID) error {
 
 			if moveErr != nil {
 				if errors.Is(moveErr, step.ErrMonstersInPath) {
+					BuffIfRequired()
 					// RE-INTRODUCING COMBAT LOGIC FROM MoveTo(toFun)
 					clearPathDist := ctx.CharacterCfg.Character.ClearPathDist
 					ctx.Logger.Debug("Monster detected while using distance override. Engaging.")
@@ -339,6 +343,7 @@ func MoveTo(toFunc func() (data.Position, bool)) error {
 			moveErr := step.MoveTo(to)
 			if moveErr != nil {
 				if errors.Is(moveErr, step.ErrMonstersInPath) {
+					BuffIfRequired()
 					ctx.Logger.Debug("Teleporting character encountered monsters in path. Engaging.")
 					if time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 						actionLastMonsterHandlingTime = time.Now()
@@ -370,6 +375,7 @@ func MoveTo(toFunc func() (data.Position, bool)) error {
 			// This part is now more of a fallback/additional check,
 			// as the proactive check above should catch most cases for non-teleporters.
 			if errors.Is(moveErr, step.ErrMonstersInPath) && clearPathDist > 0 {
+				BuffIfRequired()
 				ctx.Logger.Debug("Monsters still detected by pathfinding after safe zone check. Re-engaging for non-teleporter.")
 				if time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 					actionLastMonsterHandlingTime = time.Now()
