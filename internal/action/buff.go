@@ -16,23 +16,37 @@ import (
 )
 
 func BuffIfRequired() {
+	buffIfRequired(false)
+}
+
+// ForceBuffIfRequired rebuffs even if enemies are nearby. This is primarily useful
+// when we are about to engage in combat after traveling (e.g. encountering packs
+// during MoveTo), where we still want key defensive buffs like Holy Shield
+// active before the first attack lands.
+func ForceBuffIfRequired() {
+	buffIfRequired(true)
+}
+
+func buffIfRequired(ignoreNearby bool) {
 	ctx := context.Get()
 
 	if !IsRebuffRequired() || ctx.Data.PlayerUnit.Area.IsTown() {
 		return
 	}
 
-	// Don't buff if we have 2 or more monsters close to the character.
-	// Don't merge with the previous if, because we want to avoid this expensive check if we don't need to buff
-	closeMonsters := 0
-	for _, m := range ctx.Data.Monsters {
-		if ctx.PathFinder.DistanceFromMe(m.Position) < 15 {
-			closeMonsters++
-		}
-		// cheaper to check here and end function if say first 2 already < 15
-		// so no need to compute the rest
-		if closeMonsters >= 2 {
-			return
+	if !ignoreNearby {
+		// Don't buff if we have 2 or more monsters close to the character.
+		// Don't merge with the previous if, because we want to avoid this expensive check if we don't need to buff
+		closeMonsters := 0
+		for _, m := range ctx.Data.Monsters {
+			if ctx.PathFinder.DistanceFromMe(m.Position) < 15 {
+				closeMonsters++
+			}
+			// cheaper to check here and end function if say first 2 already < 15
+			// so no need to compute the rest
+			if closeMonsters >= 2 {
+				return
+			}
 		}
 	}
 
@@ -43,7 +57,11 @@ func Buff() {
 	ctx := context.Get()
 	ctx.SetLastAction("Buff")
 
-	if ctx.Data.PlayerUnit.Area.IsTown() || time.Since(ctx.LastBuffAt) < time.Second*30 {
+	if ctx.Data.PlayerUnit.Area.IsTown() {
+		return
+	}
+
+	if time.Since(ctx.LastBuffAt) < time.Second*30 && !IsRebuffRequired() {
 		return
 	}
 
