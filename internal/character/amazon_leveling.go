@@ -83,7 +83,9 @@ func (s AmazonLeveling) KillMonsterSequence(
 		if !found {
 			return nil
 		}
+
 		if previousUnitID != int(id) {
+			previousUnitID = int(id)
 			completedAttackLoops = 0
 		}
 
@@ -170,7 +172,6 @@ func (s AmazonLeveling) KillMonsterSequence(
 		}
 
 		completedAttackLoops++
-		previousUnitID = int(id)
 	}
 }
 
