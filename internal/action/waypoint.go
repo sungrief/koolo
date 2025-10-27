@@ -16,7 +16,6 @@ func WayPoint(dest area.ID) error {
 	ctx := context.Get()
 	ctx.SetLastAction("WayPoint")
 
-	fromArea := ctx.Data.PlayerUnit.Area
 	if !ctx.Data.PlayerUnit.Area.IsTown() {
 		if err := ReturnTown(); err != nil {
 			return err
@@ -68,16 +67,6 @@ func WayPoint(dest area.ID) error {
 	if ctx.Data.PlayerUnit.Area != dest {
 		return fmt.Errorf("failed to reach destination area %s using waypoint", area.Areas[dest].Name)
 	}
-	// If we just left town to a non-town area, prebuff immediately (Holy Shield/CTA/etc.) with a small settle delay.
-	if fromArea.IsTown() && !dest.IsTown() {
-		ctx.Logger.Debug("WayPoint: left town -> prebuffing just outside", slog.String("from", fromArea.Area().Name), slog.String("to", area.Areas[dest].Name))
-		utils.Sleep(700)
-		ctx.RefreshGameData()
-		BuffIfRequired()
-		utils.Sleep(300)
-		ctx.RefreshGameData()
-	}
-
 
 	return nil
 }

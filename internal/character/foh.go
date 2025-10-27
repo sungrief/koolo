@@ -32,11 +32,6 @@ type Foh struct {
 	lastCastTime time.Time
 }
 
-
-func (f Foh) ensurePrebuffBeforeCombat() {
-	action.ForceBuffIfRequired()
-}
-
 func (f Foh) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.Conviction, skill.HolyShield, skill.TomeOfTownPortal, skill.FistOfTheHeavens, skill.HolyBolt}
 	missingKeybindings := make([]skill.ID, 0)
@@ -74,8 +69,6 @@ func (f Foh) waitForCastComplete() bool {
 	return false
 }
 func (f Foh) KillMonsterSequence(monsterSelector func(d game.Data) (data.UnitID, bool), skipOnImmunities []stat.Resist) error {
-	f.ensurePrebuffBeforeCombat()
-
 	ctx := context.Get()
 	lastRefresh := time.Now()
 	completedAttackLoops := 0
@@ -231,8 +224,6 @@ func (f Foh) handleBoss(bossID data.UnitID, fohOpts, hbOpts []step.AttackOption,
 	return nil
 }
 func (f Foh) KillBossSequence(monsterSelector func(d game.Data) (data.UnitID, bool), skipOnImmunities []stat.Resist) error {
-	f.ensurePrebuffBeforeCombat()
-
 	ctx := context.Get()
 	lastRefresh := time.Now()
 	completedAttackLoops := 0
