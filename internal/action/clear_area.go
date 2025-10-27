@@ -2,7 +2,7 @@ package action
 
 import (
 	"fmt"
-	"slices"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/koolo/internal/action/step"
@@ -19,16 +19,17 @@ func ClearAreaAroundPosition(pos data.Position, radius int, filter data.MonsterF
 	ctx := context.Get()
 	ctx.SetLastAction("ClearAreaAroundPosition")
 
+	// Disable item pickup at the beginning of the function
+	ctx.DisableItemPickup()
+
+	// Defer the re-enabling of item pickup to ensure it happens regardless of how the function exits
+	defer ctx.EnableItemPickup()
+
 	return ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
-		orderedMonsters := d.Monsters.Enemies(filter)
-		slices.SortFunc(orderedMonsters, func(i, j data.Monster) int {
-			distanceI := ctx.PathFinder.DistanceFromMe(i.Position)
-			distanceJ := ctx.PathFinder.DistanceFromMe(j.Position)
-			return distanceI - distanceJ
-		})
-		for _, m := range orderedMonsters {
+		for _, m := range d.Monsters.Enemies(filter) {
 			distanceToTarget := pather.DistanceFromPoint(pos, m.Position)
-			if ctx.Data.AreaData.IsWalkable(m.Position) && distanceToTarget <= radius {
+			hasDoorBetween, _ := ctx.PathFinder.HasDoorBetween(ctx.Data.PlayerUnit.Position, m.Position)
+			if ctx.Data.AreaData.IsWalkable(m.Position) && distanceToTarget <= radius && (ctx.Data.CanTeleport() || !hasDoorBetween) {
 				return m.UnitID, true
 			}
 		}
@@ -75,6 +76,17 @@ func ClearThroughPath(pos data.Position, radius int, filter data.MonsterFilter) 
 		// is used only for pathing, attack.go will use default DistanceToFinishMoving
 		err := step.MoveTo(dest, step.WithDistanceToFinish(7))
 		if err != nil {
+
+			if strings.Contains(err.Error(), "monsters detected in movement path") {
+				ctx.Logger.Debug("ClearThroughPath: Movement failed due to monsters, attempting to clear them")
+				clearErr := ClearAreaAroundPosition(ctx.Data.PlayerUnit.Position, radius+5, filter)
+				if clearErr != nil {
+					ctx.Logger.Error(fmt.Sprintf("ClearThroughPath: Failed to clear monsters after movement failure: %v", clearErr))
+				} else {
+					ctx.Logger.Debug("ClearThroughPath: Successfully cleared monsters, continuing with next iteration")
+					continue
+				}
+			}
 			return err
 		}
 	}

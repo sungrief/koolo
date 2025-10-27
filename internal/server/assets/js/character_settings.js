@@ -40,6 +40,23 @@ window.onload = function () {
     });
 
     updateEnabledRunsHiddenField();
+
+    const buildSelectElement = document.querySelector('select[name="characterClass"]');
+    buildSelectElement.addEventListener('change', function() {
+        const selectedBuild = buildSelectElement.value;
+        const levelingBuilds = ['paladin', 'sorceress_leveling', 'druid_leveling', 'necromancer', 'assassin'];
+
+        const enabledRunListElement = document.getElementById('enabled_runs');
+        if (!enabledRunListElement) return;
+
+        const enabledRuns = Array.from(enabledRunListElement.querySelectorAll('li')).map(li => li.getAttribute('value'));
+        const isLevelingRunEnabled = enabledRuns.includes('leveling');
+        const hasOtherRunsEnabled = enabledRuns.length > 1;                  
+
+        if (levelingBuilds.includes(selectedBuild) && (!isLevelingRunEnabled || hasOtherRunsEnabled)) {
+            alert("This profile requires enabling the leveling run. Please add only the 'leveling' run to the enabled run list and remove the others.");
+        }
+    });
 }
 
 function updateEnabledRunsHiddenField() {
@@ -65,11 +82,13 @@ function filterDisabledRuns(searchTerm) {
 
 function checkLevelingProfile() {
     const levelingProfiles = [
-        "sorceress_leveling_hydraorb",
-        "sorceress_leveling_lightning",
         "sorceress_leveling",
-        "paladin_leveling"
+        "paladin",
+        "druid_leveling",
+        "necromancer",
+        "assassin"
     ];
+
     const characterClass = document.getElementById('characterClass').value;
 
     if (levelingProfiles.includes(characterClass)) {
@@ -119,6 +138,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const novaSorceressOptions = document.querySelector('.nova-sorceress-options');
     const bossStaticThresholdInput = document.getElementById('novaBossStaticThreshold');
     const mosaicAssassinOptions = document.querySelector('.mosaic-assassin-options');
+    const blizzardSorceressOptions = document.querySelector('.blizzard-sorceress-options');
+    const sorceressLevelingOptions = document.querySelector('.sorceress_leveling-options');
+	const runewordSearchInput = document.getElementById('search-runewords');
+    const useTeleportCheckbox = document.getElementById('characterUseTeleport');
+    const clearPathDistContainer = document.getElementById('clearPathDistContainer');
+    const clearPathDistInput = document.getElementById('clearPathDist');
+    const clearPathDistValue = document.getElementById('clearPathDistValue');
 
     if (bossStaticThresholdInput) {
         bossStaticThresholdInput.addEventListener('input', handleBossStaticThresholdChange);
@@ -134,10 +160,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const berserkerBarbOptions = document.querySelector('.berserker-barb-options');
         const novaSorceressOptions = document.querySelector('.nova-sorceress-options');
         const mosaicAssassinOptions = document.querySelector('.mosaic-assassin-options');
+        const blizzardSorceressOptions = document.querySelector('.blizzard-sorceress-options');
+        const sorceressLevelingOptions = document.querySelector('.sorceress_leveling-options');
         // Hide all options first
         berserkerBarbOptions.style.display = 'none';
         novaSorceressOptions.style.display = 'none';
         mosaicAssassinOptions.style.display = 'none';
+        blizzardSorceressOptions.style.display = 'none';
+        sorceressLevelingOptions.style.display = 'none';
         noSettingsMessage.style.display = 'none';
         
         // Show relevant options based on class
@@ -148,9 +178,42 @@ document.addEventListener('DOMContentLoaded', function () {
             updateNovaSorceressOptions();
         } else if (selectedClass === 'mosaic') {
             mosaicAssassinOptions.style.display = 'block';
+        } else if (selectedClass === 'sorceress') {
+            blizzardSorceressOptions.style.display = 'block';
+        } else if (selectedClass === 'sorceress_leveling') {
+            sorceressLevelingOptions.style.display = 'block';                        
         } else {
             noSettingsMessage.style.display = 'block';
         }
+    }
+    function toggleClearPathVisibility() {
+        if (useTeleportCheckbox && clearPathDistContainer) {
+            if (useTeleportCheckbox.checked) {
+                clearPathDistContainer.style.display = 'none';
+            } else {
+                clearPathDistContainer.style.display = 'block';
+            }
+        }
+    }
+
+    // Update the displayed value when the slider changes
+    function updateClearPathValue() {
+        if (clearPathDistInput && clearPathDistValue) {
+            clearPathDistValue.textContent = clearPathDistInput.value;
+        }
+    }
+
+    // Set up event listeners
+    if (useTeleportCheckbox) {
+        useTeleportCheckbox.addEventListener('change', toggleClearPathVisibility);
+        // Initialize visibility
+        toggleClearPathVisibility();
+    }
+
+    if (clearPathDistInput) {
+        clearPathDistInput.addEventListener('input', updateClearPathValue);
+        // Initialize value display
+        updateClearPathValue();
     }
     
     function updateNovaSorceressOptions() {
@@ -228,6 +291,39 @@ document.addEventListener('DOMContentLoaded', function () {
             checkbox.checked = e.target.checked;
         });
     });
+	
+	 function filterRunewords(searchTerm = '') { // Default parameter to ensure previously checked runewords show before searching
+        let listItems = document.querySelectorAll('.runeword-item');
+        searchTerm = searchTerm.toLowerCase();
+
+        listItems.forEach(function (item) {
+            const isChecked = item.querySelector('input[type="checkbox"]').checked;
+            const rwName = item.querySelector('.runeword-name').textContent.toLowerCase();
+
+            if (isChecked || (searchTerm && rwName.includes(searchTerm))) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    if (runewordSearchInput) {
+        runewordSearchInput.addEventListener('input', function () {
+            filterRunewords(runewordSearchInput.value);
+        });
+
+        document.addEventListener('change', function(e) {
+            if (e.target.matches('.runeword-item input[type="checkbox"]')) {
+                filterRunewords(runewordSearchInput.value);
+            }
+        });
+
+        filterRunewords();
+    }
+
+
+	
 });
 
 function handleBossStaticThresholdChange() {

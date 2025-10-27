@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
+	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/nip"
@@ -29,7 +30,21 @@ func IdentifyAll(skipIdentify bool) error {
 		return nil
 	}
 
-	if ctx.CharacterCfg.Game.UseCainIdentify {
+	shouldUseCain := ctx.CharacterCfg.Game.UseCainIdentify
+
+	// Check conditions to force "skip Cain" even if UseCainIdentify is true
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
+	currentAct := ctx.Data.PlayerUnit.Area.Act()
+	currentDifficulty := ctx.CharacterCfg.Game.Difficulty
+
+	if isLevelingChar && currentAct == 4 && (currentDifficulty == difficulty.Nightmare || currentDifficulty == difficulty.Normal) {
+		if shouldUseCain { // Only log this if Cain *would* have been used
+			ctx.Logger.Debug("Forcing skip of Cain Identify: Leveling character in Act 4 Nightmare.")
+		}
+		shouldUseCain = false // Force Cain to be skipped
+	}
+
+	if shouldUseCain {
 		ctx.Logger.Debug("Identifying all item with Cain...")
 		// Close any open menus first
 		step.CloseAllMenus()
@@ -38,11 +53,13 @@ func IdentifyAll(skipIdentify bool) error {
 		err := CainIdentify()
 		// if identifying with cain fails then we should continue to identify using tome
 		if err == nil {
-			return nil
+			return nil // Successfully identified with Cain, no need for tome
 		}
 		ctx.Logger.Debug("Identifying with Cain failed, continuing with identifying with tome", "err", err)
+		// Execution will continue here to the tome identification section
 	}
 
+	// --- Tome Identification Starts Here ---
 	idTome, found := ctx.Data.Inventory.Find(item.TomeOfIdentify, item.LocationInventory)
 	if !found {
 		ctx.Logger.Warn("ID Tome not found, not identifying items")
@@ -122,9 +139,14 @@ func itemsToIdentify() (items []data.Item) {
 			continue
 		}
 
-		// Skip identifying items that fully match a rule when unid
-		if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i); result == nip.RuleResultFullMatch {
-			continue
+		// Skip identifying items that fully match a rule when unid and we're not leveling
+		_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
+
+		if !isLevelingChar {
+
+			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i); result == nip.RuleResultFullMatch {
+				continue
+			}
 		}
 
 		items = append(items, i)

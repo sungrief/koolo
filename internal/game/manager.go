@@ -29,38 +29,46 @@ func NewGameManager(gr *MemoryReader, hid *HID, sueprvisorName string) *Manager 
 }
 
 func (gm *Manager) ExitGame() error {
-	if !gm.gr.InGame() {
-		return nil
-	}
-	// First try to exit game as fast as possible, without any check, useful when chickening
-	gm.hid.PressKey(win.VK_ESCAPE)
-	gm.hid.Click(LeftButton, gm.gr.GameAreaSizeX/2, int(float64(gm.gr.GameAreaSizeY)/2.2))
 
-	for range 5 {
+	const maxAttempts = 50
+	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if !gm.gr.InGame() {
 			return nil
 		}
-		utils.Sleep(1000)
-	}
 
-	// If we are still in game, probably character is dead, so let's do it nicely.
-	// Probably closing the socket is more reliable, but was not working properly for me on singleplayer.
-	for range 10 {
-		if gm.gr.GetData().OpenMenus.QuitMenu {
+		data := gm.gr.GetData()
+		if data.OpenMenus.QuitMenu {
+			fmt.Println("Quit menu detected, attempting to click exit button.")
+			// The click coordinates for the quit menu button are typically around the center, slightly above
 			gm.hid.Click(LeftButton, gm.gr.GameAreaSizeX/2, int(float64(gm.gr.GameAreaSizeY)/2.2))
-
-			for range 5 {
-				if !gm.gr.InGame() {
-					return nil
-				}
-				utils.Sleep(1000)
+			utils.Sleep(100) // Give it time to process the click and transition out of game
+			if !gm.gr.InGame() {
+				return nil
 			}
 		}
+
+		fmt.Printf("Attempt %d: Trying to open menu and exit game...\n", attempt+1)
 		gm.hid.PressKey(win.VK_ESCAPE)
-		utils.Sleep(1000)
+
+		if !gm.gr.InGame() {
+			return nil // Exited successfully just by pressing ESC (e.g., if already at main menu)
+		}
+
+		// Check again if the Quit Menu is now open after pressing ESC
+		data = gm.gr.GetData()
+		if data.OpenMenus.QuitMenu {
+			fmt.Println("Quit menu opened after ESC, attempting to click exit button.")
+			gm.hid.Click(LeftButton, gm.gr.GameAreaSizeX/2, int(float64(gm.gr.GameAreaSizeY)/2.2))
+			utils.Sleep(100) // Give it time to process the click and transition out of game
+			if !gm.gr.InGame() {
+				return nil
+			}
+		}
+
+		utils.Sleep(50) // Wait before the next attempt
 	}
 
-	return errors.New("error exiting game! Timeout")
+	return errors.New("error exiting game! Timeout after multiple attempts")
 }
 
 func (gm *Manager) NewGame() error {
@@ -84,8 +92,9 @@ func (gm *Manager) NewGame() error {
 		difficulty.Hell:      {X: 640, Y: 403},
 	}
 
-	createX := difficultyPosition[config.Characters[gm.supervisorName].Game.Difficulty].X
-	createY := difficultyPosition[config.Characters[gm.supervisorName].Game.Difficulty].Y
+	cfg, _ := config.GetCharacter(gm.supervisorName)
+	createX := difficultyPosition[cfg.Game.Difficulty].X
+	createY := difficultyPosition[cfg.Game.Difficulty].Y
 	gm.hid.Click(LeftButton, 600, 650)
 	utils.Sleep(250)
 	gm.hid.Click(LeftButton, createX, createY)
@@ -106,7 +115,7 @@ func (gm *Manager) clearGameNameOrPasswordField() {
 	}
 }
 
-func (gm *Manager) CreateOnlineGame(gameCounter int) (string, error) {
+func (gm *Manager) CreateLobbyGame(gameCounter int) (string, error) {
 
 	// Click "Create game" tab
 	gm.hid.Click(LeftButton, 845, 54)
@@ -120,14 +129,15 @@ func (gm *Manager) CreateOnlineGame(gameCounter int) (string, error) {
 		difficulty.Hell:      {X: 1065, Y: 252},
 	}
 
-	difficultyPos := difficultyPosition[config.Characters[gm.supervisorName].Game.Difficulty]
+	cfg, _ := config.GetCharacter(gm.supervisorName)
+	difficultyPos := difficultyPosition[cfg.Game.Difficulty]
 	gm.hid.Click(LeftButton, difficultyPos.X, difficultyPos.Y)
 	utils.Sleep(200)
 
 	// Click the game name textbox, delete text and type new game name
 	gm.hid.Click(LeftButton, 1000, 116)
 	gm.clearGameNameOrPasswordField()
-	gameName := config.Characters[gm.supervisorName].Companion.GameNameTemplate + fmt.Sprintf("%d", gameCounter)
+	gameName := cfg.Companion.GameNameTemplate + fmt.Sprintf("%d", gameCounter)
 	for _, ch := range gameName {
 		gm.hid.PressKey(gm.hid.GetASCIICode(fmt.Sprintf("%c", ch)))
 	}
@@ -135,7 +145,7 @@ func (gm *Manager) CreateOnlineGame(gameCounter int) (string, error) {
 	// Same for password
 	gm.hid.Click(LeftButton, 1000, 161)
 	utils.Sleep(200)
-	gamePassword := config.Characters[gm.supervisorName].Companion.GamePassword
+	gamePassword := cfg.Companion.GamePassword
 	if gamePassword != "" {
 		gm.clearGameNameOrPasswordField()
 		for _, ch := range gamePassword {
@@ -144,11 +154,18 @@ func (gm *Manager) CreateOnlineGame(gameCounter int) (string, error) {
 	}
 	gm.hid.PressKey(win.VK_RETURN)
 
-	for range 30 {
+	for range 15 {
 		if gm.gr.InGame() {
 			return gameName, nil
 		}
 		utils.Sleep(1000)
+
+		panel := gm.gr.GetPanel("DismissableModal")
+		if panel.PanelName != "" && panel.PanelEnabled && panel.PanelVisible {
+			gm.hid.PressKey(win.VK_ESCAPE)
+			utils.Sleep(1000)
+			return gameName, errors.New("error creating game! Got error message")
+		}
 	}
 
 	return gameName, errors.New("error creating game! Timeout")
@@ -179,11 +196,19 @@ func (gm *Manager) JoinOnlineGame(gameName, password string) error {
 	}
 	gm.hid.PressKey(win.VK_RETURN)
 
-	for range 30 {
+	for range 15 {
 		if gm.gr.InGame() {
 			return nil
 		}
 		utils.Sleep(1000)
+
+		// Check if we got an error message while trying to join the game
+		panel := gm.gr.GetPanel("DismissableModal")
+		if panel.PanelName != "" && panel.PanelEnabled && panel.PanelVisible {
+			gm.hid.PressKey(win.VK_ESCAPE)
+			utils.Sleep(1000)
+			return errors.New("error joining game! Got error message")
+		}
 	}
 
 	return errors.New("error joining game! Timeout")

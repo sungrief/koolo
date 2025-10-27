@@ -17,15 +17,19 @@ func BuildCharacter(ctx *context.Context) (context.Character, error) {
 
 	if len(ctx.CharacterCfg.Game.Runs) > 0 && ctx.CharacterCfg.Game.Runs[0] == "leveling" {
 		switch strings.ToLower(ctx.CharacterCfg.Character.Class) {
-		case "sorceress_leveling_lightning":
-			return SorceressLevelingLightning{BaseCharacter: bc}, nil
 		case "sorceress_leveling":
 			return SorceressLeveling{BaseCharacter: bc}, nil
+		case "necromancer":
+			return &NecromancerLeveling{BaseCharacter: bc}, nil
 		case "paladin":
 			return PaladinLeveling{BaseCharacter: bc}, nil
+		case "assassin":
+			return AssassinLeveling{BaseCharacter: bc}, nil
+		case "druid_leveling":
+			return DruidLeveling{BaseCharacter: bc}, nil
 		}
 
-		return nil, fmt.Errorf("leveling only available for sorceress and paladin")
+		return nil, fmt.Errorf("leveling only available for sorceress, assassin, necromancer, druid and paladin")
 	}
 
 	switch strings.ToLower(ctx.CharacterCfg.Character.Class) {
@@ -33,6 +37,8 @@ func BuildCharacter(ctx *context.Context) (context.Character, error) {
 		return BlizzardSorceress{BaseCharacter: bc}, nil
 	case "fireballsorc":
 		return FireballSorceress{BaseCharacter: bc}, nil
+	case "mule":
+		return MuleCharacter{BaseCharacter: bc}, nil
 	case "nova":
 		return NovaSorceress{BaseCharacter: bc}, nil
 	case "hydraorb":

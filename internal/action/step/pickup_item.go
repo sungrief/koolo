@@ -33,10 +33,29 @@ func PickupItem(it data.Item, itemPickupAttempt int) error {
 	ctx := context.Get()
 	ctx.SetLastStep("PickupItem")
 
-	// Casting skill/moving return back
+	// Check if packet casting is enabled for item pickup
+	if ctx.CharacterCfg.PacketCasting.UseForItemPickup {
+		ctx.Logger.Debug("Attempting item pickup via packet method")
+		return PickupItemPacket(it, itemPickupAttempt)
+	}
+
+	// Use mouse-based pickup (original implementation)
+	return PickupItemMouse(it, itemPickupAttempt)
+}
+
+func PickupItemMouse(it data.Item, itemPickupAttempt int) error {
+	ctx := context.Get()
+
+	// Wait for the character to finish casting or moving before proceeding.
+	// We'll use a local timeout to prevent an indefinite wait.
+	waitingStartTime := time.Now()
 	for ctx.Data.PlayerUnit.Mode == mode.CastingSkill || ctx.Data.PlayerUnit.Mode == mode.Running || ctx.Data.PlayerUnit.Mode == mode.Walking || ctx.Data.PlayerUnit.Mode == mode.WalkingInTown {
+		if time.Since(waitingStartTime) > 2*time.Second {
+			ctx.Logger.Warn("Timeout waiting for character to stop moving or casting, proceeding anyway.")
+			break
+		}
 		time.Sleep(25 * time.Millisecond)
-		return ErrCastingMoving
+		ctx.RefreshGameData()
 	}
 
 	// Calculate base screen position for item
@@ -144,6 +163,12 @@ func PickupItem(it data.Item, itemPickupAttempt int) error {
 	}
 }
 
+func isChestorShrineHovered() bool {
+	ctx := context.Get()
+	hoverData := ctx.Data.HoverData
+	return hoverData.IsHovered && (hoverData.UnitType == 2 || hoverData.UnitType == 5)
+}
+
 func hasHostileMonstersNearby(pos data.Position) bool {
 	ctx := context.Get()
 
@@ -164,15 +189,4 @@ func findItemOnGround(targetID data.UnitID) (data.Item, bool) {
 		}
 	}
 	return data.Item{}, false
-}
-
-func isChestorShrineHovered() bool {
-	ctx := context.Get()
-
-	for _, o := range ctx.Data.Objects {
-		if (o.IsChest() || o.IsShrine()) && o.IsHovered {
-			return true
-		}
-	}
-	return false
 }

@@ -1,3 +1,4 @@
+{{/* internal/server/templates/run_settings_components.gohtml */}}
 {{ define "pit" }}
     <fieldset>
         <label><input type="checkbox" name="gamePitMoveThroughBlackMarsh" {{ if .Config.Game.Pit.MoveThroughBlackMarsh }}checked{{ end }}> Move through Black Marsh</label>
@@ -10,6 +11,19 @@
 {{ define "andariel" }}
     <fieldset>
         <label><input type="checkbox" name="gameAndarielClearRoom" {{ if .Config.Game.Andariel.ClearRoom }}checked{{ end }}> Clear room first</label>
+        <label><input type="checkbox" name="gameAndarielUseAntidoes" {{ if .Config.Game.Andariel.UseAntidoes }}checked{{ end }}> Use Antidotes</label>
+    </fieldset>
+{{ end }}
+
+{{ define "duriel" }}
+    <fieldset>
+        <label><input type="checkbox" name="gameDurielUseThawing" {{ if .Config.Game.Duriel.UseThawing }}checked{{ end }}> Use Thawing Potions</label>
+    </fieldset>
+{{ end }}
+
+{{ define "countess" }}
+    <fieldset>
+        <label><input type="checkbox" name="gameCountessClearFloors" {{ if .Config.Game.Countess.ClearFloors }}checked{{ end }}> Clear floors</label>
     </fieldset>
 {{ end }}
 
@@ -21,13 +35,10 @@
 
 {{ define "pindleskin" }}
     <fieldset>
-        <label>Skip on immunities</label>
-        <fieldset class="grid">
-            <label><input type="checkbox" name="gamePindleskinSkipOnImmunities[]" value="cold" {{ if isInSlice .Config.Game.Pindleskin.SkipOnImmunities "cold" }}checked{{ end }}> Cold</label>
-            <label><input type="checkbox" name="gamePindleskinSkipOnImmunities[]" value="fire" {{ if isInSlice .Config.Game.Pindleskin.SkipOnImmunities "fire" }}checked{{ end }}> Fire</label>
-            <label><input type="checkbox" name="gamePindleskinSkipOnImmunities[]" value="light" {{ if isInSlice .Config.Game.Pindleskin.SkipOnImmunities "light" }}checked{{ end }}> Light</label>
-            <label><input type="checkbox" name="gamePindleskinSkipOnImmunities[]" value="poison" {{ if isInSlice .Config.Game.Pindleskin.SkipOnImmunities "poison" }}checked{{ end }}> Poison</label>
-        </fieldset>
+        <label><input type="checkbox" name="gamePindleskinSkipOnImmunities[]" value="fire" {{ if isInSlice .Config.Game.Pindleskin.SkipOnImmunities "fire" }}checked{{ end }}> Skip on Fire Immunity</label>
+        <label><input type="checkbox" name="gamePindleskinSkipOnImmunities[]" value="cold" {{ if isInSlice .Config.Game.Pindleskin.SkipOnImmunities "cold" }}checked{{ end }}> Skip on Cold Immunity</label>
+        <label><input type="checkbox" name="gamePindleskinSkipOnImmunities[]" value="lightning" {{ if isInSlice .Config.Game.Pindleskin.SkipOnImmunities "lightning" }}checked{{ end }}> Skip on Lightning Immunity</label>
+        <label><input type="checkbox" name="gamePindleskinSkipOnImmunities[]" value="poison" {{ if isInSlice .Config.Game.Pindleskin.SkipOnImmunities "poison" }}checked{{ end }}> Skip on Poison Immunity</label>
     </fieldset>
 {{ end }}
 
@@ -75,32 +86,32 @@
 
 {{ define "mephisto" }}
     <fieldset>
-        <label><input type="checkbox" name="gameMephistoKillCouncilMembers" {{ if .Config.Game.Mephisto.KillCouncilMembers }}checked{{ end }}> Kill council members</label>
+        <label><input type="checkbox" name="gameMephistoKillCouncilMembers" {{ if .Config.Game.Mephisto.KillCouncilMembers }}checked{{ end }}> Kill Council Members</label>
         <label><input type="checkbox" name="gameMephistoOpenChests" {{ if .Config.Game.Mephisto.OpenChests }}checked{{ end }}> Open chests</label>
-        <label><input type="checkbox" name="gameMephistoExitToA4" {{ if .Config.Game.Mephisto.ExitToA4 }}checked{{ end }}> Leave through red portal</label>
+        <label><input type="checkbox" name="gameMephistoExitToA4" {{ if .Config.Game.Mephisto.ExitToA4 }}checked{{ end }}> Exit to Act IV</label>
     </fieldset>
 {{ end }}
 
 {{ define "tristram" }}
     <fieldset>
+        <label><input type="checkbox" name="gameTristramClearPortal" {{ if .Config.Game.Tristram.ClearPortal }}checked{{ end }}> Clear Portal</label>
         <label><input type="checkbox" name="gameTristramFocusOnElitePacks" {{ if .Config.Game.Tristram.FocusOnElitePacks }}checked{{ end }}> Focus on elite packs</label>
-        <label><input type="checkbox" name="gameTristramClearPortal" {{ if .Config.Game.Tristram.ClearPortal }}checked{{ end }}> Clear portal</label>
     </fieldset>
 {{ end }}
 
 {{ define "nihlathak" }}
     <fieldset>
-        <label><input type="checkbox" name="gameNihlathakClearArea" {{ if .Config.Game.Nihlathak.ClearArea }}checked{{ end }}> Clear area</label>
+        <label><input type="checkbox" name="gameNihlathakClearArea" {{ if .Config.Game.Nihlathak.ClearArea }}checked{{ end }}> Clear Area</label>
     </fieldset>
 {{ end }}
 
 {{ define "baal" }}
     <fieldset>
         <label><input type="checkbox" name="gameBaalKillBaal" {{ if .Config.Game.Baal.KillBaal }}checked{{ end }}> Kill Baal</label>
-        <label><input type="checkbox" name="gameBaalDollQuit" {{ if .Config.Game.Baal.DollQuit }}checked{{ end }}> Chicken on Dolls</label>
-        <label><input type="checkbox" name="gameBaalSoulQuit" {{ if .Config.Game.Baal.SoulQuit }}checked{{ end }}> Chicken on Souls</label>
-        <label><input type="checkbox" name="gameBaalClearFloors" {{ if .Config.Game.Baal.ClearFloors }}checked{{ end }}> Clear floors before Baal</label>
-        <label><input type="checkbox" name="gameBaalOnlyElites" {{ if .Config.Game.Baal.OnlyElites }}checked{{ end }}> Focus on elite packs for floors clearing</label>
+        <label><input type="checkbox" name="gameBaalDollQuit" {{ if .Config.Game.Baal.DollQuit }}checked{{ end }}> Quit on Dolls</label>
+        <label><input type="checkbox" name="gameBaalSoulQuit" {{ if .Config.Game.Baal.SoulQuit }}checked{{ end }}> Quit on Souls</label>
+        <label><input type="checkbox" name="gameBaalClearFloors" {{ if .Config.Game.Baal.ClearFloors }}checked{{ end }}> Clear Floors</label>
+        <label><input type="checkbox" name="gameBaalOnlyElites" {{ if .Config.Game.Baal.OnlyElites }}checked{{ end }}> Only Elites</label>
     </fieldset>
 {{ end }}
 
@@ -112,49 +123,60 @@
 
 {{ define "lower_kurast_chest" }}
     <fieldset>
-        <label><input type="checkbox" name="gameLowerKurastChestOpenRacks" {{ if .Config.Game.LowerKurastChest.OpenRacks }}checked{{ end }}> Weapon Racks + Armor Stands</label>
+        <label><input type="checkbox" name="gameLowerKurastChestOpenRacks" {{ if .Config.Game.LowerKurastChest.OpenRacks }}checked{{ end }}> Open Racks</label>
     </fieldset>
 {{ end }}
 
 {{ define "diablo" }}
-    <fieldset class="options-group">
-        <legend>Boss Options</legend>
+    <fieldset>
+        <label><input type="checkbox" name="gameDiabloStartFromStar" {{ if .Config.Game.Diablo.StartFromStar }}checked{{ end }}> Start from star</label>
         <label><input type="checkbox" name="gameDiabloKillDiablo" {{ if .Config.Game.Diablo.KillDiablo }}checked{{ end }}> Kill Diablo</label>
-        <label><input type="checkbox" name="gameDiabloDisableItemPickupDuringBosses" {{ if .Config.Game.Diablo.DisableItemPickupDuringBosses }}checked{{ end }}> Temporarily Disable Item Pickup During Seal Boss Fights</label>
+        <label><input type="checkbox" name="gameDiabloFocusOnElitePacks" {{ if .Config.Game.Diablo.FocusOnElitePacks }}checked{{ end }}> Focus on elite packs</label>
+        <label><input type="checkbox" name="gameDiabloDisableItemPickupDuringBosses" {{ if .Config.Game.Diablo.DisableItemPickupDuringBosses }}checked{{ end }}> Disable item pickup during bosses</label>
         <label>
-            Attack from Distance:
-            <input type="number" name="gameDiabloAttackFromDistance" value="{{ .Config.Game.Diablo.AttackFromDistance }}" min="0" max="25">
+            <span>Attack from distance (0-25 tiles)</span>
+            <input type="number" min="0" max="25" step="1" name="gameDiabloAttackFromDistance" value="{{ .Config.Game.Diablo.AttackFromDistance }}">
         </label>
-    </fieldset>
-
-    <fieldset class="options-group">
-        <legend>Clear Options</legend>
-        <label><input type="checkbox" name="gameDiabloStartFromStar" {{ if .Config.Game.Diablo.StartFromStar }}checked{{ end }}> Start From Star (Disabled = Entrance) </label>
-        <label><input type="checkbox" name="gameDiabloFocusOnElitePacks" {{ if .Config.Game.Diablo.FocusOnElitePacks }}checked{{ end }}> Elite Packs Only</label>
     </fieldset>
 {{ end }}
 
 {{ define "leveling" }}
     <fieldset>
-        <label><input type="checkbox" name="gameLevelingEnsurePointsAllocation" {{ if .Config.Game.Leveling.EnsurePointsAllocation }}checked{{ end }}> Automatically allocate stats/skills</label>
-        <label><input type="checkbox" name="gameLevelingEnsureKeyBinding" {{ if .Config.Game.Leveling.EnsureKeyBinding }}checked{{ end }}> Automatically bind skills</label>
+        <label><input type="checkbox" name="gameLevelingEnsurePointsAllocation" {{ if .Config.Game.Leveling.EnsurePointsAllocation }}checked{{ end }}> Ensure points allocation</label>
+        <label><input type="checkbox" name="gameLevelingEnsureKeyBinding" {{ if .Config.Game.Leveling.EnsureKeyBinding }}checked{{ end }}> Ensure key binding</label>
+        <label><input type="checkbox" name="gameLevelingAutoEquip" {{ if .Config.Game.Leveling.AutoEquip }}checked{{ end }}> Auto-equip</label>
+        <label><input type="checkbox" name="gameLevelingAutoEquipFromSharedStash" {{ if .Config.Game.Leveling.AutoEquipFromSharedStash }}checked{{ end }}> Auto-equip from shared stash</label>
+
+        <label><input type="checkbox" name="gameLevelingEnableRunewordMaker" {{ if .Config.Game.Leveling.EnableRunewordMaker }}checked{{ end }}> Enable Runeword Maker</label>
+        <label>
+            <span>Enabled Runeword Recipes</span>
+            <select name="gameLevelingEnabledRunewordRecipes" multiple>
+                {{ range .RunewordRecipeList }}
+                    <option value="{{ . }}" {{ if contains $.Config.Game.Leveling.EnabledRunewordRecipes . }}selected{{ end }}>{{ . }}</option>
+                {{ end }}
+            </select>
+        </label>
     </fieldset>
 {{ end }}
 
 {{ define "quests" }}
     <fieldset>
-        <label>Act 1</label>
-        <label><input type="checkbox" name="gameQuestsClearDen" {{ if .Config.Game.Quests.ClearDen }}checked{{ end }}> Clear Den</label>
+        <h4>Act 1</h4>
+        <label><input type="checkbox" name="gameQuestsClearDen" {{ if .Config.Game.Quests.ClearDen }}checked{{ end }}> Clear Den of Evil</label>
         <label><input type="checkbox" name="gameQuestsRescueCain" {{ if .Config.Game.Quests.RescueCain }}checked{{ end }}> Rescue Cain</label>
         <label><input type="checkbox" name="gameQuestsRetrieveHammer" {{ if .Config.Game.Quests.RetrieveHammer }}checked{{ end }}> Retrieve Hammer</label>
-        <label>Act 2</label>
-        <label><input type="checkbox" name="gameQuestsGetCube" {{ if .Config.Game.Quests.GetCube }}checked{{ end }}> Get Cube</label>
+
+        <h4>Act 2</h4>
         <label><input type="checkbox" name="gameQuestsKillRadament" {{ if .Config.Game.Quests.KillRadament }}checked{{ end }}> Kill Radament</label>
-        <label>Act 3</label>
+        <label><input type="checkbox" name="gameQuestsGetCube" {{ if .Config.Game.Quests.GetCube }}checked{{ end }}> Get the Cube</label>
+
+        <h4>Act 3</h4>
         <label><input type="checkbox" name="gameQuestsRetrieveBook" {{ if .Config.Game.Quests.RetrieveBook }}checked{{ end }}> Retrieve Book</label>
-        <label>Act 4</label>
+
+        <h4>Act 4</h4>
         <label><input type="checkbox" name="gameQuestsKillIzual" {{ if .Config.Game.Quests.KillIzual }}checked{{ end }}> Kill Izual</label>
-        <label>Act 5</label>
+
+        <h4>Act 5</h4>
         <label><input type="checkbox" name="gameQuestsKillShenk" {{ if .Config.Game.Quests.KillShenk }}checked{{ end }}> Kill Shenk</label>
         <label><input type="checkbox" name="gameQuestsRescueAnya" {{ if .Config.Game.Quests.RescueAnya }}checked{{ end }}> Rescue Anya</label>
         <label><input type="checkbox" name="gameQuestsKillAncients" {{ if .Config.Game.Quests.KillAncients }}checked{{ end }}> Kill Ancients</label>
@@ -162,21 +184,83 @@
 {{ end }}
 
 {{ define "terror_zone" }}
-    {{$topLevelContext := .}}
     <fieldset>
         <label><input type="checkbox" name="gameTerrorZoneFocusOnElitePacks" {{ if .Config.Game.TerrorZone.FocusOnElitePacks }}checked{{ end }}> Focus on elite packs</label>
-        <label><input type="checkbox" name="gameTerrorZoneSkipOtherRuns" {{ if .Config.Game.TerrorZone.SkipOtherRuns }}checked{{ end }}> Skip all runs and only do TZ when available</label>
+        <label><input type="checkbox" name="gameTerrorZoneSkipOtherRuns" {{ if .Config.Game.TerrorZone.SkipOtherRuns }}checked{{ end }}> Skip other runs when a Terror Zone is active</label>
         <label><input type="checkbox" name="gameTerrorZoneOpenChests" {{ if .Config.Game.TerrorZone.OpenChests }}checked{{ end }}> Open chests</label>
-        <label>Skip on immunities</label>
-        <fieldset class="grid">
-            <label><input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="cold" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "cold" }}checked{{ end }}> Cold</label>
+
+        <label>
+            <span>Skip on immunities</span>
             <label><input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="fire" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "fire" }}checked{{ end }}> Fire</label>
-            <label><input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="light" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "light" }}checked{{ end }}> Light</label>
+            <label><input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="cold" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "cold" }}checked{{ end }}> Cold</label>
+            <label><input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="lightning" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "lightning" }}checked{{ end }}> Lightning</label>
             <label><input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="poison" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "poison" }}checked{{ end }}> Poison</label>
-        </fieldset>
-        <label>Tracked areas <input type="checkbox" name="tzTrackAll" id="tzTrackAll"></label>
-        {{ range $id, $name := .AvailableTZs }}
-            <label><input type="checkbox" class="tzTrackCheckbox" name="gameTerrorZoneAreas[]" value="{{ $id }}" {{ if isTZSelected $topLevelContext.Config.Game.TerrorZone.Areas $id }}checked{{ end }}>{{ $name }}</label>
-        {{ end }}
+        </label>
+
+        <label>
+            <span>Areas</span>
+            <select name="gameTerrorZoneAreas[]" multiple>
+                {{ range $ID, $name := .AvailableTZs }}
+                    <option value="{{ $ID }}" {{ if isTZSelected $.Config.Game.TerrorZone.Areas $ID }}selected{{ end }}>{{ $name }}</option>
+                {{ end }}
+            </select>
+        </label>
     </fieldset>
 {{ end }}
+
+{{ define "shopping" }}
+  <fieldset>
+    <legend>Shopping</legend>
+
+    <label>
+      <input type="checkbox" name="gameShoppingEnabled" {{ if .Config.Shopping.Enabled }}checked{{ end }}>
+      Enable Shopping
+    </label>
+
+    <label>
+      <span>Max gold to spend</span>
+      <input type="number" name="gameShoppingMaxGoldToSpend" min="0" step="1" value="{{ .Config.Shopping.MaxGoldToSpend }}">
+    </label>
+
+    <label>
+      <span>Min gold reserve</span>
+      <input type="number" name="gameShoppingMinGoldReserve" min="0" step="1" value="{{ .Config.Shopping.MinGoldReserve }}">
+    </label>
+
+    <label>
+      <span>Refreshes per visit</span>
+      <input type="number" name="gameShoppingRefreshesPerRun" min="0" step="1" value="{{ .Config.Shopping.RefreshesPerRun }}">
+    </label>
+
+    <label>
+      <span>Shopping rules file (NIP)</span>
+      <input type="text" name="gameShoppingRulesFile" value="{{ .Config.Shopping.ShoppingRulesFile }}" placeholder="config/{{ .Config.CharacterName }}/pickit/shopping.nip">
+    </label>
+
+    <label>
+      <span>Item types (comma separated; leave empty to rely on NIP)</span>
+      <input type="text" name="gameShoppingItemTypes" value="{{- $first := true -}}{{- range $i, $t := .Config.Shopping.ItemTypes -}}{{- if not $first -}}, {{- end -}}{{- $t -}}{{- $first = false -}}{{- end -}}">
+    </label>
+
+    <h6>Vendors to shop</h6>
+
+    <!-- Act I -->
+    <label><input type="checkbox" name="gameShoppingVendorAkara"   {{ if .Config.Shopping.VendorAkara }}checked{{ end }}> Akara (A1)</label>
+    <label><input type="checkbox" name="gameShoppingVendorCharsi"  {{ if .Config.Shopping.VendorCharsi }}checked{{ end }}> Charsi (A1)</label>
+    <label><input type="checkbox" name="gameShoppingVendorGheed"   {{ if .Config.Shopping.VendorGheed }}checked{{ end }}> Gheed (A1)</label>
+
+    <!-- Act II -->
+    <label><input type="checkbox" name="gameShoppingVendorFara"    {{ if .Config.Shopping.VendorFara }}checked{{ end }}> Fara (A2)</label>
+    <label><input type="checkbox" name="gameShoppingVendorDrognan" {{ if .Config.Shopping.VendorDrognan }}checked{{ end }}> Drognan (A2)</label>
+    <label><input type="checkbox" name="gameShoppingVendorElzix"   {{ if .Config.Shopping.VendorElzix }}checked{{ end }}> Elzix (A2)</label>
+
+    <!-- Act III -->
+    <label><input type="checkbox" name="gameShoppingVendorOrmus"   {{ if .Config.Shopping.VendorOrmus }}checked{{ end }}> Ormus (A3)</label>
+
+    <!-- Act V -->
+    <label><input type="checkbox" name="gameShoppingVendorMalah"   {{ if .Config.Shopping.VendorMalah }}checked{{ end }}> Malah (A5)</label>
+    <label><input type="checkbox" name="gameShoppingVendorAnya"    {{ if .Config.Shopping.VendorAnya }}checked{{ end }}> Anya (A5)</label>
+
+  </fieldset>
+{{ end }}
+

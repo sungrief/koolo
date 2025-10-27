@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	_ "net/http/pprof"
+	"path/filepath"
 	"runtime/debug"
 
 	sloggger "github.com/hectorgimenez/koolo/cmd/koolo/log"
@@ -13,6 +14,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/remote/discord"
+	"github.com/hectorgimenez/koolo/internal/remote/droplog"
 	"github.com/hectorgimenez/koolo/internal/remote/telegram"
 	"github.com/hectorgimenez/koolo/internal/server"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -21,7 +23,31 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var (
+	buildID   string
+	buildTime string
+)
+
+// wrapWithRecover wraps a function with panic recovery logic
+func wrapWithRecover(logger *slog.Logger, f func() error) func() error {
+	return func() error {
+		defer func() {
+			if r := recover(); r != nil {
+				stackTrace := debug.Stack()
+				errMsg := fmt.Sprintf("panic recovered: %v\nStacktrace: %s", r, stackTrace)
+				logger.Error(errMsg)
+				sloggger.FlushLog()
+			}
+		}()
+		return f()
+	}
+}
+
 func main() {
+
+	_ = buildID
+	_ = buildTime
+
 	err := config.Load()
 	if err != nil {
 		utils.ShowDialog("Error loading configuration", err.Error())
@@ -33,13 +59,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error starting logger: %s", err.Error())
 	}
-	defer sloggger.FlushLog()
+	defer sloggger.FlushAndClose()
 
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("fatal error detected, Koolo will close with the following error: %v\n Stacktrace: %s", r, debug.Stack())
 			logger.Error(err.Error())
-			sloggger.FlushLog()
+			sloggger.FlushAndClose()
 			utils.ShowDialog("Koolo error :(", fmt.Sprintf("Koolo will close due to an expected error, please check the latest log file for more info!\n %s", err.Error()))
 		}
 	}()
@@ -52,6 +78,15 @@ func main() {
 	winproc.SetProcessDpiAware.Call() // Set DPI awareness to be able to read the correct scale and show the window correctly
 
 	eventListener := event.NewListener(logger)
+
+	// Centralized droplog writer registration
+	dropBase := config.Koolo.LogSaveDirectory
+	if dropBase == "" {
+		dropBase = "logs"
+	}
+	dropDir := filepath.Join(dropBase, "droplogs")
+	dropWriter := droplog.NewWriter(dropDir, logger)
+	eventListener.Register(dropWriter.Handle)
 	manager := bot.NewSupervisorManager(logger, eventListener)
 	scheduler := bot.NewScheduler(manager, logger)
 	go scheduler.Start()
@@ -60,7 +95,8 @@ func main() {
 		log.Fatalf("Error starting local server: %s", err.Error())
 	}
 
-	g.Go(func() error {
+	// Use wrapWithRecover for all goroutines to handle panics
+	g.Go(wrapWithRecover(logger, func() error {
 		defer cancel()
 		displayScale := config.GetCurrentDisplayScale()
 		w, err := gowebview.New(&gowebview.Config{URL: "http://localhost:8087", WindowConfig: &gowebview.WindowConfig{
@@ -84,7 +120,7 @@ func main() {
 		w.Run()
 
 		return nil
-	})
+	}))
 
 	// Discord Bot initialization
 	if config.Koolo.Discord.Enabled {
@@ -95,9 +131,9 @@ func main() {
 		}
 
 		eventListener.Register(discordBot.Handle)
-		g.Go(func() error {
+		g.Go(wrapWithRecover(logger, func() error {
 			return discordBot.Start(ctx)
-		})
+		}))
 	}
 
 	// Telegram Bot initialization
@@ -109,22 +145,22 @@ func main() {
 		}
 
 		eventListener.Register(telegramBot.Handle)
-		g.Go(func() error {
+		g.Go(wrapWithRecover(logger, func() error {
 			return telegramBot.Start(ctx)
-		})
+		}))
 	}
 
-	g.Go(func() error {
+	g.Go(wrapWithRecover(logger, func() error {
 		defer cancel()
 		return srv.Listen(8087)
-	})
+	}))
 
-	g.Go(func() error {
+	g.Go(wrapWithRecover(logger, func() error {
 		defer cancel()
 		return eventListener.Listen(ctx)
-	})
+	}))
 
-	g.Go(func() error {
+	g.Go(wrapWithRecover(logger, func() error {
 		<-ctx.Done()
 		logger.Info("Koolo shutting down...")
 		cancel()
@@ -136,7 +172,7 @@ func main() {
 		}
 
 		return err
-	})
+	}))
 
 	err = g.Wait()
 	if err != nil {
@@ -145,5 +181,5 @@ func main() {
 		return
 	}
 
-	sloggger.FlushLog()
+	sloggger.FlushAndClose()
 }

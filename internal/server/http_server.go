@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"slices"
 	"sort"
 	"strconv"
@@ -18,6 +19,10 @@ import (
 	"syscall"
 	"time"
 	"unsafe"
+
+	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/gorilla/websocket"
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -27,7 +32,9 @@ import (
 	"github.com/hectorgimenez/koolo/internal/bot"
 	"github.com/hectorgimenez/koolo/internal/config"
 	ctx "github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
+	"github.com/hectorgimenez/koolo/internal/remote/droplog"
 	"github.com/hectorgimenez/koolo/internal/utils"
 	"github.com/hectorgimenez/koolo/internal/utils/winproc"
 	"github.com/lxn/win"
@@ -388,7 +395,152 @@ func (s *HttpServer) getStatusData() IndexData {
 	drops := make(map[string]int)
 
 	for _, supervisorName := range s.manager.AvailableSupervisors() {
-		status[supervisorName] = s.manager.Status(supervisorName)
+		stats := s.manager.Status(supervisorName)
+
+		// Enrich with lightweight live character overview for UI
+		if data := s.manager.GetData(supervisorName); data != nil {
+			// Defaults
+			var lvl, exp, life, maxLife, mana, maxMana, mf, gold, gf int
+			var lastExp, nextExp int
+			var fr, cr, lr, pr int
+			var mfr, mcr, mlr, mpr int
+
+			if v, ok := data.PlayerUnit.FindStat(stat.Level, 0); ok {
+				lvl = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.Experience, 0); ok {
+				exp = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.LastExp, 0); ok {
+				lastExp = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.NextExp, 0); ok {
+				nextExp = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.Life, 0); ok {
+				life = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.MaxLife, 0); ok {
+				maxLife = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.Mana, 0); ok {
+				mana = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.MaxMana, 0); ok {
+				maxMana = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.MagicFind, 0); ok {
+				mf = v.Value
+			}
+			// Total gold from inventory and private stash
+			gold = data.PlayerUnit.TotalPlayerGold()
+			if v, ok := data.PlayerUnit.FindStat(stat.GoldFind, 0); ok {
+				gf = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.FireResist, 0); ok {
+				fr = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.ColdResist, 0); ok {
+				cr = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.LightningResist, 0); ok {
+				lr = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.PoisonResist, 0); ok {
+				pr = v.Value
+			}
+			// Max resists (increase cap)
+			if v, ok := data.PlayerUnit.FindStat(stat.MaxFireResist, 0); ok {
+				mfr = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.MaxColdResist, 0); ok {
+				mcr = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.MaxLightningResist, 0); ok {
+				mlr = v.Value
+			}
+			if v, ok := data.PlayerUnit.FindStat(stat.MaxPoisonResist, 0); ok {
+				mpr = v.Value
+			}
+
+			// Apply difficulty penalty and cap to compute current/effective resists
+			penalty := 0
+			switch data.CharacterCfg.Game.Difficulty {
+			case difficulty.Nightmare:
+				penalty = 40
+			case difficulty.Hell:
+				penalty = 100
+			}
+			capFR := 75 + mfr
+			capCR := 75 + mcr
+			capLR := 75 + mlr
+			capPR := 75 + mpr
+			if fr-penalty > capFR {
+				fr = capFR
+			} else {
+				fr = fr - penalty
+			}
+			if cr-penalty > capCR {
+				cr = capCR
+			} else {
+				cr = cr - penalty
+			}
+			if lr-penalty > capLR {
+				lr = capLR
+			} else {
+				lr = lr - penalty
+			}
+			if pr-penalty > capPR {
+				pr = capPR
+			} else {
+				pr = pr - penalty
+			}
+
+			// Resolve difficulty and area names
+			diffStr := fmt.Sprint(data.CharacterCfg.Game.Difficulty)
+			areaStr := ""
+			// Prefer human-readable area name if available
+			if lvl := data.PlayerUnit.Area.Area(); lvl.Name != "" {
+				areaStr = lvl.Name
+			} else {
+				areaStr = fmt.Sprint(data.PlayerUnit.Area)
+			}
+
+			stats.UI = bot.CharacterOverview{
+				Class:           data.CharacterCfg.Character.Class,
+				Level:           lvl,
+				Experience:      exp,
+				LastExp:         lastExp,
+				NextExp:         nextExp,
+				Difficulty:      diffStr,
+				Area:            areaStr,
+				Life:            life,
+				MaxLife:         maxLife,
+				Mana:            mana,
+				MaxMana:         maxMana,
+				MagicFind:       mf,
+				Gold:            gold,
+				GoldFind:        gf,
+				FireResist:      fr,
+				ColdResist:      cr,
+				LightningResist: lr,
+				PoisonResist:    pr,
+			}
+		}
+
+		// Check if this is a companion follower
+		cfg, found := config.GetCharacter(supervisorName)
+		if found {
+			// Add companion information to the stats
+			if cfg.Companion.Enabled && !cfg.Companion.Leader {
+				// This is a companion follower
+				stats.IsCompanionFollower = true
+				stats.MuleEnabled = cfg.Muling.Enabled
+			}
+		}
+
+		status[supervisorName] = stats
+
 		if s.manager.GetSupervisorStats(supervisorName).Drops != nil {
 			drops[supervisorName] = len(s.manager.GetSupervisorStats(supervisorName).Drops)
 		} else {
@@ -417,11 +569,17 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/debug", s.debugHandler)
 	http.HandleFunc("/debug-data", s.debugData)
 	http.HandleFunc("/drops", s.drops)
+	http.HandleFunc("/all-drops", s.allDrops)
+	http.HandleFunc("/export-drops", s.exportDrops)
+	http.HandleFunc("/open-droplogs", s.openDroplogs)
+	http.HandleFunc("/reset-droplogs", s.resetDroplogs)
 	http.HandleFunc("/process-list", s.getProcessList)
 	http.HandleFunc("/attach-process", s.attachProcess)
-	http.HandleFunc("/ws", s.wsServer.HandleWebSocket)    // Web socket
-	http.HandleFunc("/initial-data", s.initialData)       // Web socket data
-	http.HandleFunc("/api/reload-config", s.reloadConfig) // New handler
+	http.HandleFunc("/ws", s.wsServer.HandleWebSocket)      // Web socket
+	http.HandleFunc("/initial-data", s.initialData)         // Web socket data
+	http.HandleFunc("/api/reload-config", s.reloadConfig)   // New handler
+	http.HandleFunc("/api/companion-join", s.companionJoin) // Companion join handler
+	http.HandleFunc("/reset-muling", s.resetMuling)
 
 	assets, _ := fs.Sub(assetsFS, "assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
@@ -506,7 +664,7 @@ func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 	Supervisor := r.URL.Query().Get("characterName")
 
 	// Get the current auth method for the supervisor we wanna start
-	supCfg, currFound := config.Characters[Supervisor]
+	supCfg, currFound := config.GetCharacter(Supervisor)
 	if !currFound {
 		// There's no config for the current supervisor. THIS SHOULDN'T HAPPEN
 		return
@@ -528,7 +686,7 @@ func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Prevent launching if another client that is using token auth is starting
-			sCfg, found := config.Characters[sup]
+			sCfg, found := config.GetCharacter(sup)
 			if found {
 				if sCfg.AuthMethod == "TokenAuth" {
 					return
@@ -579,7 +737,7 @@ func (s *HttpServer) index(w http.ResponseWriter) {
 
 func (s *HttpServer) drops(w http.ResponseWriter, r *http.Request) {
 	sup := r.URL.Query().Get("supervisor")
-	cfg, found := config.Characters[sup]
+	cfg, found := config.GetCharacter(sup)
 	if !found {
 		http.Error(w, "Can't fetch drop data because the configuration "+sup+" wasn't found", http.StatusNotFound)
 		return
@@ -598,6 +756,138 @@ func (s *HttpServer) drops(w http.ResponseWriter, r *http.Request) {
 		Character:     cfg.CharacterName,
 		Drops:         Drops,
 	})
+}
+
+// allDrops renders a centralized droplog view across all characters.
+func (s *HttpServer) allDrops(w http.ResponseWriter, r *http.Request) {
+	// Determine droplog directory
+	base := config.Koolo.LogSaveDirectory
+	if base == "" {
+		base = "logs"
+	}
+	dir := filepath.Join(base, "droplogs")
+
+	records, err := droplog.ReadAll(dir)
+	if err != nil {
+		s.templates.ExecuteTemplate(w, "all_drops.gohtml", AllDropsData{ErrorMessage: err.Error()})
+		return
+	}
+
+	// Optional filters via query:
+	qSup := strings.TrimSpace(r.URL.Query().Get("supervisor"))
+	qChar := strings.TrimSpace(r.URL.Query().Get("character"))
+	qText := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+
+	var rows []AllDropRecord
+	for _, rec := range records {
+		if qSup != "" && !strings.EqualFold(qSup, rec.Supervisor) {
+			continue
+		}
+		if qChar != "" && !strings.EqualFold(qChar, rec.Character) {
+			continue
+		}
+		// text filter on name or stats string
+		if qText != "" {
+			name := rec.Drop.Item.IdentifiedName
+			if name == "" {
+				name = fmt.Sprint(rec.Drop.Item.Name)
+			}
+			blob := strings.ToLower(name + " " + strings.Join(statsToStrings(rec.Drop.Item.Stats), " "))
+			if !strings.Contains(blob, qText) {
+				continue
+			}
+		}
+		rows = append(rows, AllDropRecord{
+			Time:       rec.Time.Format("2006-01-02 15:04:05"),
+			Supervisor: rec.Supervisor,
+			Character:  rec.Character,
+			Profile:    rec.Profile,
+			Drop:       rec.Drop,
+		})
+	}
+
+	// Sort newest first
+	sort.SliceStable(rows, func(i, j int) bool { return rows[i].Time > rows[j].Time })
+
+	s.templates.ExecuteTemplate(w, "all_drops.gohtml", AllDropsData{
+		Total:   len(rows),
+		Records: rows,
+	})
+}
+
+// exportDrops renders a static HTML of the centralized drops and returns it as a file download.
+func (s *HttpServer) exportDrops(w http.ResponseWriter, r *http.Request) {
+	// Reuse allDrops data generation
+	base := config.Koolo.LogSaveDirectory
+	if base == "" {
+		base = "logs"
+	}
+	dir := filepath.Join(base, "droplogs")
+
+	records, err := droplog.ReadAll(dir)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var rows []AllDropRecord
+	for _, rec := range records {
+		rows = append(rows, AllDropRecord{
+			Time:       rec.Time.Format("2006-01-02 15:04:05"),
+			Supervisor: rec.Supervisor,
+			Character:  rec.Character,
+			Profile:    rec.Profile,
+			Drop:       rec.Drop,
+		})
+	}
+
+	var buf bytes.Buffer
+	if err := s.templates.ExecuteTemplate(&buf, "all_drops.gohtml", AllDropsData{Total: len(rows), Records: rows}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		http.Error(w, fmt.Sprintf("failed to create export directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Write to a timestamped HTML file under droplogs
+	outName := fmt.Sprintf("all-drops-%s.html", time.Now().Format("2006-01-02-15-04-05"))
+	outPath := filepath.Join(dir, outName)
+	if err := os.WriteFile(outPath, buf.Bytes(), 0o644); err != nil {
+		http.Error(w, fmt.Sprintf("failed to write export: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "file": outPath})
+}
+
+// helper: convert stats to strings for filtering
+func statsToStrings(stats any) []string {
+	v := reflect.ValueOf(stats)
+	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
+		return nil
+	}
+	out := make([]string, 0, v.Len())
+	for i := 0; i < v.Len(); i++ {
+		sv := v.Index(i)
+		if sv.Kind() == reflect.Pointer {
+			sv = sv.Elem()
+		}
+		if sv.Kind() == reflect.Struct {
+			f := sv.FieldByName("String")
+			if f.IsValid() && f.Kind() == reflect.String {
+				s := f.String()
+				if s != "" {
+					out = append(out, s)
+				}
+			}
+		}
+	}
+	return out
 }
 
 func validateSchedulerData(cfg *config.CharacterCfg) error {
@@ -653,6 +943,7 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Discord.EnableNewRunMessages = r.Form.Has("enable_new_run_messages")
 		newConfig.Discord.EnableRunFinishMessages = r.Form.Has("enable_run_finish_messages")
 		newConfig.Discord.EnableDiscordChickenMessages = r.Form.Has("enable_discord_chicken_messages")
+		newConfig.Discord.EnableDiscordErrorMessages = r.Form.Has("enable_discord_error_messages")
 
 		// Discord admins who can use bot commands
 		discordAdmins := r.Form.Get("discord_admins")
@@ -701,7 +992,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		supervisorName := r.Form.Get("name")
-		cfg, found := config.Characters[supervisorName]
+		cfg, found := config.GetCharacter(supervisorName)
 		if !found {
 			err = config.CreateFromTemplate(supervisorName)
 			if err != nil {
@@ -712,9 +1003,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 				return
 			}
-			cfg = config.Characters["template"]
 		}
-
+	
 		cfg.MaxGameLength, _ = strconv.Atoi(r.Form.Get("maxGameLength"))
 		cfg.CharacterName = r.Form.Get("characterName")
 		cfg.CommandLineArgs = r.Form.Get("commandLineArgs")
@@ -722,13 +1012,51 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.ClassicMode = r.Form.Has("classic_mode")
 		cfg.CloseMiniPanel = r.Form.Has("close_mini_panel")
 		cfg.HidePortraits = r.Form.Has("hide_portraits")
-
+		
 		// Bnet config
 		cfg.Username = r.Form.Get("username")
 		cfg.Password = r.Form.Get("password")
 		cfg.Realm = r.Form.Get("realm")
 		cfg.AuthMethod = r.Form.Get("authmethod")
 		cfg.AuthToken = r.Form.Get("AuthToken")
+		// --- Shopping (GUI -> CharacterCfg.Shopping) ---
+		cfg.Shopping.Enabled = r.Form.Has("gameShoppingEnabled")
+		
+		if v, err := strconv.Atoi(r.Form.Get("gameShoppingMaxGoldToSpend")); err == nil {
+			cfg.Shopping.MaxGoldToSpend = v
+		}
+		if v, err := strconv.Atoi(r.Form.Get("gameShoppingMinGoldReserve")); err == nil {
+			cfg.Shopping.MinGoldReserve = v
+		}
+		if v, err := strconv.Atoi(r.Form.Get("gameShoppingRefreshesPerRun")); err == nil {
+			cfg.Shopping.RefreshesPerRun = v
+		}
+		
+		cfg.Shopping.ShoppingRulesFile = r.Form.Get("gameShoppingRulesFile")
+		
+		// Item types: comma-separated -> []string (trim blanks)
+		{
+			raw := r.Form.Get("gameShoppingItemTypes")
+			items := make([]string, 0)
+			for _, p := range strings.Split(raw, ",") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					items = append(items, p)
+				}
+			}
+			cfg.Shopping.ItemTypes = items
+		}
+		
+		// Vendor checkboxes
+		cfg.Shopping.VendorAkara   = r.Form.Has("gameShoppingVendorAkara")
+		cfg.Shopping.VendorCharsi  = r.Form.Has("gameShoppingVendorCharsi")
+		cfg.Shopping.VendorGheed   = r.Form.Has("gameShoppingVendorGheed")
+		cfg.Shopping.VendorFara    = r.Form.Has("gameShoppingVendorFara")
+		cfg.Shopping.VendorDrognan = r.Form.Has("gameShoppingVendorDrognan")
+		cfg.Shopping.VendorElzix   = r.Form.Has("gameShoppingVendorElzix")
+		cfg.Shopping.VendorOrmus   = r.Form.Has("gameShoppingVendorOrmus")
+		cfg.Shopping.VendorMalah   = r.Form.Has("gameShoppingVendorMalah")
+		cfg.Shopping.VendorAnya    = r.Form.Has("gameShoppingVendorAnya")
 
 		// Scheduler config
 		cfg.Scheduler.Enabled = r.Form.Has("schedulerEnabled")
@@ -790,10 +1118,26 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Health.MercRejuvPotionAt, _ = strconv.Atoi(r.Form.Get("mercRejuvPotionAt"))
 		cfg.Health.MercChickenAt, _ = strconv.Atoi(r.Form.Get("mercChickenAt"))
 
-		// Character
+		// Character config section
 		cfg.Character.Class = r.Form.Get("characterClass")
 		cfg.Character.StashToShared = r.Form.Has("characterStashToShared")
 		cfg.Character.UseTeleport = r.Form.Has("characterUseTeleport")
+
+		// Process ClearPathDist - only relevant when teleport is disabled
+		if !cfg.Character.UseTeleport {
+			clearPathDist, err := strconv.Atoi(r.Form.Get("clearPathDist"))
+			if err == nil && clearPathDist >= 0 && clearPathDist <= 30 {
+				cfg.Character.ClearPathDist = clearPathDist
+			} else {
+				// Set default value if invalid
+				cfg.Character.ClearPathDist = 7
+				s.logger.Debug("Using default ClearPathDist value",
+					slog.Int("default", 7),
+					slog.String("input", r.Form.Get("clearPathDist")))
+			}
+		} else {
+			cfg.Character.ClearPathDist = 7
+		}
 
 		// Berserker Barb specific options
 		if cfg.Character.Class == "berserker" {
@@ -837,6 +1181,16 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.MosaicSin.UseFistsOfFire = r.Form.Has("mosaicUseFistsOfFire")
 		}
 
+		if cfg.Character.Class == "sorceress" {
+			cfg.Character.BlizzardSorceress.UseMoatTrick = r.Form.Has("useMoatTrick")
+			cfg.Character.BlizzardSorceress.UseStaticOnMephisto = r.Form.Has("useStaticOnMephisto")
+		}
+
+		// Sorceress Leveling specific options
+		if cfg.Character.Class == "sorceress_leveling" {
+			cfg.Character.SorceressLeveling.UseMoatTrick = r.Form.Has("useMoatTrick")
+			cfg.Character.SorceressLeveling.UseStaticOnMephisto = r.Form.Has("useStaticOnMephisto")
+		}
 		for y, row := range cfg.Inventory.InventoryLock {
 			for x := range row {
 				if r.Form.Has(fmt.Sprintf("inventoryLock[%d][%d]", y, x)) {
@@ -851,11 +1205,23 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Inventory.BeltColumns[x] = value
 		}
 
+		cfg.Inventory.HealingPotionCount, _ = strconv.Atoi(r.Form.Get("healingPotionCount"))
+		cfg.Inventory.ManaPotionCount, _ = strconv.Atoi(r.Form.Get("manaPotionCount"))
+		cfg.Inventory.RejuvPotionCount, _ = strconv.Atoi(r.Form.Get("rejuvPotionCount"))
+
 		// Game
 		cfg.Game.CreateLobbyGames = r.Form.Has("createLobbyGames")
 		cfg.Game.MinGoldPickupThreshold, _ = strconv.Atoi(r.Form.Get("gameMinGoldPickupThreshold"))
 		cfg.UseCentralizedPickit = r.Form.Has("useCentralizedPickit")
 		cfg.Game.UseCainIdentify = r.Form.Has("useCainIdentify")
+		cfg.Game.InteractWithShrines = r.Form.Has("interactWithShrines")
+		cfg.Game.StopLevelingAt, _ = strconv.Atoi(r.Form.Get("stopLevelingAt"))
+		cfg.Game.IsNonLadderChar = r.Form.Has("isNonLadderChar")
+
+		// Packet Casting
+		cfg.PacketCasting.UseForEntranceInteraction = r.Form.Has("packetCastingUseForEntranceInteraction")
+		cfg.PacketCasting.UseForItemPickup = r.Form.Has("packetCastingUseForItemPickup")
+		cfg.PacketCasting.UseForTpInteraction = r.Form.Has("packetCastingUseForTpInteraction")
 		cfg.Game.Difficulty = difficulty.Difficulty(r.Form.Get("gameDifficulty"))
 		cfg.Game.RandomizeRuns = r.Form.Has("gameRandomizeRuns")
 
@@ -874,6 +1240,9 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Pit.OnlyClearLevel2 = r.Form.Has("gamePitOnlyClearLevel2")
 
 		cfg.Game.Andariel.ClearRoom = r.Form.Has("gameAndarielClearRoom")
+		cfg.Game.Andariel.UseAntidoes = r.Form.Has("gameAndarielUseAntidoes")
+
+		cfg.Game.Countess.ClearFloors = r.Form.Has("gameCountessClearFloors")
 
 		cfg.Game.Pindleskin.SkipOnImmunities = []stat.Resist{}
 		for _, i := range r.Form["gamePindleskinSkipOnImmunities[]"] {
@@ -884,6 +1253,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.StonyTomb.FocusOnElitePacks = r.Form.Has("gameStonytombFocusOnElitePacks")
 		cfg.Game.AncientTunnels.OpenChests = r.Form.Has("gameAncientTunnelsOpenChests")
 		cfg.Game.AncientTunnels.FocusOnElitePacks = r.Form.Has("gameAncientTunnelsFocusOnElitePacks")
+		cfg.Game.Duriel.UseThawing = r.Form.Has("gameDurielUseThawing")
 		cfg.Game.Mausoleum.OpenChests = r.Form.Has("gameMausoleumOpenChests")
 		cfg.Game.Mausoleum.FocusOnElitePacks = r.Form.Has("gameMausoleumFocusOnElitePacks")
 		cfg.Game.DrifterCavern.OpenChests = r.Form.Has("gameDrifterCavernOpenChests")
@@ -925,6 +1295,12 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		cfg.Game.Leveling.EnsurePointsAllocation = r.Form.Has("gameLevelingEnsurePointsAllocation")
 		cfg.Game.Leveling.EnsureKeyBinding = r.Form.Has("gameLevelingEnsureKeyBinding")
+		cfg.Game.Leveling.AutoEquip = r.Form.Has("gameLevelingAutoEquip")
+		cfg.Game.Leveling.AutoEquipFromSharedStash = r.Form.Has("gameLevelingAutoEquipFromSharedStash")
+		// Socket Recipes
+		cfg.Game.Leveling.EnableRunewordMaker = r.Form.Has("gameLevelingEnableRunewordMaker")
+		enabledRunewordRecipes := r.Form["gameLevelingEnabledRunewordRecipes"]
+		cfg.Game.Leveling.EnabledRunewordRecipes = enabledRunewordRecipes
 
 		// Quests options for Act 1
 		cfg.Game.Quests.ClearDen = r.Form.Has("gameQuestsClearDen")
@@ -967,9 +1343,9 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.CubeRecipes.EnabledRecipes = enabledRecipes
 		cfg.CubeRecipes.SkipPerfectAmethysts = r.Form.Has("skipPerfectAmethysts")
 		cfg.CubeRecipes.SkipPerfectRubies = r.Form.Has("skipPerfectRubies")
-		// Companion
 
 		// Companion config
+		cfg.Companion.Enabled = r.Form.Has("companionEnabled")
 		cfg.Companion.Leader = r.Form.Has("companionLeader")
 		cfg.Companion.LeaderName = r.Form.Get("companionLeaderName")
 		cfg.Companion.GameNameTemplate = r.Form.Get("companionGameNameTemplate")
@@ -981,15 +1357,20 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.BackToTown.MercDied = r.Form.Has("mercDied")
 		cfg.BackToTown.EquipmentBroken = r.Form.Has("equipmentBroken")
 
+		// Muling
+		cfg.Muling.Enabled = r.FormValue("mulingEnabled") == "on"
+		cfg.Muling.MuleProfiles = r.Form["mulingMuleProfiles[]"]
+		cfg.Muling.ReturnTo = r.FormValue("mulingReturnTo")
+
 		config.SaveSupervisorConfig(supervisorName, cfg)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
 	supervisor := r.URL.Query().Get("supervisor")
-	cfg := config.Characters["template"]
+	cfg, _ := config.GetCharacter("template")
 	if supervisor != "" {
-		cfg = config.Characters[supervisor]
+		cfg, _ = config.GetCharacter(supervisor)
 	}
 
 	enabledRuns := make([]string, 0)
@@ -1021,13 +1402,162 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 	dayNames := []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
 
+	// Get list of mule profiles (for farmer's mule dropdown)
+	// and farmer profiles (for mule's return character dropdown)
+	muleProfiles := []string{}
+	farmerProfiles := []string{}
+	allCharacters := config.GetCharacters()
+	for profileName, profileCfg := range allCharacters {
+		if strings.ToLower(profileCfg.Character.Class) == "mule" {
+			muleProfiles = append(muleProfiles, profileName)
+		} else {
+			farmerProfiles = append(farmerProfiles, profileName)
+		}
+	}
+	sort.Strings(muleProfiles)
+	sort.Strings(farmerProfiles)
+
 	s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-		Supervisor:   supervisor,
-		Config:       cfg,
-		DayNames:     dayNames,
-		EnabledRuns:  enabledRuns,
-		DisabledRuns: disabledRuns,
-		AvailableTZs: availableTZs,
-		RecipeList:   config.AvailableRecipes,
+		Supervisor:         supervisor,
+		Config:             cfg,
+		DayNames:           dayNames,
+		EnabledRuns:        enabledRuns,
+		DisabledRuns:       disabledRuns,
+		AvailableTZs:       availableTZs,
+		RecipeList:         config.AvailableRecipes,
+		RunewordRecipeList: config.AvailableRunewordRecipes,
+		AvailableProfiles:  muleProfiles,
+		FarmerProfiles:     farmerProfiles,
 	})
 }
+
+// companionJoin handles requests to force a companion to join a game
+func (s *HttpServer) companionJoin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestData struct {
+		Supervisor string `json:"supervisor"`
+		GameName   string `json:"gameName"`
+		Password   string `json:"password"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&requestData)
+	if err != nil {
+		http.Error(w, "Invalid request data", http.StatusBadRequest)
+		return
+	}
+
+	// Check if the supervisor exists and is a companion
+	cfg, found := config.GetCharacter(requestData.Supervisor)
+	if !found {
+		http.Error(w, "Supervisor not found", http.StatusNotFound)
+		return
+	}
+
+	if !cfg.Companion.Enabled || cfg.Companion.Leader {
+		http.Error(w, "Supervisor is not a companion follower", http.StatusBadRequest)
+		return
+	}
+
+	// Create and send the event
+	baseEvent := event.Text(requestData.Supervisor, fmt.Sprintf("Manual request to join game %s", requestData.GameName))
+	joinEvent := event.RequestCompanionJoinGame(baseEvent, cfg.CharacterName, requestData.GameName, requestData.Password)
+
+	// Send the event
+	event.Send(joinEvent)
+
+	s.logger.Info("Manual companion join request sent",
+		slog.String("supervisor", requestData.Supervisor),
+		slog.String("game", requestData.GameName))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (s *HttpServer) resetMuling(w http.ResponseWriter, r *http.Request) {
+	characterName := r.URL.Query().Get("characterName")
+	if characterName == "" {
+		http.Error(w, "Character name is required", http.StatusBadRequest)
+		return
+	}
+
+	cfg, found := config.GetCharacter(characterName)
+	if !found {
+		http.Error(w, "Character config not found", http.StatusNotFound)
+		return
+	}
+
+	s.logger.Info("Resetting muling index for character", "character", characterName)
+	cfg.MulingState.CurrentMuleIndex = 0
+
+	err := config.SaveSupervisorConfig(characterName, cfg)
+	if err != nil {
+		http.Error(w, "Failed to save updated config", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// openDroplogs opens the droplogs directory in Windows Explorer.
+func (s *HttpServer) openDroplogs(w http.ResponseWriter, r *http.Request) {
+	base := config.Koolo.LogSaveDirectory
+	if base == "" {
+		base = "logs"
+	}
+	dir := filepath.Join(base, "droplogs")
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		http.Error(w, fmt.Sprintf("failed to create directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Open folder using Windows Explorer
+	cmd := exec.Command("explorer.exe", dir)
+	if err := cmd.Start(); err != nil {
+		http.Error(w, fmt.Sprintf("failed to open folder: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "dir": dir})
+}
+
+// resetDroplogs removes droplog JSONL/HTML files from the droplogs directory.
+func (s *HttpServer) resetDroplogs(w http.ResponseWriter, r *http.Request) {
+	base := config.Koolo.LogSaveDirectory
+	if base == "" {
+		base = "logs"
+	}
+	dir := filepath.Join(base, "droplogs")
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		http.Error(w, fmt.Sprintf("failed to create directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to list directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	removed := 0
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := strings.ToLower(e.Name())
+		if strings.HasSuffix(name, ".jsonl") || strings.HasSuffix(name, ".html") {
+			_ = os.Remove(filepath.Join(dir, e.Name()))
+			removed++
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "dir": dir, "removed": removed})
+}
+

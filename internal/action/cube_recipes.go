@@ -207,6 +207,38 @@ var (
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Ring"},
 		},
+		
+		// Caster Belt
+		{
+			Name:             "Caster Belt",
+			Items:            []string{"IthRune", "PerfectAmethyst", "Jewel"},
+			PurchaseRequired: true,
+			PurchaseItems:    []string{"LightBelt", "SharkskinBelt", "VampirefangBelt"},
+		},
+
+		// Caster Boots
+		{
+			Name:             "Caster Boots",
+			Items:            []string{"ThulRune", "PerfectAmethyst", "Jewel"},
+			PurchaseRequired: true,
+			PurchaseItems:    []string{"Boots", "DemonhideBoots", "WyrmhideBoots"},
+		},
+		
+		// Blood Amulet
+		{
+			Name:             "Blood Amulet",
+			Items:            []string{"AmnRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: true,
+			PurchaseItems:    []string{"Amulet"},
+		},	
+
+		// Blood Ring
+		{
+			Name:             "Blood Ring",
+			Items:            []string{"SolRune", "PerfectRuby", "Jewel"},
+			PurchaseRequired: true,
+			PurchaseItems:    []string{"Ring"},
+		},	
 
 		// Blood Gloves
 		{
@@ -413,19 +445,19 @@ func CubeRecipes() error {
 				stashingGrandCharm := false
 
 				// Check if the items that are not in the protected invetory slots should be stashed
-				for _, item := range itemsInInv {
+				for _, it := range itemsInInv {
 					// If item is not in the protected slots, check if it should be stashed
-					if ctx.CharacterCfg.Inventory.InventoryLock[item.Position.Y][item.Position.X] == 1 {
-						if item.Name == "Key" {
+					if ctx.CharacterCfg.Inventory.InventoryLock[it.Position.Y][it.Position.X] == 1 {
+						if it.Name == "Key" || it.IsPotion() || it.Name == item.TomeOfTownPortal || it.Name == item.TomeOfIdentify {
 							continue
 						}
 
-						shouldStash, reason, _ := shouldStashIt(item, false)
+						shouldStash, _, reason, _ := shouldStashIt(it, false)
 
 						if shouldStash {
-							ctx.Logger.Debug("Stashing item after cube recipe.", "item", item.Name, "recipe", recipe.Name, "reason", reason)
+							ctx.Logger.Debug("Stashing item after cube recipe.", "item", it.Name, "recipe", recipe.Name, "reason", reason)
 							stashingRequired = true
-						} else if item.Name == "GrandCharm" {
+						} else if it.Name == "GrandCharm" {
 							ctx.Logger.Debug("Checking if we need to stash a GrandCharm that doesn't match any NIP rules.", "recipe", recipe.Name)
 							// Check if we have a GrandCharm in stash that doesn't match any NIP rules
 							hasUnmatchedGrandCharm := false
@@ -444,11 +476,11 @@ func CubeRecipes() error {
 								stashingGrandCharm = true
 
 							} else {
-								DropInventoryItem(item)
+								DropInventoryItem(it)
 								utils.Sleep(500)
 							}
 						} else {
-							DropInventoryItem(item)
+							DropInventoryItem(it)
 							utils.Sleep(500)
 						}
 					}

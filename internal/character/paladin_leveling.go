@@ -1,19 +1,24 @@
 package character
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
 	"time"
 
-	"github.com/hectorgimenez/koolo/internal/action/step"
-	"github.com/hectorgimenez/koolo/internal/game"
-
 	"github.com/hectorgimenez/d2go/pkg/data"
+	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
+	"github.com/hectorgimenez/koolo/internal/action"
+	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/game"
 )
+
+var _ context.LevelingCharacter = (*PaladinLeveling)(nil)
 
 const (
 	paladinLevelingMaxAttacksLoop = 10
@@ -24,7 +29,7 @@ type PaladinLeveling struct {
 }
 
 func (s PaladinLeveling) CheckKeyBindings() []skill.ID {
-	requireKeybindings := []skill.ID{skill.TomeOfTownPortal}
+	requireKeybindings := []skill.ID{}
 	missingKeybindings := []skill.ID{}
 
 	for _, cskill := range requireKeybindings {
@@ -44,14 +49,48 @@ func (s PaladinLeveling) KillMonsterSequence(
 	monsterSelector func(d game.Data) (data.UnitID, bool),
 	skipOnImmunities []stat.Resist,
 ) error {
+	const priorityMonsterSearchRange = 15
 	completedAttackLoops := 0
 	previousUnitID := 0
 
+	priorityMonsters := []npc.ID{npc.FallenShaman, npc.MummyGenerator, npc.BaalSubjectMummy, npc.FetishShaman, npc.CarverShaman}
+
 	for {
-		id, found := monsterSelector(*s.Data)
+		var id data.UnitID
+		var found bool
+
+		var closestPriorityMonster data.Monster
+		minDistance := -1
+
+		for _, monsterNpcID := range priorityMonsters {
+
+			for _, m := range s.Data.Monsters {
+				if m.Name == monsterNpcID && m.Stats[stat.Life] > 0 {
+					distance := s.PathFinder.DistanceFromMe(m.Position)
+					if distance < priorityMonsterSearchRange {
+						if minDistance == -1 || distance < minDistance {
+							minDistance = distance
+							closestPriorityMonster = m
+						}
+					}
+				}
+			}
+		}
+
+		if minDistance != -1 {
+			id = closestPriorityMonster.UnitID
+			found = true
+			s.Logger.Debug("Priority monster found", "name", closestPriorityMonster.Name, "distance", minDistance)
+		}
+
+		if !found {
+			id, found = monsterSelector(*s.Data)
+		}
+
 		if !found {
 			return nil
 		}
+
 		if previousUnitID != int(id) {
 			completedAttackLoops = 0
 		}
@@ -71,10 +110,10 @@ func (s PaladinLeveling) KillMonsterSequence(
 		}
 
 		numOfAttacks := 5
+		lvl, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
 
 		if s.Data.PlayerUnit.Skills[skill.BlessedHammer].Level > 0 {
 			s.Logger.Debug("Using Blessed Hammer")
-			// Add a random movement, maybe hammer is not hitting the target
 			if previousUnitID == int(id) {
 				if monster.Stats[stat.Life] > 0 {
 					s.PathFinder.RandomMovement()
@@ -83,12 +122,20 @@ func (s PaladinLeveling) KillMonsterSequence(
 			}
 			step.PrimaryAttack(id, numOfAttacks, false, step.Distance(2, 7), step.EnsureAura(skill.Concentration))
 
-		} else {
-			if s.Data.PlayerUnit.Skills[skill.Zeal].Level > 0 {
-				s.Logger.Debug("Using Zeal")
-				numOfAttacks = 1
-			}
-			s.Logger.Debug("Using primary attack with Holy Fire aura")
+			s.Logger.Debug("Performing random movement to reposition.")
+			s.PathFinder.RandomMovement()
+			time.Sleep(time.Millisecond * 150)
+		} else if lvl.Value < 6 {
+			s.Logger.Debug("Using Might and Sacrifice")
+			numOfAttacks = 1
+			step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.Might))
+		} else if lvl.Value >= 6 && lvl.Value < 12 {
+			s.Logger.Debug("Using Holy Fire and Sacrifice")
+			numOfAttacks = 1
+			step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.HolyFire))
+		} else { // 12-24
+			s.Logger.Debug("Using Holy Fire and Zeal")
+			numOfAttacks = 1
 			step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.HolyFire))
 		}
 
@@ -113,7 +160,6 @@ func (s PaladinLeveling) BuffSkills() []skill.ID {
 	if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.HolyShield); found {
 		skillsList = append(skillsList, skill.HolyShield)
 	}
-	s.Logger.Info("Buff skills", "skills", skillsList)
 	return skillsList
 }
 
@@ -123,8 +169,8 @@ func (s PaladinLeveling) PreCTABuffSkills() []skill.ID {
 
 func (s PaladinLeveling) ShouldResetSkills() bool {
 	lvl, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
-	if lvl.Value >= 21 && s.Data.PlayerUnit.Skills[skill.HolyFire].Level > 10 {
-		s.Logger.Info("Resetting skills: Level 21+ and Holy Fire level > 10")
+	if lvl.Value == 24 && s.Data.PlayerUnit.Skills[skill.HolyFire].Level > 10 {
+		s.Logger.Info("Resetting skills: Level 24 and Holy Fire level > 10")
 		return true
 	}
 
@@ -141,22 +187,47 @@ func (s PaladinLeveling) SkillsToBind() (skill.ID, []skill.ID) {
 	}
 
 	if lvl.Value >= 24 {
+		skillBindings = append(skillBindings, skill.BlessedHammer)
+	}
+
+	if s.Data.PlayerUnit.Skills[skill.HolyShield].Level > 0 {
 		skillBindings = append(skillBindings, skill.HolyShield)
 	}
 
 	if s.Data.PlayerUnit.Skills[skill.BlessedHammer].Level > 0 && lvl.Value >= 18 {
 		mainSkill = skill.BlessedHammer
-	} else if s.Data.PlayerUnit.Skills[skill.Zeal].Level > 0 {
+	} else if lvl.Value < 6 {
+		mainSkill = skill.Sacrifice
+	} else if lvl.Value >= 6 && lvl.Value < 12 {
+		mainSkill = skill.Sacrifice
+	} else {
 		mainSkill = skill.Zeal
+	}
+
+	if s.Data.PlayerUnit.Skills[skill.BattleCommand].Level > 0 {
+		skillBindings = append(skillBindings, skill.BattleCommand)
+	}
+
+	if s.Data.PlayerUnit.Skills[skill.BattleOrders].Level > 0 {
+		skillBindings = append(skillBindings, skill.BattleOrders)
+	}
+
+	_, found := s.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory)
+	if found {
+		skillBindings = append(skillBindings, skill.TomeOfTownPortal)
 	}
 
 	if s.Data.PlayerUnit.Skills[skill.Concentration].Level > 0 && lvl.Value >= 18 {
 		skillBindings = append(skillBindings, skill.Concentration)
 	} else {
-		if _, found := s.Data.PlayerUnit.Skills[skill.HolyFire]; found {
-			skillBindings = append(skillBindings, skill.HolyFire)
-		} else if _, found := s.Data.PlayerUnit.Skills[skill.Might]; found {
-			skillBindings = append(skillBindings, skill.Might)
+		if lvl.Value < 6 {
+			if _, found := s.Data.PlayerUnit.Skills[skill.Might]; found {
+				skillBindings = append(skillBindings, skill.Might)
+			}
+		} else {
+			if _, found := s.Data.PlayerUnit.Skills[skill.HolyFire]; found {
+				skillBindings = append(skillBindings, skill.HolyFire)
+			}
 		}
 	}
 
@@ -164,159 +235,76 @@ func (s PaladinLeveling) SkillsToBind() (skill.ID, []skill.ID) {
 	return mainSkill, skillBindings
 }
 
-func (s PaladinLeveling) StatPoints() map[stat.ID]int {
-	lvl, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
-	statPoints := make(map[stat.ID]int)
+func (s PaladinLeveling) StatPoints() []context.StatAllocation {
 
-	if lvl.Value < 21 {
-		statPoints[stat.Strength] = 0
-		statPoints[stat.Dexterity] = 25
-		statPoints[stat.Vitality] = 150
-		statPoints[stat.Energy] = 0
-	} else if lvl.Value < 30 {
-		statPoints[stat.Strength] = 35
-		statPoints[stat.Vitality] = 200
-		statPoints[stat.Energy] = 0
-	} else if lvl.Value < 45 {
-		statPoints[stat.Strength] = 50
-		statPoints[stat.Dexterity] = 40
-		statPoints[stat.Vitality] = 220
-		statPoints[stat.Energy] = 0
-	} else {
-		statPoints[stat.Strength] = 86
-		statPoints[stat.Dexterity] = 50
-		statPoints[stat.Vitality] = 300
-		statPoints[stat.Energy] = 0
+	// Define target totals (including base stats)
+	targets := []context.StatAllocation{
+		{Stat: stat.Vitality, Points: 30},   // lvl 3
+		{Stat: stat.Strength, Points: 30},   // lvl 4
+		{Stat: stat.Vitality, Points: 35},   // lvl 5
+		{Stat: stat.Strength, Points: 35},   // lvl 6
+		{Stat: stat.Vitality, Points: 40},   // lvl 7
+		{Stat: stat.Strength, Points: 40},   // lvl 8
+		{Stat: stat.Vitality, Points: 50},   // lvl 10
+		{Stat: stat.Strength, Points: 80},   // lvl 16
+		{Stat: stat.Vitality, Points: 100},  // lvl 26
+		{Stat: stat.Strength, Points: 95},   // lvl 29
+		{Stat: stat.Vitality, Points: 205},  // lvl 50
+		{Stat: stat.Dexterity, Points: 100}, // lvl 66
+		{Stat: stat.Vitality, Points: 999},
 	}
 
-	s.Logger.Info("Assigning stat points", "level", lvl.Value, "statPoints", statPoints)
-	return statPoints
+	return targets
 }
 
 func (s PaladinLeveling) SkillPoints() []skill.ID {
 	lvl, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
-	var skillPoints []skill.ID
 
-	if lvl.Value < 21 {
-		skillPoints = []skill.ID{
-			skill.Might,
-			skill.Sacrifice,
-			skill.ResistFire,
-			skill.ResistFire,
-			skill.ResistFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.Zeal,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
-			skill.HolyFire,
+	var skillSequence []skill.ID
+
+	if lvl.Value < 24 {
+		// Holy Fire build allocation for levels 1-23
+		skillSequence = []skill.ID{
+			skill.Might, skill.Sacrifice, skill.ResistFire, skill.ResistFire, skill.ResistFire,
+			skill.HolyFire, skill.HolyFire, skill.HolyFire, skill.HolyFire, skill.HolyFire,
+			skill.HolyFire, skill.Zeal, skill.HolyFire, skill.HolyFire, skill.HolyFire,
+			skill.HolyFire, skill.HolyFire, skill.HolyFire, skill.HolyFire, skill.HolyFire,
+			skill.HolyFire, skill.HolyFire, skill.HolyFire,
 		}
 	} else {
-		// Hammerdin
-		skillPoints = []skill.ID{
-			skill.HolyBolt,
+		// Hammerdin build allocation for levels 24+
+		skillSequence = []skill.ID{
+			skill.Might, skill.HolyBolt, skill.Prayer, skill.Defiance, skill.BlessedAim,
+			skill.Cleansing, skill.Concentration, skill.Vigor, skill.Smite, skill.Charge,
 			skill.BlessedHammer,
-			skill.Prayer,
-			skill.Defiance,
-			skill.Cleansing,
-			skill.Vigor,
-			skill.Might,
-			skill.BlessedAim,
-			skill.Concentration,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			// Level 19
-			skill.BlessedHammer,
-			skill.Concentration,
-			skill.Vigor,
-			// Level 20
-			skill.BlessedHammer,
-			skill.Vigor,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.Vigor,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.Smite,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.BlessedHammer,
-			skill.Charge,
-			skill.BlessedHammer,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
 			skill.HolyShield,
-			skill.Concentration,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Vigor,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.Concentration,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
-			skill.BlessedAim,
+			skill.BlessedHammer, skill.Concentration, skill.BlessedHammer, skill.Concentration,
+			skill.BlessedHammer, skill.Concentration, skill.BlessedHammer, skill.Concentration,
+			skill.BlessedHammer, skill.Concentration, skill.BlessedHammer, skill.Concentration,
+			skill.BlessedHammer, skill.Concentration, skill.BlessedHammer, skill.Concentration,
+			skill.BlessedHammer, skill.Concentration,
+			skill.BlessedHammer, skill.BlessedHammer, skill.BlessedHammer, skill.BlessedHammer,
+			skill.BlessedHammer, skill.BlessedHammer, skill.BlessedHammer, skill.BlessedHammer,
+			skill.BlessedHammer,
+			skill.Concentration, skill.Concentration, skill.Concentration,
+			skill.Concentration, skill.Concentration, skill.Concentration, skill.Concentration,
+			skill.Concentration, skill.Concentration, skill.Concentration,
+			skill.Vigor, skill.Vigor, skill.Vigor, skill.Vigor, skill.Vigor,
+			skill.Vigor, skill.Vigor, skill.Vigor, skill.Vigor, skill.Vigor,
+			skill.Vigor, skill.Vigor, skill.Vigor, skill.Vigor, skill.Vigor,
+			skill.Vigor, skill.Vigor, skill.Vigor, skill.Vigor,
+			skill.BlessedAim, skill.BlessedAim, skill.BlessedAim, skill.BlessedAim, skill.BlessedAim,
+			skill.BlessedAim, skill.BlessedAim, skill.BlessedAim, skill.BlessedAim, skill.BlessedAim,
+			skill.BlessedAim, skill.BlessedAim, skill.BlessedAim, skill.BlessedAim, skill.BlessedAim,
+			skill.BlessedAim, skill.BlessedAim, skill.BlessedAim, skill.BlessedAim,
+			skill.HolyShield, skill.HolyShield, skill.HolyShield, skill.HolyShield, skill.HolyShield,
+			skill.HolyShield, skill.HolyShield, skill.HolyShield, skill.HolyShield, skill.HolyShield,
+			skill.HolyShield, skill.HolyShield, skill.HolyShield, skill.HolyShield, skill.HolyShield,
+			skill.HolyShield, skill.HolyShield, skill.HolyShield,
 		}
 	}
 
-	s.Logger.Info("Assigning skill points", "level", lvl.Value, "skillPoints", skillPoints)
-	return skillPoints
+	return skillSequence
 }
 
 func (s PaladinLeveling) KillCountess() error {
@@ -324,7 +312,39 @@ func (s PaladinLeveling) KillCountess() error {
 }
 
 func (s PaladinLeveling) KillAndariel() error {
-	return s.killMonster(npc.Andariel, data.MonsterTypeUnique)
+	s.Logger.Info("Starting Andariel kill sequence...")
+	timeout := time.Second * 160
+	startTime := time.Now()
+
+	for {
+		andariel, found := s.Data.Monsters.FindOne(npc.Andariel, data.MonsterTypeUnique)
+		if !found {
+			if time.Since(startTime) > timeout {
+				s.Logger.Error("Andariel was not found, timeout reached.")
+				return errors.New("Andariel not found within the time limit")
+			}
+			time.Sleep(time.Second / 2)
+			continue
+		}
+
+		if andariel.Stats[stat.Life] <= 0 {
+			s.Logger.Info("Andariel is dead.")
+			return nil
+		}
+
+		numOfAttacks := 5
+		if s.Data.PlayerUnit.Skills[skill.BlessedHammer].Level > 0 {
+			step.PrimaryAttack(andariel.UnitID, numOfAttacks, false, step.Distance(2, 7), step.EnsureAura(skill.Concentration))
+			s.Logger.Debug("Performing random movement to reposition.")
+			s.PathFinder.RandomMovement()
+			time.Sleep(time.Millisecond * 250)
+		} else {
+			if s.Data.PlayerUnit.Skills[skill.Zeal].Level > 0 {
+				numOfAttacks = 1 // Zeal is a multi-hit skill, 1 click is a sequence of attacks
+			}
+			step.PrimaryAttack(andariel.UnitID, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.HolyFire))
+		}
+	}
 }
 
 func (s PaladinLeveling) KillSummoner() error {
@@ -332,7 +352,39 @@ func (s PaladinLeveling) KillSummoner() error {
 }
 
 func (s PaladinLeveling) KillDuriel() error {
-	return s.killMonster(npc.Duriel, data.MonsterTypeUnique)
+	s.Logger.Info("Starting Duriel kill sequence...")
+	timeout := time.Second * 120
+	startTime := time.Now()
+
+	for {
+		duriel, found := s.Data.Monsters.FindOne(npc.Duriel, data.MonsterTypeUnique)
+		if !found {
+			if time.Since(startTime) > timeout {
+				s.Logger.Error("Duriel was not found, timeout reached.")
+				return errors.New("Duriel not found within the time limit")
+			}
+			time.Sleep(time.Second / 2)
+			continue
+		}
+
+		if duriel.Stats[stat.Life] <= 0 {
+			s.Logger.Info("Duriel is dead.")
+			return nil
+		}
+
+		numOfAttacks := 5
+		if s.Data.PlayerUnit.Skills[skill.BlessedHammer].Level > 0 {
+			step.PrimaryAttack(duriel.UnitID, numOfAttacks, false, step.Distance(2, 7), step.EnsureAura(skill.Concentration))
+			s.Logger.Debug("Performing random movement to reposition.")
+			s.PathFinder.RandomMovement()
+			time.Sleep(time.Millisecond * 250)
+		} else {
+			if s.Data.PlayerUnit.Skills[skill.Zeal].Level > 0 {
+				numOfAttacks = 1 // Zeal is a multi-hit skill, 1 click is a sequence of attacks
+			}
+			step.PrimaryAttack(duriel.UnitID, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.HolyFire))
+		}
+	}
 }
 
 func (s PaladinLeveling) KillCouncil() error {
@@ -363,39 +415,116 @@ func (s PaladinLeveling) KillCouncil() error {
 }
 
 func (s PaladinLeveling) KillMephisto() error {
-	return s.killMonster(npc.Mephisto, data.MonsterTypeUnique)
-}
-func (s PaladinLeveling) KillIzual() error {
-	return s.killMonster(npc.Izual, data.MonsterTypeUnique)
-}
-
-func (s PaladinLeveling) KillDiablo() error {
-	timeout := time.Second * 20
+	s.Logger.Info("Starting Mephisto kill sequence...")
+	timeout := time.Second * 160
 	startTime := time.Now()
-	diabloFound := false
 
 	for {
-		if time.Since(startTime) > timeout && !diabloFound {
-			s.Logger.Error("Diablo was not found, timeout reached")
-			return nil
-		}
-
-		diablo, found := s.Data.Monsters.FindOne(npc.Diablo, data.MonsterTypeUnique)
-		if !found || diablo.Stats[stat.Life] <= 0 {
-			// Already dead
-			if diabloFound {
-				return nil
+		mephisto, found := s.Data.Monsters.FindOne(npc.Mephisto, data.MonsterTypeUnique)
+		if !found {
+			if time.Since(startTime) > timeout {
+				s.Logger.Error("Mephisto was not found, timeout reached.")
+				return errors.New("Mephisto not found within the time limit")
 			}
-
-			// Keep waiting...
-			time.Sleep(200)
+			time.Sleep(time.Second / 2)
 			continue
 		}
 
-		diabloFound = true
-		s.Logger.Info("Diablo detected, attacking")
+		if mephisto.Stats[stat.Life] <= 0 {
+			s.Logger.Info("Mephisto is dead.")
+			return nil
+		}
 
-		return s.killMonster(npc.Diablo, data.MonsterTypeUnique)
+		numOfAttacks := 5
+		if s.Data.PlayerUnit.Skills[skill.BlessedHammer].Level > 0 {
+			step.PrimaryAttack(mephisto.UnitID, numOfAttacks, false, step.Distance(2, 7), step.EnsureAura(skill.Concentration))
+			s.Logger.Debug("Performing random movement to reposition.")
+			s.PathFinder.RandomMovement()
+			time.Sleep(time.Millisecond * 250)
+		} else {
+			if s.Data.PlayerUnit.Skills[skill.Zeal].Level > 0 {
+				numOfAttacks = 1 // Zeal is a multi-hit skill, 1 click is a sequence of attacks
+			}
+			step.PrimaryAttack(mephisto.UnitID, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.HolyFire))
+		}
+	}
+}
+
+func (s PaladinLeveling) KillIzual() error {
+	s.Logger.Info("Starting Izual kill sequence...")
+	timeout := time.Second * 120
+	startTime := time.Now()
+
+	for {
+		izual, found := s.Data.Monsters.FindOne(npc.Izual, data.MonsterTypeUnique)
+		if !found {
+			if time.Since(startTime) > timeout {
+				s.Logger.Error("Izual was not found, timeout reached.")
+				return errors.New("Izual not found within the time limit")
+			}
+			time.Sleep(time.Second / 2)
+			continue
+		}
+
+		distance := s.PathFinder.DistanceFromMe(izual.Position)
+		if distance > 7 {
+			s.Logger.Debug(fmt.Sprintf("Izual is too far away (%d), moving closer.", distance))
+			step.MoveTo(izual.Position)
+			continue
+		}
+
+		if izual.Stats[stat.Life] <= 0 {
+			s.Logger.Info("Izual is dead.")
+			return nil
+		}
+
+		numOfAttacks := 5
+		if s.Data.PlayerUnit.Skills[skill.BlessedHammer].Level > 0 {
+			step.PrimaryAttack(izual.UnitID, numOfAttacks, false, step.Distance(2, 7), step.EnsureAura(skill.Concentration))
+			s.Logger.Debug("Performing random movement to reposition.")
+			s.PathFinder.RandomMovement()
+			time.Sleep(time.Millisecond * 250)
+		} else {
+			if s.Data.PlayerUnit.Skills[skill.Zeal].Level > 0 {
+				numOfAttacks = 1
+			}
+			step.PrimaryAttack(izual.UnitID, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.HolyFire))
+		}
+	}
+}
+
+func (s PaladinLeveling) KillDiablo() error {
+	s.Logger.Info("Starting Diablo kill sequence...")
+	timeout := time.Second * 120
+	startTime := time.Now()
+
+	for {
+		diablo, found := s.Data.Monsters.FindOne(npc.Diablo, data.MonsterTypeUnique)
+
+		if !found {
+			if time.Since(startTime) > timeout {
+				s.Logger.Error("Diablo was not found, timeout reached.")
+				return errors.New("diablo not found within the time limit")
+			}
+			time.Sleep(time.Second / 2)
+			continue
+		}
+
+		if diablo.Stats[stat.Life] <= 0 {
+			s.Logger.Info("Diablo is dead.")
+			return nil
+		}
+
+		numOfAttacks := 10
+		if s.Data.PlayerUnit.Skills[skill.BlessedHammer].Level > 0 {
+			step.PrimaryAttack(diablo.UnitID, numOfAttacks, false, step.Distance(2, 7), step.EnsureAura(skill.Concentration))
+			time.Sleep(time.Millisecond * 250)
+		} else {
+			if s.Data.PlayerUnit.Skills[skill.Zeal].Level > 0 {
+				numOfAttacks = 1
+			}
+			step.PrimaryAttack(diablo.UnitID, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.HolyFire))
+		}
 	}
 }
 
@@ -408,14 +537,69 @@ func (s PaladinLeveling) KillNihlathak() error {
 }
 
 func (s PaladinLeveling) KillAncients() error {
-	for _, m := range s.Data.Monsters.Enemies(data.MonsterEliteFilter()) {
-		m, _ := s.Data.Monsters.FindOne(m.Name, data.MonsterTypeSuperUnique)
+	originalBackToTownCfg := s.CharacterCfg.BackToTown
+	s.CharacterCfg.BackToTown.NoHpPotions = false
+	s.CharacterCfg.BackToTown.NoMpPotions = false
+	s.CharacterCfg.BackToTown.EquipmentBroken = false
+	s.CharacterCfg.BackToTown.MercDied = false
 
-		s.killMonster(m.Name, data.MonsterTypeSuperUnique)
+	for _, m := range s.Data.Monsters.Enemies(data.MonsterEliteFilter()) {
+		foundMonster, found := s.Data.Monsters.FindOne(m.Name, data.MonsterTypeSuperUnique)
+		if !found {
+			continue
+		}
+		step.MoveTo(data.Position{X: 10062, Y: 12639})
+
+		s.killMonster(foundMonster.Name, data.MonsterTypeSuperUnique)
+
 	}
+
+	s.CharacterCfg.BackToTown = originalBackToTownCfg
+	s.Logger.Info("Restored original back-to-town checks after Ancients fight.")
 	return nil
 }
 
 func (s PaladinLeveling) KillBaal() error {
-	return s.killMonster(npc.BaalCrab, data.MonsterTypeUnique)
+
+	s.Logger.Info("Starting Baal kill sequence...")
+	timeout := time.Second * 600
+	startTime := time.Now()
+
+	for {
+		baal, found := s.Data.Monsters.FindOne(npc.BaalCrab, data.MonsterTypeUnique)
+
+		if !found {
+			if time.Since(startTime) > timeout {
+				s.Logger.Error("Baal was not found, timeout reached.")
+				return errors.New("Baal not found within the time limit")
+			}
+			time.Sleep(time.Second / 2)
+			continue
+		}
+
+		if baal.Stats[stat.Life] <= 0 {
+			s.Logger.Info("Baal is dead.")
+			return nil
+		}
+
+		numOfAttacks := 5
+		if s.Data.PlayerUnit.Skills[skill.BlessedHammer].Level > 0 {
+			step.PrimaryAttack(baal.UnitID, numOfAttacks, false, step.Distance(2, 7), step.EnsureAura(skill.Concentration))
+			s.Logger.Debug("Performing random movement to reposition.")
+			s.PathFinder.RandomMovement()
+			time.Sleep(time.Millisecond * 250)
+		} else {
+			if s.Data.PlayerUnit.Skills[skill.Zeal].Level > 0 {
+				numOfAttacks = 1
+			}
+			step.PrimaryAttack(baal.UnitID, numOfAttacks, false, step.Distance(1, 3), step.EnsureAura(skill.HolyFire))
+		}
+	}
+
+}
+
+func (s PaladinLeveling) GetAdditionalRunewords() []string {
+	additionalRunewords := action.GetCastersCommonRunewords()
+	additionalRunewords = append(additionalRunewords, "Steel")
+	return additionalRunewords
 }

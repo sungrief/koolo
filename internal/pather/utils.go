@@ -73,6 +73,14 @@ func (pf *PathFinder) OptimizeRoomsTraverseOrder() []data.Room {
 }
 
 func (pf *PathFinder) MoveThroughPath(p Path, walkDuration time.Duration) {
+	if pf.data.CanTeleport() {
+		pf.moveThroughPathTeleport(p)
+	} else {
+		pf.moveThroughPathWalk(p, walkDuration)
+	}
+}
+
+func (pf *PathFinder) moveThroughPathWalk(p Path, walkDuration time.Duration) {
 	// Calculate the max distance we can walk in the given duration
 	maxDistance := int(float64(25) * walkDuration.Seconds())
 
@@ -99,6 +107,27 @@ func (pf *PathFinder) MoveThroughPath(p Path, walkDuration time.Duration) {
 	}
 
 	pf.MoveCharacter(screenCords.X, screenCords.Y)
+}
+
+func (pf *PathFinder) moveThroughPathTeleport(p Path) {
+	hudBoundary := int(float32(pf.gr.GameAreaSizeY) / 1.21)
+	fromX, fromY := p.From().X, p.From().Y
+
+	for i := len(p) - 1; i >= 0; i-- {
+		pos := p[i]
+		screenX, screenY := pf.gameCoordsToScreenCords(fromX, fromY, pos.X, pos.Y)
+
+		// Prevent mouse overlap the HUD
+		if screenY > hudBoundary {
+			continue
+		}
+
+		// Check if coordinates are within screen bounds
+		if screenX >= 0 && screenY >= 0 && screenX <= pf.gr.GameAreaSizeX && screenY <= pf.gr.GameAreaSizeY {
+			pf.MoveCharacter(screenX, screenY)
+			return
+		}
+	}
 }
 
 func (pf *PathFinder) MoveCharacter(x, y int) {
@@ -179,6 +208,21 @@ func (pf *PathFinder) LineOfSight(origin data.Position, destination data.Positio
 	}
 
 	return true
+}
+
+func (pf *PathFinder) HasDoorBetween(origin data.Position, destination data.Position) (bool, *data.Object) {
+	path, _, pathFound := pf.GetPathFrom(origin, destination)
+	if !pathFound {
+		return false, nil
+	}
+
+	for _, o := range pf.data.Objects {
+		if o.IsDoor() && o.Selectable && path.Intersects(*pf.data, o.Position, 4) {
+			return true, &o
+		}
+	}
+
+	return false, nil
 }
 
 // BeyondPosition calculates a new position that is a specified distance beyond the target position when viewed from the start position

@@ -23,3 +23,5 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 )
+
+replace github.com/hectorgimenez/d2go => github.com/kwader2k/d2go v0.0.0-20251018090433-e882b40af472

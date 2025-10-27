@@ -6,6 +6,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/pather/astar"
@@ -106,6 +107,37 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 		grid.CollisionGrid[relativePos.Y][relativePos.X] = game.CollisionTypeMonster
 	}
 
+	// set barricade tower as non walkable in act 5
+	if a.Area == area.FrigidHighlands || a.Area == area.FrozenTundra || a.Area == area.ArreatPlateau {
+		towerCount := 0
+		for _, n := range pf.data.NPCs {
+			if n.ID != npc.BarricadeTower {
+				continue
+			}
+			if len(n.Positions) == 0 {
+				continue
+			}
+			npcPos := n.Positions[0]
+			relativePos := grid.RelativePosition(npcPos)
+			towerCount++
+
+			// Set a 5x5 area around the barricade tower as non-walkable
+			blockedCells := 0
+			for dy := -2; dy <= 2; dy++ {
+				for dx := -2; dx <= 2; dx++ {
+					towerY := relativePos.Y + dy
+					towerX := relativePos.X + dx
+
+					// Bounds checking to prevent array index out of bounds
+					if towerY >= 0 && towerY < len(grid.CollisionGrid) &&
+						towerX >= 0 && towerX < len(grid.CollisionGrid[towerY]) {
+						grid.CollisionGrid[towerY][towerX] = game.CollisionTypeNonWalkable
+						blockedCells++
+					}
+				}
+			}
+		}
+	}
 	path, distance, found := astar.CalculatePath(grid, from, to)
 
 	if config.Koolo.Debug.RenderMap {

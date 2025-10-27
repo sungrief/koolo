@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -16,6 +17,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	cp "github.com/otiai10/copy"
 
 	"github.com/hectorgimenez/d2go/pkg/nip"
@@ -24,6 +26,7 @@ import (
 )
 
 var (
+	cfgMux     sync.RWMutex
 	Koolo      *KooloCfg
 	Characters map[string]*CharacterCfg
 	Version    = "dev"
@@ -48,6 +51,7 @@ type KooloCfg struct {
 		EnableNewRunMessages         bool     `yaml:"enableNewRunMessages"`
 		EnableRunFinishMessages      bool     `yaml:"enableRunFinishMessages"`
 		EnableDiscordChickenMessages bool     `yaml:"enableDiscordChickenMessages"`
+		EnableDiscordErrorMessages   bool     `yaml:"enableDiscordErrorMessages"`
 		BotAdmins                    []string `yaml:"botAdmins"`
 		ChannelID                    string   `yaml:"channelId"`
 		Token                        string   `yaml:"token"`
@@ -88,7 +92,17 @@ type CharacterCfg struct {
 	CloseMiniPanel       bool   `yaml:"closeMiniPanel"`
 	UseCentralizedPickit bool   `yaml:"useCentralizedPickit"`
 	HidePortraits        bool   `yaml:"hidePortraits"`
+	Shopping ShoppingConfig `yaml:"shopping"`
 
+	ConfigFolderName string `yaml:"-"`
+
+	// Packet casting options (disabled by default for safety)
+	PacketCasting struct {
+		UseForEntranceInteraction bool `yaml:"useForEntranceInteraction"`
+		UseForItemPickup          bool `yaml:"useForItemPickup"`
+		UseForTpInteraction       bool `yaml:"useForTpInteraction"`
+	} `yaml:"packetCasting"`
+	
 	Scheduler Scheduler `yaml:"scheduler"`
 	Health    struct {
 		HealingPotionAt     int `yaml:"healingPotionAt"`
@@ -101,18 +115,31 @@ type CharacterCfg struct {
 		MercChickenAt       int `yaml:"mercChickenAt"`
 	} `yaml:"health"`
 	Inventory struct {
-		InventoryLock [][]int     `yaml:"inventoryLock"`
-		BeltColumns   BeltColumns `yaml:"beltColumns"`
+		InventoryLock      [][]int     `yaml:"inventoryLock"`
+		BeltColumns        BeltColumns `yaml:"beltColumns"`
+		HealingPotionCount int         `yaml:"healingPotionCount"`
+		ManaPotionCount    int         `yaml:"manaPotionCount"`
+		RejuvPotionCount   int         `yaml:"rejuvPotionCount"`
 	} `yaml:"inventory"`
 	Character struct {
-		Class         string `yaml:"class"`
-		UseMerc       bool   `yaml:"useMerc"`
-		StashToShared bool   `yaml:"stashToShared"`
-		UseTeleport   bool   `yaml:"useTeleport"`
-		BerserkerBarb struct {
+		Class                        string `yaml:"class"`
+		UseMerc                      bool   `yaml:"useMerc"`
+		StashToShared                bool   `yaml:"stashToShared"`
+		UseTeleport                  bool   `yaml:"useTeleport"`
+		ClearPathDist                int    `yaml:"clearPathDist"`
+		ShouldHireAct2MercFrozenAura bool   `yaml:"shouldHireAct2MercFrozenAura"`
+		BerserkerBarb                struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
 		} `yaml:"berserker_barb"`
+		BlizzardSorceress struct {
+			UseMoatTrick        bool `yaml:"use_moat_trick"`
+			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
+		} `yaml:"blizzard_sorceress"`
+		SorceressLeveling struct {
+			UseMoatTrick        bool `yaml:"use_moat_trick"`
+			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
+		} `yaml:"sorceress_leveling"`
 		NovaSorceress struct {
 			BossStaticThreshold int `yaml:"boss_static_threshold"`
 		} `yaml:"nova_sorceress"`
@@ -128,26 +155,37 @@ type CharacterCfg struct {
 	Game struct {
 		MinGoldPickupThreshold int                   `yaml:"minGoldPickupThreshold"`
 		UseCainIdentify        bool                  `yaml:"useCainIdentify"`
+		InteractWithShrines    bool                  `yaml:"interactWithShrines"`
+		StopLevelingAt         int                   `yaml:"stopLevelingAt"`
+		IsNonLadderChar        bool                  `yaml:"isNonLadderChar"`
 		ClearTPArea            bool                  `yaml:"clearTPArea"`
 		Difficulty             difficulty.Difficulty `yaml:"difficulty"`
 		RandomizeRuns          bool                  `yaml:"randomizeRuns"`
 		Runs                   []Run                 `yaml:"runs"`
 		CreateLobbyGames       bool                  `yaml:"createLobbyGames"`
 		PublicGameCounter      int                   `yaml:"-"`
+		MaxFailedMenuAttempts  int                   `yaml:"maxFailedMenuAttempts"`
 		Pindleskin             struct {
 			SkipOnImmunities []stat.Resist `yaml:"skipOnImmunities"`
 		} `yaml:"pindleskin"`
 		Cows struct {
 			OpenChests bool `yaml:"openChests"`
-		}
+		} `yaml:"cows"`
 		Pit struct {
 			MoveThroughBlackMarsh bool `yaml:"moveThroughBlackMarsh"`
 			OpenChests            bool `yaml:"openChests"`
 			FocusOnElitePacks     bool `yaml:"focusOnElitePacks"`
 			OnlyClearLevel2       bool `yaml:"onlyClearLevel2"`
 		} `yaml:"pit"`
+		Countess struct {
+			ClearFloors bool `yaml:"clearFloors"`
+		}
 		Andariel struct {
-			ClearRoom bool `yaml:"clearRoom"`
+			ClearRoom   bool `yaml:"clearRoom"`
+			UseAntidoes bool `yaml:"useAntidoes"`
+		}
+		Duriel struct {
+			UseThawing bool `yaml:"useThawing"`
 		}
 		StonyTomb struct {
 			OpenChests        bool `yaml:"openChests"`
@@ -213,8 +251,12 @@ type CharacterCfg struct {
 			OpenChests        bool          `yaml:"openChests"`
 		} `yaml:"terror_zone"`
 		Leveling struct {
-			EnsurePointsAllocation bool `yaml:"ensurePointsAllocation"`
-			EnsureKeyBinding       bool `yaml:"ensureKeyBinding"`
+			EnsurePointsAllocation   bool     `yaml:"ensurePointsAllocation"`
+			EnsureKeyBinding         bool     `yaml:"ensureKeyBinding"`
+			AutoEquip                bool     `yaml:"autoEquip"`
+			AutoEquipFromSharedStash bool     `yaml:"autoEquipFromSharedStash"`
+			EnableRunewordMaker      bool     `yaml:"enableRunewordMaker"`
+			EnabledRunewordRecipes   []string `yaml:"enabledRunewordRecipes"`
 		} `yaml:"leveling"`
 		Quests struct {
 			ClearDen       bool `yaml:"clearDen"`
@@ -230,15 +272,27 @@ type CharacterCfg struct {
 		} `yaml:"quests"`
 	} `yaml:"game"`
 	Companion struct {
-		Leader           bool   `yaml:"leader"`
-		LeaderName       string `yaml:"leaderName"`
-		GameNameTemplate string `yaml:"gameNameTemplate"`
-		GamePassword     string `yaml:"gamePassword"`
+		Enabled               bool   `yaml:"enabled"`
+		Leader                bool   `yaml:"leader"`
+		LeaderName            string `yaml:"leaderName"`
+		GameNameTemplate      string `yaml:"gameNameTemplate"`
+		GamePassword          string `yaml:"gamePassword"`
+		CompanionGameName     string `yaml:"companionGameName"`
+		CompanionGamePassword string `yaml:"companionGamePassword"`
 	} `yaml:"companion"`
 	Gambling struct {
 		Enabled bool        `yaml:"enabled"`
 		Items   []item.Name `yaml:"items"`
 	} `yaml:"gambling"`
+	Muling struct {
+		Enabled      bool     `yaml:"enabled"`
+		SwitchToMule string   `yaml:"switchToMule"`
+		ReturnTo     string   `yaml:"returnTo"`
+		MuleProfiles []string `yaml:"muleProfiles"`
+	} `yaml:"muling"`
+	MulingState struct {
+		CurrentMuleIndex int `yaml:"currentMuleIndex"`
+	} `yaml:"mulingState"`
 	CubeRecipes struct {
 		Enabled              bool     `yaml:"enabled"`
 		EnabledRecipes       []string `yaml:"enabledRecipes"`
@@ -257,7 +311,80 @@ type CharacterCfg struct {
 	} `yaml:"-"`
 }
 
+// ShoppingConfig holds the configuration for the shopping run
+type ShoppingConfig struct {
+	Enabled           bool     `json:"enabled" yaml:"enabled"`
+	MaxGoldToSpend    int      `json:"maxGoldToSpend" yaml:"maxgoldtospend"`
+	MinGoldReserve    int      `json:"minGoldReserve" yaml:"mingoldreserve"`
+	RefreshesPerRun   int      `json:"refreshesPerRun" yaml:"refreshesperrun"`
+	ShoppingRulesFile string   `json:"shoppingRulesFile" yaml:"shoppingrulesfile"`
+	ItemTypes         []string `json:"itemTypes" yaml:"itemtypes"`
+
+	// Vendor checkboxes
+	VendorAkara   bool `json:"vendorAkara" yaml:"vendorakara"`
+	VendorCharsi  bool `json:"vendorCharsi" yaml:"vendorcharsi"`
+	VendorGheed   bool `json:"vendorGheed" yaml:"vendorgheed"`
+	VendorFara    bool `json:"vendorFara" yaml:"vendorfara"`
+	VendorDrognan bool `json:"vendorDrognan" yaml:"vendordrognan"`
+	VendorElzix   bool `json:"vendorElzix" yaml:"vendorelzix"`
+	VendorOrmus   bool `json:"vendorOrmus" yaml:"vendorormus"`
+	VendorMalah   bool `json:"vendorMalah" yaml:"vendormalah"`
+	VendorAnya    bool `json:"vendorAnya" yaml:"vendoranya"`
+}
+
+// GetVendorList returns a list of NPC IDs based on the enabled vendor checkboxes
+func (s *ShoppingConfig) GetVendorList() []npc.ID {
+	var VendorsToShop []npc.ID
+	
+	if s.VendorAkara {
+		VendorsToShop = append(VendorsToShop, npc.Akara)
+	}
+	if s.VendorCharsi {
+		VendorsToShop = append(VendorsToShop, npc.Charsi)
+	}
+	if s.VendorGheed {
+		VendorsToShop = append(VendorsToShop, npc.Gheed)
+	}
+	if s.VendorFara {
+		VendorsToShop = append(VendorsToShop, npc.Fara)
+	}
+	if s.VendorDrognan {
+		VendorsToShop = append(VendorsToShop, npc.Drognan)
+	}
+	if s.VendorElzix {
+		VendorsToShop = append(VendorsToShop, npc.Elzix)
+	}
+	if s.VendorOrmus {
+		VendorsToShop = append(VendorsToShop, npc.Ormus)
+	}
+	if s.VendorMalah {
+		VendorsToShop = append(VendorsToShop, npc.Malah)
+	}
+	if s.VendorAnya {
+		VendorsToShop = append(VendorsToShop, npc.Drehya)
+	}
+	
+	return VendorsToShop
+}
+
 type BeltColumns [4]string
+
+func GetCharacter(name string) (*CharacterCfg, bool) {
+	cfgMux.RLock()
+	defer cfgMux.RUnlock()
+	charCfg, exists := Characters[name]
+	return charCfg, exists
+}
+
+func GetCharacters() map[string]*CharacterCfg {
+	cfgMux.RLock()
+	defer cfgMux.RUnlock()
+	copy := make(map[string]*CharacterCfg, len(Characters))
+	for k, v := range Characters {
+		copy[k] = v
+	}
+	return copy
+}
 
 func (bm BeltColumns) Total(potionType data.PotionType) int {
 	typeString := ""
@@ -280,17 +407,16 @@ func (bm BeltColumns) Total(potionType data.PotionType) int {
 	return total
 }
 
-// Load reads the config.ini file and returns a Config struct filled with data from the ini file
 func Load() error {
+	cfgMux.Lock()
+	defer cfgMux.Unlock()
 	Characters = make(map[string]*CharacterCfg)
 
-	// Get the absolute path of the current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("error getting current working directory: %w", err)
 	}
 
-	// Function to get absolute path
 	getAbsPath := func(relPath string) string {
 		return filepath.Join(cwd, relPath)
 	}
@@ -313,7 +439,6 @@ func Load() error {
 		return fmt.Errorf("error reading config directory %s: %w", configDir, err)
 	}
 
-	// Read character configs
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -321,38 +446,37 @@ func Load() error {
 
 		charCfg := CharacterCfg{}
 
-		// Load character config from the current working directory/config/{charName}/config.yaml
 		charConfigPath := getAbsPath(filepath.Join("config", entry.Name(), "config.yaml"))
 		r, err = os.Open(charConfigPath)
 		if err != nil {
 			return fmt.Errorf("error loading config.yaml: %w", err)
 		}
-		defer r.Close()
 
-		// Load character config
 		d := yaml.NewDecoder(r)
 		if err = d.Decode(&charCfg); err != nil {
+			_ = r.Close()
 			return fmt.Errorf("error reading %s character config: %w", charConfigPath, err)
+		}
+		_ = r.Close()
+
+		charCfg.ConfigFolderName = entry.Name()
+
+		if charCfg.Game.MaxFailedMenuAttempts == 0 {
+			charCfg.Game.MaxFailedMenuAttempts = 10
 		}
 
 		var pickitPath string
-
 		if Koolo.CentralizedPickitPath != "" && charCfg.UseCentralizedPickit {
-			// Validate centralized pickit path
 			if _, err := os.Stat(Koolo.CentralizedPickitPath); os.IsNotExist(err) {
 				utils.ShowDialog("Error loading pickit rules for "+entry.Name(), "The centralized pickit path does not exist: "+Koolo.CentralizedPickitPath+"\nPlease check your Koolo settings.\nFalling back to local pickit.")
-
-				// Set the pickit path to the current dir/config/{charName}/pickit
 				pickitPath = getAbsPath(filepath.Join("config", entry.Name(), "pickit")) + "\\"
 			} else {
 				pickitPath = Koolo.CentralizedPickitPath + "\\"
 			}
 		} else {
-			// Set the pickit path to the current dir/config/{charName}/pickit
 			pickitPath = getAbsPath(filepath.Join("config", entry.Name(), "pickit")) + "\\"
 		}
 
-		// Load the pickit rules from the directory
 		rules, err := nip.ReadDir(pickitPath)
 		if err != nil {
 			return fmt.Errorf("error reading pickit directory %s: %w", pickitPath, err)
@@ -360,24 +484,87 @@ func Load() error {
 
 		// Load the leveling pickit rules
 		if len(charCfg.Game.Runs) > 0 && charCfg.Game.Runs[0] == "leveling" {
-			levelingPickitPath := getAbsPath(filepath.Join("config", entry.Name(), "pickit_leveling")) + "\\"
-			levelingRules, err := nip.ReadDir(levelingPickitPath)
-			if err != nil {
-				return fmt.Errorf("error reading pickit_leveling directory %s: %w", levelingPickitPath, err)
+			levelingPickitPath := getAbsPath(filepath.Join("config", entry.Name(), "pickit_leveling"))
+			classPickitFile := filepath.Join(levelingPickitPath, charCfg.Character.Class+".nip")
+			questPickitFile := filepath.Join(levelingPickitPath, "quest.nip")
+
+			// Try to load the class-specific nip file first
+			if _, errStat := os.Stat(classPickitFile); errStat == nil {
+				classRules, err := readSinglePickitFile(classPickitFile)
+				if err != nil {
+					return err
+				}
+				rules = append(rules, classRules...)
+			} else {
+				// Fallback: if no class file, load all files EXCEPT quest.nip (to avoid duplicates)
+				if _, err := os.Stat(levelingPickitPath); !os.IsNotExist(err) {
+					allLevelingFiles, err := os.ReadDir(levelingPickitPath)
+					if err != nil {
+						return fmt.Errorf("could not read pickit_leveling dir: %w", err)
+					}
+
+					// Create a temporary directory for all non-class, non-quest files
+					tempDir := filepath.Join(levelingPickitPath, "temp_fallback")
+					if err := os.MkdirAll(tempDir, 0755); err == nil {
+						for _, file := range allLevelingFiles {
+							// Exclude quest.nip since it will be loaded separately
+							if file.Name() != "quest.nip" && strings.HasSuffix(file.Name(), ".nip") {
+								sourceData, _ := os.ReadFile(filepath.Join(levelingPickitPath, file.Name()))
+								os.WriteFile(filepath.Join(tempDir, file.Name()), sourceData, 0644)
+							}
+						}
+
+						fallbackRules, _ := nip.ReadDir(tempDir + "\\")
+						rules = append(rules, fallbackRules...)
+						os.RemoveAll(tempDir)
+					}
+				}
 			}
-			rules = append(rules, levelingRules...)
+
+			// Separately, try to load quest.nip and append its rules
+			if _, errStat := os.Stat(questPickitFile); errStat == nil {
+				questRules, err := readSinglePickitFile(questPickitFile)
+				if err != nil {
+					return err
+				}
+				rules = append(rules, questRules...)
+			}
 		}
 
 		charCfg.Runtime.Rules = rules
 		Characters[entry.Name()] = &charCfg
 	}
 
-	// Validate configs
 	for _, charCfg := range Characters {
 		charCfg.Validate()
 	}
 
 	return nil
+}
+
+// Helper function to read a single NIP file using the temp directory workaround
+func readSinglePickitFile(filePath string) (nip.Rules, error) {
+	tempDir := filepath.Join(filepath.Dir(filePath), "temp_single_read")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create temp pickit directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	destFile := filepath.Join(tempDir, filepath.Base(filePath))
+	sourceData, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read source pickit file %s: %w", filePath, err)
+	}
+	if err := os.WriteFile(destFile, sourceData, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write to temp pickit file: %w", err)
+	}
+
+	rules, err := nip.ReadDir(tempDir + "\\")
+	if err != nil {
+		return nil, fmt.Errorf("error reading from temp pickit directory %s: %w", tempDir, err)
+	}
+
+	return rules, nil
 }
 
 func CreateFromTemplate(name string) error {
@@ -398,11 +585,9 @@ func CreateFromTemplate(name string) error {
 }
 
 func ValidateAndSaveConfig(config KooloCfg) error {
-	// Trim executable from the path, just in case
 	config.D2LoDPath = strings.ReplaceAll(strings.ToLower(config.D2LoDPath), "game.exe", "")
 	config.D2RPath = strings.ReplaceAll(strings.ToLower(config.D2RPath), "d2r.exe", "")
 
-	// Validate paths
 	if _, err := os.Stat(config.D2LoDPath + "/d2data.mpq"); os.IsNotExist(err) {
 		return errors.New("D2LoDPath is not valid")
 	}

@@ -96,11 +96,15 @@ func (h *StatsHandler) Stats() Stats {
 }
 
 type Stats struct {
-	StartedAt        time.Time
-	SupervisorStatus SupervisorStatus
-	Details          string
-	Drops            []data.Drop
-	Games            []GameStats
+	StartedAt           time.Time
+	SupervisorStatus    SupervisorStatus
+	Details             string
+	Drops               []data.Drop
+	Games               []GameStats
+	IsCompanionFollower bool
+	// UI contains lightweight live character info for the dashboard
+	UI          CharacterOverview
+	MuleEnabled bool `json:"muleEnabled"`
 }
 
 type GameStats struct {
@@ -117,6 +121,28 @@ type RunStats struct {
 	Items       []data.Item
 	FinishedAt  time.Time
 	UsedPotions []event.UsedPotionEvent
+}
+
+// CharacterOverview is a compact summary of useful live stats for the UI
+type CharacterOverview struct {
+	Class           string
+	Level           int
+	Experience      int
+	LastExp         int
+	NextExp         int
+	Difficulty      string
+	Area            string
+	Life            int
+	MaxLife         int
+	Mana            int
+	MaxMana         int
+	MagicFind       int
+	GoldFind        int
+	FireResist      int
+	ColdResist      int
+	LightningResist int
+	PoisonResist    int
+	Gold            int
 }
 
 func (s Stats) TotalGames() int {

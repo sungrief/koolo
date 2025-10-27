@@ -3,20 +3,21 @@ package action
 import (
 	"log/slog"
 
-	"github.com/hectorgimenez/koolo/internal/action/step"
-	"github.com/hectorgimenez/koolo/internal/context"
-	"github.com/hectorgimenez/koolo/internal/town"
-	"github.com/lxn/win"
-
+	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
+	"github.com/hectorgimenez/koolo/internal/action/step"
+	botCtx "github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/town"
+	"github.com/lxn/win"
 )
 
-func VendorRefill(forceRefill, sellJunk bool) error {
-	ctx := context.Get()
+func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err error) {
+	ctx := botCtx.Get()
 	ctx.SetLastAction("VendorRefill")
 
-	if !forceRefill && !shouldVisitVendor() {
+	// This is a special case, we want to sell junk, but we don't have enough space to unequip items
+	if !forceRefill && !shouldVisitVendor() && len(tempLock) == 0 {
 		return nil
 	}
 
@@ -25,11 +26,22 @@ func VendorRefill(forceRefill, sellJunk bool) error {
 	vendorNPC := town.GetTownByArea(ctx.Data.PlayerUnit.Area).RefillNPC()
 	if vendorNPC == npc.Drognan {
 		_, needsBuy := town.ShouldBuyKeys()
-		if needsBuy {
+		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
 			vendorNPC = npc.Lysander
 		}
 	}
-	err := InteractNPC(vendorNPC)
+	if vendorNPC == npc.Ormus {
+		_, needsBuy := town.ShouldBuyKeys()
+		if needsBuy && ctx.Data.PlayerUnit.Class != data.Assassin {
+			if err := FindHratliEverywhere(); err != nil {
+				// If moveToHratli returns an error, it means a forced game quit is required.
+				return err
+			}
+			vendorNPC = npc.Hratli
+		}
+	}
+
+	err = InteractNPC(vendorNPC)
 	if err != nil {
 		return err
 	}
@@ -41,19 +53,24 @@ func VendorRefill(forceRefill, sellJunk bool) error {
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 	}
 
+	if sellJunk {
+		var lockConfig [][]int
+		if len(tempLock) > 0 {
+			lockConfig = tempLock[0]
+			town.SellJunk(lockConfig)
+		} else {
+			town.SellJunk()
+		}
+	}
 	SwitchStashTab(4)
 	ctx.RefreshGameData()
 	town.BuyConsumables(forceRefill)
-
-	if sellJunk {
-		town.SellJunk()
-	}
 
 	return step.CloseAllMenus()
 }
 
 func BuyAtVendor(vendor npc.ID, items ...VendorItemRequest) error {
-	ctx := context.Get()
+	ctx := botCtx.Get()
 	ctx.SetLastAction("BuyAtVendor")
 
 	err := InteractNPC(vendor)
@@ -84,23 +101,24 @@ func BuyAtVendor(vendor npc.ID, items ...VendorItemRequest) error {
 type VendorItemRequest struct {
 	Item     item.Name
 	Quantity int
-	Tab      int // At this point I have no idea how to detect the Tab the Item is in the vendor (1-4)
+	Tab      int
 }
 
 func shouldVisitVendor() bool {
-	ctx := context.Get()
+	ctx := botCtx.Get()
 	ctx.SetLastStep("shouldVisitVendor")
 
-	// Check if we should sell junk
 	if len(town.ItemsToBeSold()) > 0 {
 		return true
 	}
 
-	// Skip the vendor if we don't have enough gold to do anything... this is not the optimal scenario,
-	// but I have no idea how to check vendor Item prices.
 	if ctx.Data.PlayerUnit.TotalPlayerGold() < 1000 {
 		return false
 	}
 
-	return ctx.BeltManager.ShouldBuyPotions() || town.ShouldBuyTPs() || town.ShouldBuyIDs()
+	if ctx.BeltManager.ShouldBuyPotions() || town.ShouldBuyTPs() || town.ShouldBuyIDs() {
+		return true
+	}
+
+	return false
 }
