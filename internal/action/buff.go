@@ -18,7 +18,7 @@ import (
 func BuffIfRequired() {
 	ctx := context.Get()
 
-	if !IsRebuffRequired() || ctx.Data.PlayerUnit.Area.IsTown() {
+	if !IsRebuffRequired() {
 		return
 	}
 
@@ -43,7 +43,7 @@ func Buff() {
 	ctx := context.Get()
 	ctx.SetLastAction("Buff")
 
-	if ctx.Data.PlayerUnit.Area.IsTown() || time.Since(ctx.LastBuffAt) < time.Second*30 {
+	if time.Since(ctx.LastBuffAt) < time.Second*30 {
 		return
 	}
 
@@ -108,7 +108,7 @@ func IsRebuffRequired() bool {
 	ctx.SetLastAction("IsRebuffRequired")
 
 	// Don't buff if we are in town, or we did it recently (it prevents double buffing because of network lag)
-	if ctx.Data.PlayerUnit.Area.IsTown() || time.Since(ctx.LastBuffAt) < time.Second*30 {
+	if time.Since(ctx.LastBuffAt) < time.Second*30 {
 		return false
 	}
 

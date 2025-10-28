@@ -133,5 +133,8 @@ func useWP(dest area.ID) error {
 		}
 	}
 
+	
+	// Ensure we rebuff after using waypoint and arriving at destination
+	Buff()
 	return nil
 }
