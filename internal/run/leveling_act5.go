@@ -51,11 +51,12 @@ func (a Leveling) act5() error {
 				a.ctx.CharacterCfg.Game.InteractWithShrines = oldInteractWithShrines
 			}()
 
-			a.ctx.Logger.Info("Low on gold. Initiating Diablo gold farm.")
-			if err := NewDiablo().Run(); err != nil {
-				a.ctx.Logger.Error("Error during Diablo gold farm: %v", err)
+			a.ctx.Logger.Info("Low on gold. Initiating gold farm.")
+			if err := NewEldritch().Run(); err != nil {
+				a.ctx.Logger.Error("Error during gold farm: %v", err)
 				return err // Propagate error if farming fails
 			}
+			NewQuests().killShenkQuest()
 			a.ctx.Logger.Info("Gold farming completed. Quitting current run to re-evaluate in next game.")
 			return nil // Key: This immediately exits the 'act5' function, ending the current game run.
 		}
