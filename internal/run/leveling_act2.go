@@ -251,10 +251,10 @@ func (a Leveling) act2() error {
 	}
 
 	if !a.ctx.Data.Quests[quest.Act2TheHoradricStaff].Completed() {
-		_, horadricStaffFound := a.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+		_, horadricStaffFound := a.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 
 		// Find Staff of Kings
-		_, found = a.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+		_, found = a.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 		if found || horadricStaffFound {
 			a.ctx.Logger.Info("StaffOfKings found, skipping quest")
 		} else {
@@ -263,7 +263,7 @@ func (a Leveling) act2() error {
 		}
 
 		// Find Amulet
-		_, found = a.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+		_, found = a.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 		if found || horadricStaffFound {
 			a.ctx.Logger.Info("Amulet of the Viper found, skipping quest")
 		} else {
@@ -522,7 +522,7 @@ func (a Leveling) findAmulet() error {
 }
 
 func (a Leveling) prepareStaff() error {
-	horadricStaff, found := a.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	horadricStaff, found := a.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 	if found {
 		a.ctx.Logger.Info("Horadric Staff found!")
 		if horadricStaff.Location.LocationType == item.LocationStash {
@@ -549,13 +549,13 @@ func (a Leveling) prepareStaff() error {
 		}
 	}
 
-	staff, found := a.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	staff, found := a.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 	if !found {
 		a.ctx.Logger.Info("Staff of Kings not found, skipping")
 		return nil
 	}
 
-	amulet, found := a.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	amulet, found := a.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 	if !found {
 		a.ctx.Logger.Info("Amulet of the Viper not found, skipping")
 		return nil
@@ -602,6 +602,11 @@ func (a Leveling) duriel() error {
 }
 
 func buyAct2Belt(ctx *context.Status) error {
+	// Only buy belts in Normal difficulty
+	if ctx.CharacterCfg.Game.Difficulty != difficulty.Normal {
+		return nil
+	}
+
 	// Check equipped and inventory for a suitable belt first
 	for _, itm := range ctx.Data.Inventory.ByLocation(item.LocationEquipped) {
 		if itm.Name == "Belt" || itm.Name == "HeavyBelt" || itm.Name == "PlatedBelt" {
