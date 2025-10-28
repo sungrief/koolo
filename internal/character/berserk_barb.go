@@ -89,7 +89,7 @@ func (s *Berserker) KillMonsterSequence(
 
 		distance := s.PathFinder.DistanceFromMe(monster.Position)
 		if distance > meleeRange {
-			err := step.MoveTo(monster.Position)
+			err := step.MoveTo(monster.Position, step.WithIgnoreMonsters())
 			if err != nil {
 				s.Logger.Warn("Failed to move to monster", slog.String("error", err.Error()))
 				continue
