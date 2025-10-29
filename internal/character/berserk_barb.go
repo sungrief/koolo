@@ -23,12 +23,6 @@ type Berserker struct {
 	isKillingCouncil atomic.Bool
 }
 
-type BerserkerBarb struct {
-	FindItemSwitch              bool `yaml:"find_item_switch"`
-	SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
-	UseHowl                     bool `yaml:"use_howl"`
-}
-
 const (
 	maxHorkRange      = 40
 	meleeRange        = 5
@@ -42,6 +36,11 @@ func (s Berserker) ShouldIgnoreMonster(m data.Monster) bool {
 func (s *Berserker) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.BattleCommand, skill.BattleOrders, skill.Shout, skill.FindItem, skill.Berserk}
 	missingKeybindings := []skill.ID{}
+
+	// add Howl if enabled
+	if s.CharacterCfg.Character.BerserkerBarb.UseHowl {
+		requireKeybindings = append(requireKeybindings, skill.Howl)
+	}
 
 	for _, cskill := range requireKeybindings {
 		if _, found := s.Data.KeyBindings.KeyBindingForSkill(cskill); !found {
