@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="../assets/css/dashboard.css">
     <link rel="stylesheet" href="../assets/css/bootstrap-icons.css">
     <title>Koolo Dashboard</title>
-       
 </head>
 <body>
 <main class="container">
@@ -20,20 +19,20 @@
                 <span id="version" class="version-badge"></span>
             </div>
             <div class="dashboard-controls">
-                <button class="btn btn-outline" onclick="location.href='/config'">
-                    <i class="bi bi-gear btn-icon"></i>Settings
+                <button class="btn btn-outline" onclick="location.href='/config'" title="Settings">
+                    <i class="bi bi-gear"></i>
                 </button>
-                <button id="reloadConfigBtn" class="btn btn-outline" onclick="reloadConfig()">
-                    <i class="bi bi-arrow-clockwise btn-icon"></i>Reload Configs
+                <button id="reloadConfigBtn" class="btn btn-outline" onclick="reloadConfig()" title="Reload Configs">
+                    <i class="bi bi-arrow-clockwise"></i>
                 </button>
-                <button class="btn btn-outline" onclick="location.href='/all-drops'">
-                    <i class="bi bi-gem btn-icon"></i>All Drops
+                <button class="btn btn-outline" onclick="location.href='/all-drops'" title="All Drops">
+                    <i class="bi bi-gem"></i>
                 </button>
-                <button class="btn btn-outline" onclick="openPickitEditor()">
-                    <i class="bi bi-list-check btn-icon"></i>Pickit Editor
+                <button class="btn btn-outline" onclick="openPickitEditor()" title="Pickit Editor">
+                    <i class="bi bi-list-check"></i>
                 </button>
-                <button class="btn btn-start" onclick="location.href='/supervisorSettings'">
-                    <i class="bi bi-plus btn-icon"></i>Add Character
+                <button class="btn btn-start" onclick="location.href='/supervisorSettings'" title="Add Character">
+                    <i class="bi bi-plus"></i>
                 </button>
                 <button class="btn btn-outline attach-btn" onclick="showAttachPopup('${key}')" style="display:none;">
                     <i class="bi bi-link-45deg btn-icon"></i>Attach
