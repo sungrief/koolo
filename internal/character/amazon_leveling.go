@@ -593,6 +593,6 @@ func (s AmazonLeveling) InitialCharacterConfigSetup() {
 
 func (s AmazonLeveling) AdjustCharacterConfig() {
 	if s.CharacterCfg.Game.Difficulty == difficulty.Hell {
-		s.CharacterCfg.Character.ClearPathDist = 25
+		s.CharacterCfg.Character.ClearPathDist = 10
 	}
 }
