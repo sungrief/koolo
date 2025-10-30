@@ -109,7 +109,7 @@ func (a Leveling) act1() error {
 	}
 
 	// Cain quest: entering Tristram
-	if (a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress2) || a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress3) || a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress4)) && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
+	if (a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusStarted+quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed()) && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
 		return NewTristram().Run()
 	}
 

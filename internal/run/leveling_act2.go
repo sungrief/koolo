@@ -222,7 +222,7 @@ func (a Leveling) act2() error {
 		return NewQuests().getHoradricCube()
 	}
 
-	if lvl, _ := a.ctx.Data.PlayerUnit.FindStat(stat.Level, 0); lvl.Value < 18 || (a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && !a.ctx.Data.Quests[quest.Act2RadamentsLair].Completed()) {
+	if a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell && !a.ctx.Data.Quests[quest.Act2RadamentsLair].Completed() {
 		a.ctx.Logger.Info("Starting Radament.")
 		return NewQuests().killRadamentQuest()
 
