@@ -44,15 +44,19 @@ func (a Leveling) act5() error {
 			//Disable teleport when farming gold while clearing areas. Mana pots are costly
 			oldUseTeleport := a.ctx.CharacterCfg.Character.UseTeleport
 			a.ctx.CharacterCfg.Character.UseTeleport = false
+			oldInteractWithShrines := a.ctx.CharacterCfg.Game.InteractWithShrines
+			a.ctx.CharacterCfg.Game.InteractWithShrines = false
 			defer func() {
 				a.ctx.CharacterCfg.Character.UseTeleport = oldUseTeleport
+				a.ctx.CharacterCfg.Game.InteractWithShrines = oldInteractWithShrines
 			}()
 
-			a.ctx.Logger.Info("Low on gold. Initiating Crystalline Passage gold farm.")
-			if err := a.CrystallinePassage(); err != nil {
-				a.ctx.Logger.Error("Error during Crystalline Passage gold farm: %v", err)
+			a.ctx.Logger.Info("Low on gold. Initiating gold farm.")
+			if err := NewEldritch().Run(); err != nil {
+				a.ctx.Logger.Error("Error during gold farm: %v", err)
 				return err // Propagate error if farming fails
 			}
+			NewQuests().killShenkQuest()
 			a.ctx.Logger.Info("Gold farming completed. Quitting current run to re-evaluate in next game.")
 			return nil // Key: This immediately exits the 'act5' function, ending the current game run.
 		}
@@ -60,49 +64,6 @@ func (a Leveling) act5() error {
 
 	// If we reach this point, it means gold is sufficient, and we skip farming for this run.
 	lvl, _ := a.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
-
-	// Use a flag to indicate if difficulty was changed and needs saving
-	difficultyChanged := false
-
-	// Logic for Act5EveOfDestruction quest completion
-	if a.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {
-
-		a.ctx.Logger.Info("Eve of Destruction completed")
-
-		currentDifficulty := a.ctx.CharacterCfg.Game.Difficulty
-		switch currentDifficulty {
-		case difficulty.Normal:
-			if lvl.Value >= 41 {
-				a.ctx.CharacterCfg.Game.Difficulty = difficulty.Nightmare
-				difficultyChanged = true
-			}
-		case difficulty.Nightmare:
-			// Get current FireResist and LightningResist values using FindStat on PlayerUnit
-			rawFireRes, _ := a.ctx.Data.PlayerUnit.FindStat(stat.FireResist, 0)
-			rawLightRes, _ := a.ctx.Data.PlayerUnit.FindStat(stat.LightningResist, 0)
-
-			// Apply Nightmare difficulty penalty (-40) to resistances for effective values
-			effectiveFireRes := rawFireRes.Value - 40
-			effectiveLightRes := rawLightRes.Value - 40
-
-			// Check conditions using effective resistance values
-			if lvl.Value >= 70 && effectiveFireRes >= 75 && effectiveLightRes >= 50 {
-				a.ctx.CharacterCfg.Game.Difficulty = difficulty.Hell
-
-				difficultyChanged = true
-			}
-		}
-
-		if difficultyChanged {
-			a.ctx.Logger.Info("Difficulty changed to %s. Saving character configuration...", a.ctx.CharacterCfg.Game.Difficulty)
-			// Use the new ConfigFolderName field here!
-			if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
-				a.ctx.Logger.Error("Failed to save character configuration: %s", err.Error())
-				return fmt.Errorf("failed to save character configuration: %w", err)
-			}
-			return nil
-		}
-	}
 
 	if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && lvl.Value < 60 || a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && lvl.Value < 30 {
 
@@ -299,25 +260,4 @@ func (a Leveling) act5() error {
 	}
 
 	return nil
-}
-
-func (a Leveling) CrystallinePassage() error {
-	a.ctx.Logger.Info("Entering Crystalline Passage for gold farming...")
-
-	err := action.WayPoint(area.CrystallinePassage)
-	if err != nil {
-		a.ctx.Logger.Error("Failed to move to Crystalline Passage area: %v", err)
-		return err
-	}
-	a.ctx.Logger.Info("Successfully reached Crystalline Passage.")
-
-	err = action.ClearCurrentLevel(false, data.MonsterAnyFilter())
-	if err != nil {
-		a.ctx.Logger.Error("Failed to clear Crystalline Passage area: %v", err)
-		return err
-	}
-	a.ctx.Logger.Info("Successfully cleared Crystalline Passage area.")
-
-	return nil
-
 }

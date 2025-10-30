@@ -26,6 +26,10 @@ type NovaSorceress struct {
 	BaseCharacter
 }
 
+func (s NovaSorceress) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s NovaSorceress) CheckKeyBindings() []skill.ID {
 	requiredKeybindings := []skill.ID{skill.Nova, skill.Teleport, skill.TomeOfTownPortal, skill.StaticField}
 	missingKeybindings := []skill.ID{}

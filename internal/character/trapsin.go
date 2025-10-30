@@ -11,6 +11,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
@@ -23,6 +24,10 @@ const (
 
 type Trapsin struct {
 	BaseCharacter
+}
+
+func (s Trapsin) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
 }
 
 func (s Trapsin) CheckKeyBindings() []skill.ID {
@@ -50,6 +55,8 @@ func (s Trapsin) KillMonsterSequence(
 	previousUnitID := 0
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			return nil

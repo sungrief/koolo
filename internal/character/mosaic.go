@@ -20,6 +20,10 @@ type MosaicSin struct {
 	BaseCharacter
 }
 
+func (s MosaicSin) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s MosaicSin) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.TigerStrike, skill.CobraStrike, skill.PhoenixStrike, skill.ClawsOfThunder, skill.BladesOfIce, skill.TomeOfTownPortal}
 	missingKeybindings := []skill.ID{}
@@ -46,6 +50,8 @@ func (s MosaicSin) KillMonsterSequence(
 	lastRefresh := time.Now()
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		// Limit refresh rate to 10 times per second to avoid excessive CPU usage
 		if time.Since(lastRefresh) > time.Millisecond*100 {
 			ctx.RefreshGameData()
@@ -77,7 +83,7 @@ func (s MosaicSin) KillMonsterSequence(
 
 		// Initial move to monster if we're too far
 		if ctx.PathFinder.DistanceFromMe(monster.Position) > 3 {
-			if err := step.MoveTo(monster.Position); err != nil {
+			if err := step.MoveTo(monster.Position, step.WithIgnoreMonsters()); err != nil {
 				s.Logger.Debug("Failed to move to monster position", slog.String("error", err.Error()))
 				continue
 			}

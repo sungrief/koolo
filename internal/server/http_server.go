@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"io/fs"
 	"log/slog"
+	"math"
 	"net/http"
 	"reflect"
 	"slices"
@@ -47,6 +48,7 @@ type HttpServer struct {
 	manager   *bot.SupervisorManager
 	templates *template.Template
 	wsServer  *WebSocketServer
+	pickitAPI *PickitAPI
 }
 
 var (
@@ -218,10 +220,17 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager) (*HttpServer, erro
 		return nil, err
 	}
 
+	// Debug: List all loaded templates
+	logger.Info("Loaded templates:")
+	for _, t := range templates.Templates() {
+		logger.Info("  - " + t.Name())
+	}
+
 	return &HttpServer{
 		logger:    logger,
 		manager:   manager,
 		templates: templates,
+		pickitAPI: NewPickitAPI(),
 	}, nil
 }
 
@@ -432,11 +441,12 @@ func (s *HttpServer) getStatusData() IndexData {
 			if v, ok := data.PlayerUnit.FindStat(stat.MagicFind, 0); ok {
 				mf = v.Value
 			}
-			// Total gold from inventory and private stash
-			gold = data.PlayerUnit.TotalPlayerGold()
 			if v, ok := data.PlayerUnit.FindStat(stat.GoldFind, 0); ok {
 				gf = v.Value
 			}
+
+			gold = data.PlayerUnit.TotalPlayerGold()
+
 			if v, ok := data.PlayerUnit.FindStat(stat.FireResist, 0); ok {
 				fr = v.Value
 			}
@@ -581,6 +591,29 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/companion-join", s.companionJoin) // Companion join handler
 	http.HandleFunc("/reset-muling", s.resetMuling)
 
+	// Pickit Editor routes
+	http.HandleFunc("/pickit-editor", s.pickitEditorPage)
+	http.HandleFunc("/api/pickit/items", s.pickitAPI.handleGetItems)
+	http.HandleFunc("/api/pickit/items/search", s.pickitAPI.handleSearchItems)
+	http.HandleFunc("/api/pickit/items/categories", s.pickitAPI.handleGetCategories)
+	http.HandleFunc("/api/pickit/stats", s.pickitAPI.handleGetStats)
+	http.HandleFunc("/api/pickit/templates", s.pickitAPI.handleGetTemplates)
+	http.HandleFunc("/api/pickit/presets", s.pickitAPI.handleGetPresets)
+	http.HandleFunc("/api/pickit/rules", s.pickitAPI.handleGetRules)
+	http.HandleFunc("/api/pickit/rules/create", s.pickitAPI.handleCreateRule)
+	http.HandleFunc("/api/pickit/rules/update", s.pickitAPI.handleUpdateRule)
+	http.HandleFunc("/api/pickit/rules/delete", s.pickitAPI.handleDeleteRule)
+	http.HandleFunc("/api/pickit/rules/validate", s.pickitAPI.handleValidateRule)
+	http.HandleFunc("/api/pickit/rules/validate-nip", s.pickitAPI.handleValidateNIPLine)
+	http.HandleFunc("/api/pickit/files", s.pickitAPI.handleGetFiles)
+	http.HandleFunc("/api/pickit/files/import", s.pickitAPI.handleImportFile)
+	http.HandleFunc("/api/pickit/files/export", s.pickitAPI.handleExportFile)
+	http.HandleFunc("/api/pickit/files/rules/delete", s.pickitAPI.handleDeleteFileRule)
+	http.HandleFunc("/api/pickit/files/rules/update", s.pickitAPI.handleUpdateFileRule)
+	http.HandleFunc("/api/pickit/files/rules/append", s.pickitAPI.handleAppendNIPLine)
+	http.HandleFunc("/api/pickit/browse-folder", s.pickitAPI.handleBrowseFolder)
+	http.HandleFunc("/api/pickit/simulate", s.pickitAPI.handleSimulate)
+
 	assets, _ := fs.Sub(assetsFS, "assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
 
@@ -657,6 +690,23 @@ func (s *HttpServer) debugData(w http.ResponseWriter, r *http.Request) {
 
 func (s *HttpServer) debugHandler(w http.ResponseWriter, r *http.Request) {
 	s.templates.ExecuteTemplate(w, "debug.gohtml", nil)
+}
+
+func (s *HttpServer) pickitEditorPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Try without templates/ prefix first (like debug.gohtml)
+	err := s.templates.ExecuteTemplate(w, "pickit_editor.gohtml", nil)
+	if err != nil {
+		// If that fails, log what templates we have
+		s.logger.Error("Failed to execute pickit_editor template", "error", err)
+		s.logger.Info("Available templates:")
+		for _, t := range s.templates.Templates() {
+			s.logger.Info("  - " + t.Name())
+		}
+		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
@@ -1148,6 +1198,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.MosaicSin.UseFistsOfFire = r.Form.Has("mosaicUseFistsOfFire")
 		}
 
+		// Blizzard Sorc specific options
 		if cfg.Character.Class == "sorceress" {
 			cfg.Character.BlizzardSorceress.UseMoatTrick = r.Form.Has("useMoatTrick")
 			cfg.Character.BlizzardSorceress.UseStaticOnMephisto = r.Form.Has("useStaticOnMephisto")
@@ -1158,6 +1209,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.SorceressLeveling.UseMoatTrick = r.Form.Has("useMoatTrick")
 			cfg.Character.SorceressLeveling.UseStaticOnMephisto = r.Form.Has("useStaticOnMephisto")
 		}
+
 		for y, row := range cfg.Inventory.InventoryLock {
 			for x := range row {
 				if r.Form.Has(fmt.Sprintf("inventoryLock[%d][%d]", y, x)) {
@@ -1262,23 +1314,16 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Diablo.KillDiablo = r.Form.Has("gameDiabloKillDiablo")
 		cfg.Game.Diablo.FocusOnElitePacks = r.Form.Has("gameDiabloFocusOnElitePacks")
 		cfg.Game.Diablo.DisableItemPickupDuringBosses = r.Form.Has("gameDiabloDisableItemPickupDuringBosses")
-		attackFromDistance, err := strconv.Atoi(r.Form.Get("gameDiabloAttackFromDistance"))
-		if err != nil {
-			s.logger.Warn("Invalid Attack From Distance value, setting to default",
-				slog.String("error", err.Error()),
-				slog.Int("default", 0))
-			cfg.Game.Diablo.AttackFromDistance = 0 // 0 will not reposition
-		} else {
-			if attackFromDistance > 25 {
-				attackFromDistance = 25
-			}
-			cfg.Game.Diablo.AttackFromDistance = attackFromDistance
-		}
-
+		cfg.Game.Diablo.AttackFromDistance = s.getIntFromForm(r, "gameLevelingHellRequiredFireRes", 0, 25, 0)
 		cfg.Game.Leveling.EnsurePointsAllocation = r.Form.Has("gameLevelingEnsurePointsAllocation")
 		cfg.Game.Leveling.EnsureKeyBinding = r.Form.Has("gameLevelingEnsureKeyBinding")
 		cfg.Game.Leveling.AutoEquip = r.Form.Has("gameLevelingAutoEquip")
 		cfg.Game.Leveling.AutoEquipFromSharedStash = r.Form.Has("gameLevelingAutoEquipFromSharedStash")
+		cfg.Game.Leveling.NightmareRequiredLevel = s.getIntFromForm(r, "gameLevelingNightmareRequiredLevel", 1, 99, 41)
+		cfg.Game.Leveling.HellRequiredLevel = s.getIntFromForm(r, "gameLevelingNightmareRequiredLevel", 1, 99, 70)
+		cfg.Game.Leveling.HellRequiredFireRes = s.getIntFromForm(r, "gameLevelingHellRequiredFireRes", -100, 75, 15)
+		cfg.Game.Leveling.HellRequiredLightRes = s.getIntFromForm(r, "gameLevelingHellRequiredLightRes", -100, 75, -10)
+
 		// Socket Recipes
 		cfg.Game.Leveling.EnableRunewordMaker = r.Form.Has("gameLevelingEnableRunewordMaker")
 		enabledRunewordRecipes := r.Form["gameLevelingEnabledRunewordRecipes"]
@@ -1315,6 +1360,13 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			tzAreas = append(tzAreas, area.ID(ID))
 		}
 		cfg.Game.TerrorZone.Areas = tzAreas
+
+		// Utility
+		if parkingActStr := r.Form.Get("gameUtilityParkingAct"); parkingActStr != "" {
+			if parkingAct, err := strconv.Atoi(parkingActStr); err == nil {
+				cfg.Game.Utility.ParkingAct = parkingAct
+			}
+		}
 
 		// Gambling
 		cfg.Gambling.Enabled = r.Form.Has("gamblingEnabled")
@@ -1541,4 +1593,18 @@ func (s *HttpServer) resetDroplogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "dir": dir, "removed": removed})
+}
+
+func (s *HttpServer) getIntFromForm(r *http.Request, param string, min int, max int, defaultValue int) int {
+	result := defaultValue
+	paramValue, err := strconv.Atoi(r.Form.Get(param))
+	if err != nil {
+		s.logger.Warn("Invalid form value, setting to default",
+			slog.String("parameter", param),
+			slog.String("error", err.Error()),
+			slog.Int("default", 0))
+	} else {
+		result = int(math.Max(math.Min(float64(paramValue), float64(max)), float64(min)))
+	}
+	return result
 }

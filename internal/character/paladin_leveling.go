@@ -28,6 +28,10 @@ type PaladinLeveling struct {
 	BaseCharacter
 }
 
+func (s PaladinLeveling) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s PaladinLeveling) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{}
 	missingKeybindings := []skill.ID{}
@@ -56,6 +60,8 @@ func (s PaladinLeveling) KillMonsterSequence(
 	priorityMonsters := []npc.ID{npc.FallenShaman, npc.MummyGenerator, npc.BaalSubjectMummy, npc.FetishShaman, npc.CarverShaman}
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		var id data.UnitID
 		var found bool
 
@@ -469,7 +475,7 @@ func (s PaladinLeveling) KillIzual() error {
 		distance := s.PathFinder.DistanceFromMe(izual.Position)
 		if distance > 7 {
 			s.Logger.Debug(fmt.Sprintf("Izual is too far away (%d), moving closer.", distance))
-			step.MoveTo(izual.Position)
+			step.MoveTo(izual.Position, step.WithIgnoreMonsters())
 			continue
 		}
 
@@ -548,7 +554,7 @@ func (s PaladinLeveling) KillAncients() error {
 		if !found {
 			continue
 		}
-		step.MoveTo(data.Position{X: 10062, Y: 12639})
+		step.MoveTo(data.Position{X: 10062, Y: 12639}, step.WithIgnoreMonsters())
 
 		s.killMonster(foundMonster.Name, data.MonsterTypeSuperUnique)
 

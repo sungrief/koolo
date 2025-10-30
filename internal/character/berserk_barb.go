@@ -29,6 +29,10 @@ const (
 	maxAttackAttempts = 20
 )
 
+func (s Berserker) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s *Berserker) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.BattleCommand, skill.BattleOrders, skill.Shout, skill.FindItem, skill.Berserk}
 	missingKeybindings := []skill.ID{}
@@ -54,8 +58,9 @@ func (s *Berserker) KillMonsterSequence(
 	monsterSelector func(d game.Data) (data.UnitID, bool),
 	skipOnImmunities []stat.Resist,
 ) error {
-
 	for attackAttempts := 0; attackAttempts < maxAttackAttempts; attackAttempts++ {
+		context.Get().PauseIfNotPriority()
+
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			if !s.isKillingCouncil.Load() {
@@ -75,7 +80,7 @@ func (s *Berserker) KillMonsterSequence(
 
 		distance := s.PathFinder.DistanceFromMe(monster.Position)
 		if distance > meleeRange {
-			err := step.MoveTo(monster.Position)
+			err := step.MoveTo(monster.Position, step.WithIgnoreMonsters())
 			if err != nil {
 				s.Logger.Warn("Failed to move to monster", slog.String("error", err.Error()))
 				continue
@@ -123,7 +128,7 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	s.Logger.Debug("Horkable corpses found", slog.Int("count", len(corpses)))
 
 	for _, corpse := range corpses {
-		err := step.MoveTo(corpse.Position)
+		err := step.MoveTo(corpse.Position, step.WithIgnoreMonsters())
 		if err != nil {
 			s.Logger.Warn("Failed to move to corpse", slog.String("error", err.Error()))
 			continue
@@ -189,24 +194,23 @@ func (s *Berserker) getOptimalClickPosition(corpse data.Monster) data.Position {
 	return data.Position{X: corpse.Position.X, Y: corpse.Position.Y + 1}
 }
 
-// slot 0 means lowest Gold Find, slot 1 means highest Gold Find
-// Presuming attack items will be on slot 0 and Goldfind items on slot 1
-// TODO find a way to get active inventory slot from memory.
+// slot 0 = primary weapon, slot 1 = secondary weapon
 func (s *Berserker) SwapToSlot(slot int) {
 	ctx := context.Get()
 	if !ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
-		return // Do nothing if FindItemSwitch is disabled
+		return
 	}
 
-	initialGF, _ := s.Data.PlayerUnit.FindStat(stat.GoldFind, 0)
-	ctx.HID.PressKey('W')
-	time.Sleep(100 * time.Millisecond)
-	ctx.RefreshGameData()
-	swappedGF, _ := s.Data.PlayerUnit.FindStat(stat.GoldFind, 0)
-
-	if (slot == 0 && swappedGF.Value > initialGF.Value) ||
-		(slot == 1 && swappedGF.Value < initialGF.Value) {
-		ctx.HID.PressKey('W') // Swap back if not in desired slot
+	const maxAttempts = 3
+	const retryDelay = 150 * time.Millisecond
+	if ctx.Data.ActiveWeaponSlot != slot {
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			if ctx.Data.ActiveWeaponSlot != slot {
+				ctx.HID.PressKey('W')
+				time.Sleep(retryDelay)
+				ctx.RefreshGameData()
+			}
+		}
 	}
 }
 
@@ -258,6 +262,7 @@ func (s *Berserker) KillDuriel() error {
 func (s *Berserker) KillMephisto() error {
 	return s.killMonster(npc.Mephisto, data.MonsterTypeUnique)
 }
+
 func (s *Berserker) KillDiablo() error {
 	timeout := time.Second * 20
 	startTime := time.Now()

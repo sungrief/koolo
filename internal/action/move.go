@@ -315,9 +315,12 @@ func onSafeNavigation() {
 	if _, isLevelingChar := ctx.Char.(context.LevelingCharacter); isLevelingChar {
 		statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 		if hasUnusedPoints && statPoints.Value > 0 {
+			ctx.PauseIfNotPriority()
+			ctx.DisableItemPickup()
 			EnsureSkillPoints()
 			EnsureStatPoints()
 			EnsureSkillBindings()
+			ctx.EnableItemPickup()
 		}
 	}
 }
@@ -384,6 +387,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 	var pathDistance int
 	var pathFound bool
 	var pathErrors int
+	var stuck bool
 	blacklistedInteractions := map[data.UnitID]bool{}
 
 	// Initial sync check
@@ -414,11 +418,18 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		}
 
 		isSafe := true
-		if !ctx.Data.AreaData.Area.IsTown() {
+		if !ctx.Data.AreaData.Area.IsTown() && !ctx.Data.CanTeleport() {
 			//Safety first, handle enemies
 			if !opts.IgnoreMonsters() && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 				actionLastMonsterHandlingTime = time.Now()
-				_ = ClearAreaAroundPosition(ctx.Data.PlayerUnit.Position, clearPathDist, data.MonsterAnyFilter())
+				_ = ClearAreaAroundPosition(ctx.Data.PlayerUnit.Position, clearPathDist, func(monsters data.Monsters) (filteredMonsters []data.Monster) {
+					for _, m := range monsters {
+						if stuck || !ctx.Char.ShouldIgnoreMonster(m) {
+							filteredMonsters = append(filteredMonsters, m)
+						}
+					}
+					return filteredMonsters
+				})
 				if !opts.IgnoreItems() {
 					// After clearing, immediately try to pick up items
 					lootErr := ItemPickup(lootAfterCombatRadius)
@@ -444,7 +455,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 			//Check chests nearby
 			if ctx.CharacterCfg.Game.InteractWithChests && shrine.ID == 0 && chest.ID == 0 {
-				if closestChest, chestFound := ctx.PathFinder.GetClosestChest(ctx.Data.PlayerUnit.Position); chestFound {
+				if closestChest, chestFound := ctx.PathFinder.GetClosestChest(ctx.Data.PlayerUnit.Position, true); chestFound {
 					blacklisted, exists := blacklistedInteractions[closestChest.ID]
 					if !exists || !blacklisted {
 						chest = *closestChest
@@ -584,6 +595,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			} else if errors.Is(moveErr, step.ErrPlayerStuck) {
 				ctx.PathFinder.RandomMovement()
 				time.Sleep(time.Millisecond * 200)
+				stuck = true
 				continue
 			} else if errors.Is(moveErr, step.ErrNoPath) && pathStep > 0 {
 				ctx.PathFinder.RandomMovement()
@@ -594,6 +606,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			//Cannot recover, abort and report error
 			return moveErr
 		}
+
+		stuck = false
 
 		//If we're not in town and moved without errors, move forward in the path
 		if !ctx.Data.AreaData.Area.IsTown() {
