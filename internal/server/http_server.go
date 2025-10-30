@@ -524,6 +524,7 @@ func (s *HttpServer) getStatusData() IndexData {
 				NextExp:         nextExp,
 				Difficulty:      diffStr,
 				Area:            areaStr,
+				Ping:            data.Game.Ping,
 				Life:            life,
 				MaxLife:         maxLife,
 				Mana:            mana,

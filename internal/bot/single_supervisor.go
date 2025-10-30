@@ -249,6 +249,18 @@ func (s *SinglePlayerSupervisor) Start() error {
 		}
 		defer runCancel()
 
+		// Initialize ping monitor for this game session
+		// Quit after sustained high ping (e.g., 30 seconds of ping > 1000ms)
+		pingMonitor := health.NewPingMonitor(
+			s.bot.ctx.Logger,
+			1000,           // High ping threshold in ms
+			30*time.Second, // Sustained duration before quit
+		)
+		pingMonitor.SetCallback(func() {
+			s.bot.ctx.Logger.Error("Sustained high ping detected. Forcing game exit.")
+			runCancel()
+		})
+
 		// In-Game Activity Monitor
 		go func() {
 			ticker := time.NewTicker(activityCheckInterval)
@@ -274,6 +286,13 @@ func (s *SinglePlayerSupervisor) Start() error {
 					if !s.bot.ctx.GameReader.InGame() || s.bot.ctx.Data.PlayerUnit.ID == 0 {
 						continue
 					}
+
+					// Check for sustained high ping
+					if pingMonitor.CheckPing(s.bot.ctx.Data.Game.Ping) {
+						s.bot.ctx.Logger.Error("Ping monitor triggered game exit.")
+						return
+					}
+
 					currentPos := s.bot.ctx.Data.PlayerUnit.Position
 					if currentPos.X == lastPosition.X && currentPos.Y == lastPosition.Y {
 						if stuckSince.IsZero() {
