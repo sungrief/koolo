@@ -22,7 +22,14 @@ func (p Pit) Name() string {
 	return string(config.PitRun)
 }
 
-func (p Pit) Run() error {
+func (p Pit) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	return SequencerOk
+}
+
+func (p Pit) Run(parameters *RunParameters) error {
 	// Define a default filter
 	monsterFilter := data.MonsterAnyFilter()
 

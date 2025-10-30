@@ -28,7 +28,11 @@ func (a Leveling) Name() string {
 	return string(config.LevelingRun)
 }
 
-func (a Leveling) Run() error {
+func (a Leveling) CheckConditions(parameters *RunParameters) SequencerResult {
+	return SequencerError
+}
+
+func (a Leveling) Run(parameters *RunParameters) error {
 	// Adjust settings based on difficulty
 	a.AdjustDifficultyConfig()
 
@@ -112,23 +116,20 @@ func (a Leveling) AdjustGameDifficulty() error {
 		}
 	case difficulty.Nightmare:
 		//switch to hell check
-		isLowGold := action.IsLowGold()
 		if a.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {
 			if lvl.Value >= a.ctx.CharacterCfg.Game.Leveling.HellRequiredLevel &&
 				effectiveFireRes >= a.ctx.CharacterCfg.Game.Leveling.HellRequiredFireRes &&
 				effectiveLightRes >= a.ctx.CharacterCfg.Game.Leveling.HellRequiredLightRes &&
-				!isLowGold {
+				!action.IsBelowGoldPickupThreshold() {
 				a.ctx.CharacterCfg.Game.Difficulty = difficulty.Hell
 
 				difficultyChanged = true
 			}
 		}
 	case difficulty.Hell:
-		// Revert to nightmare check
-		totalGold := a.ctx.Data.PlayerUnit.TotalPlayerGold()
 		if effectiveFireRes < a.ctx.CharacterCfg.Game.Leveling.HellRequiredFireRes ||
 			effectiveLightRes < a.ctx.CharacterCfg.Game.Leveling.HellRequiredLightRes ||
-			totalGold < 10000 {
+			action.IsLowGold() {
 			a.ctx.CharacterCfg.Game.Difficulty = difficulty.Nightmare
 			difficultyChanged = true
 		}
@@ -138,10 +139,14 @@ func (a Leveling) AdjustGameDifficulty() error {
 		a.ctx.Logger.Info("Difficulty changed to %s. Saving character configuration...", a.ctx.CharacterCfg.Game.Difficulty)
 		// Use the new ConfigFolderName field here!
 		if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
-			a.ctx.Logger.Error("Failed to save character configuration: %s", err.Error())
 			return fmt.Errorf("failed to save character configuration: %w", err)
 		}
-		return errors.New("res too low for hell")
+
+		if currentDifficulty == difficulty.Hell {
+			return errors.New("res too low for hell, reverted to nightmare")
+		} else {
+			return errors.New("difficulty changed, restart")
+		}
 	}
 	return nil
 }

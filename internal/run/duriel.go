@@ -12,6 +12,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
+	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -19,6 +20,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
+	"github.com/lxn/win"
 )
 
 const (
@@ -42,7 +44,42 @@ func (d Duriel) Name() string {
 	return string(config.DurielRun)
 }
 
-func (d Duriel) Run() error {
+func (d Duriel) CheckConditions(parameters *RunParameters) SequencerResult {
+	if IsFarmingRun(parameters) {
+		if d.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+			return SequencerOk
+		}
+		return SequencerSkip
+	} else if d.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+		return SequencerSkip
+	}
+
+	horadricStaffQuestCompleted := d.ctx.Data.Quests[quest.Act2TheHoradricStaff].Completed()
+	summonerQuestCompleted := d.ctx.Data.Quests[quest.Act2TheSummoner].Completed()
+	if horadricStaffQuestCompleted && summonerQuestCompleted {
+		_, found := d.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
+		if found {
+			return SequencerOk
+		}
+	}
+	return SequencerStop
+}
+
+func (d Duriel) Run(parameters *RunParameters) error {
+
+	if IsQuestRun(parameters) {
+		//Try completing quest and early exit if possible
+		d.tryTalkToJerhyn()
+		if d.tryTalkToMeshif() {
+			return nil
+		}
+
+		//prepare for quest
+		if err := d.prepareStaff(); err != nil {
+			return err
+		}
+	}
+
 	err := action.WayPoint(area.CanyonOfTheMagi)
 	if err != nil {
 		return err
@@ -225,7 +262,36 @@ func (d Duriel) Run() error {
 
 	utils.Sleep(700)
 
-	return d.ctx.Char.KillDuriel()
+	if err := d.ctx.Char.KillDuriel(); err != nil {
+		return err
+	}
+
+	if IsQuestRun(parameters) {
+		action.ClearAreaAroundPlayer(30, d.durielFilter())
+
+		duriel, found := d.ctx.Data.Monsters.FindOne(npc.Duriel, data.MonsterTypeUnique)
+		if !found || duriel.Stats[stat.Life] <= 0 || d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress3) {
+			action.MoveToCoords(data.Position{
+				X: 22577,
+				Y: 15600,
+			})
+			action.InteractNPC(npc.Tyrael)
+		}
+
+		action.ReturnTown()
+
+		action.UpdateQuestLog(false)
+
+		if !d.tryTalkToJerhyn() {
+			return errors.New("failed to talk to jerhyn")
+		}
+
+		if !d.tryTalkToMeshif() {
+			return errors.New("failed to talk to meshif")
+		}
+	}
+
+	return nil
 }
 
 func (d Duriel) findRealTomb() (area.ID, error) {
@@ -245,4 +311,101 @@ func (d Duriel) findRealTomb() (area.ID, error) {
 	}
 
 	return realTomb, nil
+}
+
+func (d Duriel) prepareStaff() error {
+	horadricStaff, found := d.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	if found {
+		d.ctx.Logger.Info("Horadric Staff found!")
+		if horadricStaff.Location.LocationType == item.LocationStash {
+			d.ctx.Logger.Info("It's in the stash, let's pick it up")
+
+			bank, found := d.ctx.Data.Objects.FindOne(object.Bank)
+			if !found {
+				d.ctx.Logger.Info("bank object not found")
+			}
+
+			err := action.InteractObject(bank, func() bool {
+				return d.ctx.Data.OpenMenus.Stash
+			})
+			if err != nil {
+				return err
+			}
+
+			screenPos := ui.GetScreenCoordsForItem(horadricStaff)
+			d.ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
+			utils.Sleep(300)
+			step.CloseAllMenus()
+
+			return nil
+		}
+	}
+
+	staff, found := d.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
+	if !found {
+		d.ctx.Logger.Info("Staff of Kings not found, skipping")
+		return nil
+	}
+
+	amulet, found := d.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
+	if !found {
+		d.ctx.Logger.Info("Amulet of the Viper not found, skipping")
+		return nil
+	}
+
+	err := action.CubeAddItems(staff, amulet)
+	if err != nil {
+		return err
+	}
+
+	err = action.CubeTransmute()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d Duriel) durielFilter() data.MonsterFilter {
+	return func(a data.Monsters) []data.Monster {
+		var filteredMonsters []data.Monster
+		for _, mo := range a {
+			if mo.Name == npc.Duriel {
+				filteredMonsters = append(filteredMonsters, mo)
+			}
+		}
+
+		return filteredMonsters
+	}
+}
+
+func (d Duriel) tryTalkToJerhyn() bool {
+	if d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress5) {
+		d.ctx.Logger.Info("The Seven Tombs quest in progress 5. Speaking to Jerhyn.")
+		action.MoveToCoords(data.Position{
+			X: 5092,
+			Y: 5144,
+		})
+		action.InteractNPC(npc.Jerhyn)
+		utils.Sleep(500)
+		return true
+	}
+	return false
+}
+
+func (d Duriel) tryTalkToMeshif() bool {
+	if d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress6) {
+		d.ctx.Logger.Info("Act 2, The Seven Tombs quest completed. Moving to Act 3.")
+		action.MoveToCoords(data.Position{
+			X: 5195,
+			Y: 5060,
+		})
+		action.InteractNPC(npc.Meshif)
+		d.ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+		utils.Sleep(1000)
+		action.HoldKey(win.VK_SPACE, 2000) // Hold the Escape key (VK_ESCAPE or 0x1B) for 2000 milliseconds (2 seconds)
+		utils.Sleep(1000)
+		return true
+	}
+	return false
 }

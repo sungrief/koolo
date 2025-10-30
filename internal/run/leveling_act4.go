@@ -92,7 +92,7 @@ func (a Leveling) act4() error {
 
 		a.ctx.Logger.Info("Low on gold. Initiating Chest Run.")
 
-		NewLowerKurastChest().Run()
+		NewLowerKurastChest().Run(nil)
 
 		err := action.WayPoint(area.ThePandemoniumFortress)
 		if err != nil {
@@ -115,16 +115,16 @@ func (a Leveling) act4() error {
 
 		a.ctx.Logger.Info("Under level 90 we assume we must still farm items")
 
-		NewLowerKurastChest().Run()
-		NewMephisto(nil).Run()
-		NewMausoleum().Run()
+		NewLowerKurastChest().Run(nil)
+		NewMephisto(nil).Run(nil)
+		NewMausoleum().Run(nil)
 		err := action.WayPoint(area.ThePandemoniumFortress)
 		if err != nil {
 			return err
 		}
 
 		diabloRun := NewDiablo()
-		err = diabloRun.Run()
+		err = diabloRun.Run(nil)
 		if err != nil {
 			return err
 		}
@@ -140,7 +140,7 @@ func (a Leveling) act4() error {
 
 	if (a.ctx.Data.Quests[quest.Act4TheFallenAngel].Completed() && !a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed()) || (a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() && a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && (lvl.Value < 60 || effectiveFireRes < 75 || effectiveLightRes < 50)) || (a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() && a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && lvl.Value < 30) {
 		diabloRun := NewDiablo()
-		err := diabloRun.Run()
+		err := diabloRun.Run(nil)
 		if err != nil {
 			return err
 		}
@@ -186,7 +186,7 @@ func (a Leveling) act4() error {
 
 	if !a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
 		diabloRun := NewDiablo()
-		err := diabloRun.Run()
+		err := diabloRun.Run(nil)
 		if err != nil {
 			return err
 		}

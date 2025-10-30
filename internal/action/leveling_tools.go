@@ -619,6 +619,19 @@ func IsLowGold() bool {
 	return ctx.Data.PlayerUnit.TotalPlayerGold() < playerLevel*1000
 }
 
+func IsBelowGoldPickupThreshold() bool {
+	ctx := context.Get()
+
+	var playerLevel int
+	if lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); found {
+		playerLevel = lvl.Value
+	} else {
+		playerLevel = 1
+	}
+
+	return ctx.Data.PlayerUnit.TotalPlayerGold() < playerLevel*5000
+}
+
 func GetCastersCommonRunewords() []string {
 	castersRunewords := []string{"Stealth", "Spirit", "Heart of the Oak"}
 	return castersRunewords

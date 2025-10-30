@@ -7,6 +7,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -28,7 +29,23 @@ func (n Nihlathak) Name() string {
 	return string(config.NihlathakRun)
 }
 
-func (n Nihlathak) Run() error {
+func (n Nihlathak) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		if !n.ctx.Data.Quests[quest.Act5BetrayalOfHarrogath].Completed() {
+			return SequencerSkip
+		}
+		return SequencerOk
+	}
+	if n.ctx.Data.Quests[quest.Act5BetrayalOfHarrogath].Completed() {
+		return SequencerSkip
+	}
+	if !n.ctx.Data.Quests[quest.Act5PrisonOfIce].Completed() {
+		return SequencerStop
+	}
+	return SequencerOk
+}
+
+func (n Nihlathak) Run(parameters *RunParameters) error {
 	// Use the waypoint to HallsOfPain
 	err := action.WayPoint(area.HallsOfPain)
 	if err != nil {

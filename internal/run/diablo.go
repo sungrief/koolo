@@ -1,18 +1,22 @@
 package run
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/utils"
+	"github.com/lxn/win"
 )
 
 var diabloSpawnPosition = data.Position{X: 7792, Y: 5294}
@@ -33,7 +37,16 @@ func (d *Diablo) Name() string {
 	return string(config.DiabloRun)
 }
 
-func (d *Diablo) Run() error {
+func (a Diablo) CheckConditions(parameters *RunParameters) SequencerResult {
+	farmingRun := IsFarmingRun(parameters)
+	questCompleted := a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed()
+	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (d *Diablo) Run(parameters *RunParameters) error {
 	// Just to be sure we always re-enable item pickup after the run
 	defer func() {
 		d.ctx.EnableItemPickup()
@@ -199,8 +212,35 @@ func (d *Diablo) Run() error {
 			d.ctx.DisableItemPickup()
 		}
 
-		return d.ctx.Char.KillDiablo()
+		if err := d.ctx.Char.KillDiablo(); err != nil {
+			return err
+		}
 
+		action.ItemPickup(30)
+
+		if IsQuestRun(parameters) {
+
+			err := action.InteractNPC(npc.Tyrael2)
+			if err != nil {
+				return err
+			}
+			harrogathPortal, found := d.ctx.Data.Objects.FindOne(object.LastLastPortal)
+			if !found {
+				return errors.New("portal to Harrogath not found")
+			}
+
+			err = action.InteractObject(harrogathPortal, func() bool {
+
+				utils.Sleep(1500)
+				action.HoldKey(win.VK_SPACE, 2000)
+				utils.Sleep(1500)
+
+				return d.ctx.Data.AreaData.Area == area.Harrogath && d.ctx.Data.AreaData.IsInside(d.ctx.Data.PlayerUnit.Position)
+			})
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

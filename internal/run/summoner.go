@@ -6,6 +6,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -26,10 +27,19 @@ func (s Summoner) Name() string {
 	return string(config.SummonerRun)
 }
 
-func (s Summoner) Run() error {
+func (s Summoner) CheckConditions(parameters *RunParameters) SequencerResult {
+	farmingRun := IsFarmingRun(parameters)
+	questCompleted := s.ctx.Data.Quests[quest.Act2TheSummoner].Completed()
+	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (s Summoner) Run(parameters *RunParameters) error {
 	// Use the waypoint to get to Arcane Sanctuary
 	if s.ctx.CharacterCfg.Game.Summoner.KillFireEye {
-		NewFireEye().Run()
+		NewFireEye().Run(parameters)
 
 		obj, _ := s.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
 

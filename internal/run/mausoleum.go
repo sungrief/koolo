@@ -22,7 +22,14 @@ func (a Mausoleum) Name() string {
 	return string(config.MausoleumRun)
 }
 
-func (a Mausoleum) Run() error {
+func (a Mausoleum) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	return SequencerOk
+}
+
+func (a Mausoleum) Run(parameters *RunParameters) error {
 
 	// Define a defaut filter
 	monsterFilter := data.MonsterAnyFilter()

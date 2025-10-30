@@ -3,6 +3,7 @@ package run
 import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -22,7 +23,17 @@ func (a ArachnidLair) Name() string {
 	return string(config.ArachnidLairRun)
 }
 
-func (a ArachnidLair) Run() error {
+func (a ArachnidLair) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !a.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (a ArachnidLair) Run(parameters *RunParameters) error {
 	filter := data.MonsterAnyFilter()
 	if a.ctx.CharacterCfg.Game.ArachnidLair.FocusOnElitePacks {
 		filter = data.MonsterEliteFilter()

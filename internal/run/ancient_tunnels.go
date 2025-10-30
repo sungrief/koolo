@@ -3,6 +3,7 @@ package run
 import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -22,7 +23,17 @@ func (a AncientTunnels) Name() string {
 	return string(config.AncientTunnelsRun)
 }
 
-func (a AncientTunnels) Run() error {
+func (a AncientTunnels) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed() {
+		return SequencerSkip
+	}
+	return SequencerStop
+}
+
+func (a AncientTunnels) Run(parameters *RunParameters) error {
 	openChests := a.ctx.CharacterCfg.Game.AncientTunnels.OpenChests
 	onlyElites := a.ctx.CharacterCfg.Game.AncientTunnels.FocusOnElitePacks
 	filter := data.MonsterAnyFilter()

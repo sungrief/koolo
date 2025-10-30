@@ -6,6 +6,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -35,7 +36,17 @@ func (p Pindleskin) Name() string {
 	return string(config.PindleskinRun)
 }
 
-func (p Pindleskin) Run() error {
+func (p Pindleskin) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !p.ctx.Data.Quests[quest.Act5PrisonOfIce].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (p Pindleskin) Run(parameters *RunParameters) error {
 	err := action.WayPoint(area.Harrogath)
 	if err != nil {
 		return err

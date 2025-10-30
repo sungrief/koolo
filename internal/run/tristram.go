@@ -8,6 +8,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -40,7 +41,17 @@ func (t Tristram) Name() string {
 	return string(config.TristramRun)
 }
 
-func (t Tristram) Run() error {
+func (t Tristram) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !t.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (t Tristram) Run(parameters *RunParameters) error {
 
 	if t.shouldTakeRejuvsAndLeave() {
 		return nil

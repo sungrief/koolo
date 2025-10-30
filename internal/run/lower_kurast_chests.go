@@ -8,6 +8,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -32,7 +33,17 @@ func (run LowerKurastChests) Name() string {
 	return string(config.LowerKurastChestRun)
 }
 
-func (run LowerKurastChests) Run() error {
+func (run LowerKurastChests) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !run.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (run LowerKurastChests) Run(parameters *RunParameters) error {
 	run.ctx.Logger.Debug("Running a Lower Kurast Chest run")
 
 	// Use Waypoint to Lower Kurast
@@ -113,19 +124,17 @@ func (run LowerKurastChests) Run() error {
 		return err
 	}
 
+	_, isLevelingChar := run.ctx.Char.(context.LevelingCharacter)
 
-    _, isLevelingChar := run.ctx.Char.(context.LevelingCharacter)
+	if !isLevelingChar {
 
-    if !isLevelingChar {
+		// Move to A4 if possible to shorten the run time
+		err = action.WayPoint(area.ThePandemoniumFortress)
+		if err != nil {
+			return err
+		}
 
-	// Move to A4 if possible to shorten the run time
-	err = action.WayPoint(area.ThePandemoniumFortress)
-	if err != nil {
-		return err
 	}
-   
-   
-    }
 
 	// Done
 	return nil

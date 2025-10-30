@@ -3,6 +3,7 @@ package run
 import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -22,7 +23,17 @@ func (s DrifterCavern) Name() string {
 	return string(config.DrifterCavernRun)
 }
 
-func (s DrifterCavern) Run() error {
+func (a DrifterCavern) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (s DrifterCavern) Run(parameters *RunParameters) error {
 	// Define a default monster filter
 	monsterFilter := data.MonsterAnyFilter()
 

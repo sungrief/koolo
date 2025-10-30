@@ -1,12 +1,14 @@
 package run
 
 import (
+	"slices"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -45,7 +47,34 @@ func (m Mephisto) Name() string {
 	return string(config.MephistoRun)
 }
 
-func (m Mephisto) Run() error {
+func (m Mephisto) CheckConditions(parameters *RunParameters) SequencerResult {
+	if IsFarmingRun(parameters) {
+		if !m.ctx.Data.Quests[quest.Act3TheGuardian].Completed() {
+			return SequencerSkip
+		}
+		return SequencerOk
+	}
+
+	if !m.ctx.Data.Quests[quest.Act3KhalimsWill].Completed() {
+		return SequencerStop
+	}
+	if m.ctx.Data.Quests[quest.Act3TheGuardian].Completed() {
+		//Workaround AvailableWaypoints only filled when wp menu has been opened on act page
+		//Check if any act 4 quests has started or is completed
+		a4q1 := m.ctx.Data.Quests[quest.Act4TheFallenAngel]
+		a4q2 := m.ctx.Data.Quests[quest.Act4HellForge]
+		a4q3 := m.ctx.Data.Quests[quest.Act4TerrorsEnd]
+		if slices.Contains(m.ctx.Data.PlayerUnit.AvailableWaypoints, area.ThePandemoniumFortress) ||
+			(!a4q1.HasStatus(quest.StatusQuestNotStarted) || a4q1.Completed()) ||
+			(!a4q2.HasStatus(quest.StatusQuestNotStarted) || a4q2.Completed()) ||
+			(!a4q3.HasStatus(quest.StatusQuestNotStarted) || a4q3.Completed()) {
+			return SequencerSkip
+		}
+	}
+	return SequencerOk
+}
+
+func (m Mephisto) Run(parameters *RunParameters) error {
 
 	// Use waypoint to DuranceOfHateLevel2
 	err := action.WayPoint(area.DuranceOfHateLevel2)
@@ -107,7 +136,7 @@ func (m Mephisto) Run() error {
 		return action.ClearCurrentLevel(m.ctx.CharacterCfg.Game.Mephisto.OpenChests, m.CouncilMemberFilter())
 	}
 
-	if m.ctx.CharacterCfg.Game.Mephisto.ExitToA4 {
+	if IsQuestRun(parameters) || m.ctx.CharacterCfg.Game.Mephisto.ExitToA4 {
 
 		_, isLevelingChar := m.ctx.Char.(context.LevelingCharacter)
 		if isLevelingChar {
@@ -143,9 +172,7 @@ func (m Mephisto) Run() error {
 		if isLevelingChar {
 			utils.Sleep(1000)
 			m.HoldKey(win.VK_SPACE, 2000)
-
 			utils.Sleep(1000)
-
 		}
 	}
 

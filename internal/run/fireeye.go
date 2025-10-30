@@ -7,6 +7,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -28,7 +29,17 @@ func (f *FireEye) Name() string {
 	return "FireEye"
 }
 
-func (f *FireEye) Run() error {
+func (a *FireEye) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !a.ctx.Data.Quests[quest.Act2TaintedSun].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (f *FireEye) Run(parameters *RunParameters) error {
 
 	fmt.Println("Fire Eye: Traveling to Arcane Sanctuary...")
 	err := action.WayPoint(area.ArcaneSanctuary)

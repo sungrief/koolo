@@ -4,6 +4,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -23,7 +24,17 @@ func (e Endugu) Name() string {
 	return string(config.EnduguRun)
 }
 
-func (e Endugu) Run() error {
+func (a Endugu) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !a.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (e Endugu) Run(parameters *RunParameters) error {
 
 	// Use waypoint to FlayerJungle
 	err := action.WayPoint(area.FlayerJungle)

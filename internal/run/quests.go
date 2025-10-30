@@ -35,7 +35,11 @@ func (a Quests) Name() string {
 	return string(config.QuestsRun)
 }
 
-func (a Quests) Run() error {
+func (a Quests) CheckConditions(parameters *RunParameters) SequencerResult {
+	return SequencerError
+}
+
+func (a Quests) Run(parameters *RunParameters) error {
 	if a.ctx.CharacterCfg.Game.Quests.ClearDen && !a.ctx.Data.Quests[quest.Act1DenOfEvil].Completed() {
 		a.clearDenQuest()
 	}
@@ -318,7 +322,7 @@ PickupLoop:
 
 	step.CloseAllMenus()
 
-	err = NewTristram().Run()
+	err = NewTristram().Run(nil)
 	if err != nil {
 		return err
 	}

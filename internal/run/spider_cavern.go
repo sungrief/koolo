@@ -3,6 +3,7 @@ package run
 import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -22,7 +23,17 @@ func (run SpiderCavern) Name() string {
 	return string(config.SpiderCavernRun)
 }
 
-func (run SpiderCavern) Run() error {
+func (run SpiderCavern) CheckConditions(parameters *RunParameters) SequencerResult {
+	if !IsFarmingRun(parameters) {
+		return SequencerError
+	}
+	if !run.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (run SpiderCavern) Run(parameters *RunParameters) error {
 	// Define a default monster filter
 	monsterFilter := data.MonsterAnyFilter()
 
