@@ -42,4 +42,6 @@ type LevelingCharacter interface {
 	ShouldResetSkills() bool
 	GetAdditionalRunewords() []string
 	KillAncients() error
+	InitialCharacterConfigSetup()
+	AdjustCharacterConfig()
 }

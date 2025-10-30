@@ -479,3 +479,11 @@ func (s AssassinLeveling) GetAdditionalRunewords() []string {
 	additionalRunewords := action.GetCastersCommonRunewords()
 	return additionalRunewords
 }
+
+func (s AssassinLeveling) InitialCharacterConfigSetup() {
+
+}
+
+func (s AssassinLeveling) AdjustCharacterConfig() {
+
+}
