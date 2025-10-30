@@ -56,9 +56,15 @@ func (d *Diablo) Run() error {
 	// We move directly to Diablo spawn position if StartFromStar is enabled, not clearing the path
 	d.ctx.Logger.Debug(fmt.Sprintf("StartFromStar value: %t", d.ctx.CharacterCfg.Game.Diablo.StartFromStar))
 	if d.ctx.CharacterCfg.Game.Diablo.StartFromStar {
-		//move to star
-		if err := action.MoveToCoords(diabloSpawnPosition); err != nil {
-			return err
+		if d.ctx.Data.CanTeleport() {
+			if err := action.MoveToCoords(diabloSpawnPosition, step.WithIgnoreMonsters()); err != nil {
+				return err
+			}
+		} else {
+			//move to star
+			if err := action.MoveToCoords(diabloSpawnPosition, step.WithMonsterFilter(d.getMonsterFilter())); err != nil {
+				return err
+			}
 		}
 		//open portal if leader
 		if d.ctx.CharacterCfg.Companion.Leader {
@@ -69,7 +75,7 @@ func (d *Diablo) Run() error {
 
 		if !d.ctx.Data.CanTeleport() {
 			d.ctx.Logger.Debug("Non-teleporting character detected, clearing path to Vizier from star")
-			err := action.MoveToCoords(chaosNavToPosition)
+			err := action.MoveToCoords(chaosNavToPosition, step.WithClearPathOverride(30), step.WithMonsterFilter(d.getMonsterFilter()))
 			if err != nil {
 				d.ctx.Logger.Error(fmt.Sprintf("Failed to clear path to Vizier from star: %v", err))
 				return err
@@ -84,7 +90,7 @@ func (d *Diablo) Run() error {
 			action.ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
 		}
 		//path through towards vizier
-		err := action.MoveToCoords(chaosNavToPosition)
+		err := action.MoveToCoords(chaosNavToPosition, step.WithClearPathOverride(30), step.WithMonsterFilter(d.getMonsterFilter()))
 		if err != nil {
 			return err
 		}
@@ -99,7 +105,7 @@ func (d *Diablo) Run() error {
 
 	// Thanks Go for the lack of ordered maps
 	for _, bossName := range []string{"Vizier", "Lord De Seis", "Infector"} {
-		d.ctx.Logger.Debug("Heading to", bossName)
+		d.ctx.Logger.Debug(fmt.Sprint("Heading to ", bossName))
 
 		for _, sealID := range sealGroups[bossName] {
 			seal, found := d.ctx.Data.Objects.FindOne(sealID)
@@ -107,14 +113,14 @@ func (d *Diablo) Run() error {
 				return fmt.Errorf("seal not found: %d", sealID)
 			}
 
-			err := action.MoveToCoords(seal.Position)
+			err := action.MoveToCoords(seal.Position, step.WithClearPathOverride(20), step.WithMonsterFilter(d.getMonsterFilter()))
 			if err != nil {
 				return err
 			}
 
 			// Handle the special case for DiabloSeal3
 			if sealID == object.DiabloSeal3 && seal.Position.X == 7773 && seal.Position.Y == 5155 {
-				if err = action.MoveToCoords(data.Position{X: 7768, Y: 5160}); err != nil {
+				if err = action.MoveToCoords(data.Position{X: 7768, Y: 5160}, step.WithClearPathOverride(20), step.WithMonsterFilter(d.getMonsterFilter())); err != nil {
 					return fmt.Errorf("failed to move to bugged seal position: %w", err)
 				}
 			}
@@ -210,64 +216,92 @@ func (d *Diablo) killSealElite(boss string) error {
 	d.ctx.Logger.Debug(fmt.Sprintf("Starting kill sequence for %s", boss))
 	startTime := time.Now()
 
-	var timeout time.Duration
-	if d.ctx.Data.CanTeleport() {
-		timeout = 8 * time.Second
-	} else {
-		timeout = 15 * time.Second
-	}
+	timeout := 15 * time.Second
 
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
+	sealElite := data.Monster{}
 	for time.Since(startTime) < timeout {
+		d.ctx.PauseIfNotPriority()
+		d.ctx.RefreshGameData()
+
 		for _, m := range d.ctx.Data.Monsters.Enemies(d.ctx.Data.MonsterFilterAnyReachable()) {
 			if action.IsMonsterSealElite(m) {
-				d.ctx.Logger.Debug(fmt.Sprintf("Seal elite found: %v at position X: %d, Y: %d", m.Name, m.Position.X, m.Position.Y))
-
-				var clearRadius int
-				if d.ctx.Data.CanTeleport() {
-					clearRadius = 30
-				} else {
-					clearRadius = 40
-				}
-
-				d.ctx.Logger.Debug(fmt.Sprintf("Clearing area around seal elite with radius %d", clearRadius))
-
-				utils.Sleep(500)
-				err := action.ClearAreaAroundPosition(m.Position, clearRadius, func(monsters data.Monsters) (filteredMonsters []data.Monster) {
-					if isLevelingChar {
-						filteredMonsters = append(filteredMonsters, monsters...)
-					} else if action.IsMonsterSealElite(m) {
-						filteredMonsters = append(filteredMonsters, m)
-					}
-					return filteredMonsters
-				})
-
-				if err != nil {
-					d.ctx.Logger.Error(fmt.Sprintf("Failed to clear area around seal elite %s: %v", boss, err))
-					continue
-				}
-
-				d.ctx.Logger.Debug(fmt.Sprintf("Successfully cleared area around seal elite %s", boss))
-				return nil
+				sealElite = m
+				//d.ctx.Logger.Debug(fmt.Sprintf("Seal elite found: %v at position X: %d, Y: %d", m.Name, m.Position.X, m.Position.Y))
+				break
 			}
 		}
 
-		var sleepInterval time.Duration
-		if d.ctx.Data.CanTeleport() {
-			sleepInterval = 200 * time.Millisecond
-		} else {
-			sleepInterval = 500 * time.Millisecond
+		if sealElite.UnitID != 0 {
+			//Seal elite found, stop detection loop
+			break
 		}
 
-		time.Sleep(sleepInterval)
 		//Reset time
 		if d.ctx.Data.PlayerUnit.Area.IsTown() {
-			d.ctx.PauseIfNotPriority()
 			startTime = time.Now()
 		}
+
+		utils.Sleep(250)
 	}
 
-	return fmt.Errorf("no seal elite found for %s within %v seconds", boss, timeout.Seconds())
+	utils.Sleep(500)
+
+	killSealEliteAttempts := 0
+	if sealElite.UnitID != 0 {
+		for killSealEliteAttempts <= 5 {
+			d.ctx.PauseIfNotPriority()
+			d.ctx.RefreshGameData()
+			m, found := d.ctx.Data.Monsters.FindByID(sealElite.UnitID)
+
+			//If in town, wait until back to battlefield
+			if d.ctx.Data.PlayerUnit.Area.IsTown() {
+				utils.Sleep(100)
+				continue
+			}
+
+			if !found {
+				if _, corpseFound := d.ctx.Data.Corpses.FindByID(sealElite.UnitID); corpseFound {
+					d.ctx.Logger.Debug(fmt.Sprintf("Successfully killed seal elite %s after %d attempts", boss, killSealEliteAttempts))
+					return nil
+				} else {
+					return fmt.Errorf("seal elite %s not found after first detection ", boss)
+				}
+			}
+
+			killSealEliteAttempts++
+			sealElite = m
+
+			var clearRadius int
+			if d.ctx.Data.CanTeleport() {
+				clearRadius = 30
+			} else {
+				clearRadius = 40
+			}
+
+			//d.ctx.Logger.Debug(fmt.Sprintf("Clearing area around seal elite with radius %d", clearRadius))
+
+			err := action.ClearAreaAroundPosition(sealElite.Position, clearRadius, func(monsters data.Monsters) (filteredMonsters []data.Monster) {
+				if isLevelingChar {
+					filteredMonsters = append(filteredMonsters, monsters...)
+				} else {
+					filteredMonsters = append(filteredMonsters, sealElite)
+				}
+				return filteredMonsters
+			})
+
+			if err != nil {
+				d.ctx.Logger.Error(fmt.Sprintf("Failed to clear area around seal elite %s: %v", boss, err))
+				continue
+			}
+
+			utils.Sleep(250)
+		}
+	} else {
+		return fmt.Errorf("no seal elite found for %s within %v seconds", boss, timeout.Seconds())
+	}
+
+	return fmt.Errorf("failed to kill seal elite %s after %d attempts", boss, killSealEliteAttempts)
 }
 
 func (d *Diablo) getMonsterFilter() data.MonsterFilter {

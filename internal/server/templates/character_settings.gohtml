@@ -229,6 +229,15 @@
                         <!-- Spacer for grid alignment -->
                     </label>
                 </fieldset>
+                <fieldset class="grid">
+                    <label>
+                        <input type="checkbox" name="packetCastingUseForEntranceInteraction" {{ if .Config.PacketCasting.UseForEntranceInteraction }}checked{{ end }}/>
+                        Use packets for entrance interaction
+                    </label>
+                    <label style="visibility: hidden;">
+                        <!-- Spacer for grid alignment -->
+                    </label>
+                </fieldset>
             </article>
 
             <fieldset class="grid">

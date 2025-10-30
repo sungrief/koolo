@@ -377,6 +377,11 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 	}
 
 	clearPathDist := ctx.CharacterCfg.Character.ClearPathDist // Get this once
+	overrideClearPathDist := false
+	if opts.ClearPathOverride() != nil {
+		clearPathDist = *opts.ClearPathOverride()
+		overrideClearPathDist = true
+	}
 	ignoreShrines := !ctx.CharacterCfg.Game.InteractWithShrines
 	initialMovementArea := ctx.Data.PlayerUnit.Area
 	actionLastMonsterHandlingTime := time.Time{}
@@ -418,11 +423,12 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		}
 
 		isSafe := true
-		if !ctx.Data.AreaData.Area.IsTown() && !ctx.Data.CanTeleport() {
+		if !ctx.Data.AreaData.Area.IsTown() {
 			//Safety first, handle enemies
-			if !opts.IgnoreMonsters() && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
+			if !opts.IgnoreMonsters() && (!ctx.Data.CanTeleport() || overrideClearPathDist) && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 				actionLastMonsterHandlingTime = time.Now()
-				_ = ClearAreaAroundPosition(ctx.Data.PlayerUnit.Position, clearPathDist, func(monsters data.Monsters) (filteredMonsters []data.Monster) {
+				filters := opts.MonsterFilters()
+				filters = append(filters, func(monsters data.Monsters) (filteredMonsters []data.Monster) {
 					for _, m := range monsters {
 						if stuck || !ctx.Char.ShouldIgnoreMonster(m) {
 							filteredMonsters = append(filteredMonsters, m)
@@ -430,6 +436,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					}
 					return filteredMonsters
 				})
+				_ = ClearAreaAroundPosition(ctx.Data.PlayerUnit.Position, clearPathDist, filters...)
 				if !opts.IgnoreItems() {
 					// After clearing, immediately try to pick up items
 					lootErr := ItemPickup(lootAfterCombatRadius)
@@ -593,8 +600,10 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			if errors.Is(moveErr, step.ErrMonstersInPath) {
 				continue
 			} else if errors.Is(moveErr, step.ErrPlayerStuck) {
-				ctx.PathFinder.RandomMovement()
-				time.Sleep(time.Millisecond * 200)
+				if !ctx.Data.CanTeleport() {
+					ctx.PathFinder.RandomMovement()
+					time.Sleep(time.Millisecond * 200)
+				}
 				stuck = true
 				continue
 			} else if errors.Is(moveErr, step.ErrNoPath) && pathStep > 0 {
