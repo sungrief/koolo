@@ -163,17 +163,17 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 			// For portals with expected area, we need to wait for proper area sync
 			if expectedArea != 0 {
 				ping := utils.GetCurrentPing()
-				delay := utils.PingMultiplier(2.0, 500)
+				delay := utils.PingMultiplier(utils.Medium, 500)
 				ctx.Logger.Debug("Portal area transition - adaptive sleep",
 					slog.String("object_name", string(o.Name)),
 					slog.String("expected_area", expectedArea.Area().Name),
 					slog.Int("ping_ms", ping),
 					slog.Int("min_delay_ms", 500),
 					slog.Int("actual_delay_ms", delay),
-					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 500, 2.0, ping, delay)),
+					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 500, float64(utils.Medium), ping, delay)),
 				)
 
-				utils.PingSleep(2.0, 500) // Medium operation: Initial delay for area transition
+				utils.PingSleep(utils.Medium, 500) // Medium operation: Initial delay for area transition
 				for attempts := 0; attempts < maxPortalSyncAttempts; attempts++ {
 					ctx.RefreshGameData()
 					if ctx.Data.PlayerUnit.Area == expectedArea {

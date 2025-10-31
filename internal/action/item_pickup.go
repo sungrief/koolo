@@ -196,7 +196,7 @@ func ItemPickup(maxDistance int) error {
 				}
 				// Pause to let the game state update from 'walking' to 'idle'
 				// Use adaptive delay based on ping
-				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(1.0, 100)))
+				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 100)))
 				continue
 			}
 			if errors.Is(err, step.ErrMonsterAroundItem) {
@@ -245,7 +245,7 @@ func ItemPickup(maxDistance int) error {
 			// Screenshot with show items on
 			ctx.HID.KeyDown(ctx.Data.KeyBindings.ShowItems)
 			// Adaptive delay to ensure items are shown before screenshot
-			time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(1.0, 200)))
+			time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 200)))
 			screenshot := ctx.GameReader.Screenshot()
 			event.Send(event.ItemBlackListed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] BlackListed in Area:%s", itemToPickup.Name, itemToPickup.Quality.ToString(), ctx.Data.PlayerUnit.Area.Area().Name), screenshot), data.Drop{Item: itemToPickup}))
 			ctx.HID.KeyUp(ctx.Data.KeyBindings.ShowItems)

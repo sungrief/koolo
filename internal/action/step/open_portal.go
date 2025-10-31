@@ -23,7 +23,7 @@ func OpenPortal() error {
 	// Check last portal time to avoid spam during network delays
 	if !ctx.LastPortalTick.IsZero() {
 		timeSinceLastPortal := time.Since(ctx.LastPortalTick)
-		minPortalCooldown := time.Duration(utils.PingMultiplier(4.0, 1000)) * time.Millisecond
+		minPortalCooldown := time.Duration(utils.PingMultiplier(utils.Critical, 1000)) * time.Millisecond
 		if timeSinceLastPortal < minPortalCooldown {
 			remainingCooldown := minPortalCooldown - timeSinceLastPortal
 			ctx.Logger.Debug("Portal cooldown active, waiting",
@@ -54,16 +54,16 @@ func OpenPortal() error {
 		}
 
 		ping := utils.GetCurrentPing()
-		delay := utils.PingMultiplier(2.0, 250)
+		delay := utils.PingMultiplier(utils.Medium, 250)
 		ctx.Logger.Debug("Opening town portal - adaptive sleep",
 			slog.Int("ping_ms", ping),
 			slog.Int("min_delay_ms", 250),
 			slog.Int("actual_delay_ms", delay),
-			slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 250, 2.0, ping, delay)),
+			slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 250, float64(utils.Medium), ping, delay)),
 		)
 
 		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.MustKBForSkill(skill.TomeOfTownPortal))
-		utils.PingSleep(2.0, 250) // Medium operation: Wait for tome activation
+		utils.PingSleep(utils.Medium, 250) // Medium operation: Wait for tome activation
 		ctx.HID.Click(game.RightButton, 300, 300)
 		lastRun = time.Now()
 	}

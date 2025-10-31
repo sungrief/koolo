@@ -221,7 +221,7 @@ func SellJunk(lockConfig ...[][]int) {
 				keysSold += qtyInStack.Value
 				totalKeys -= qtyInStack.Value // Update total keys count
 				ctx.RefreshGameData()         // Refresh after selling a full stack
-				utils.PingSleep(1.0, 200)     // Light operation: Short delay for UI update
+				utils.PingSleep(utils.Light, 200)     // Light operation: Short delay for UI update
 			}
 		}
 
@@ -257,7 +257,7 @@ func SellJunk(lockConfig ...[][]int) {
 					SellItem(remainingKeyStack)
 					keysSold++
 					ctx.RefreshGameData()
-					utils.PingSleep(1.0, 100) // Light operation: Individual sell delay
+					utils.PingSleep(utils.Light, 100) // Light operation: Individual sell delay
 				}
 			} else {
 				ctx.Logger.Warn("No remaining key stacks found to sell individual keys from, despite excess reported.")
@@ -283,9 +283,9 @@ func SellItem(i data.Item) {
 
 	ctx.Logger.Debug(fmt.Sprintf("Attempting to sell single item %s at screen coords X:%d Y:%d", i.Desc().Name, screenPos.X, screenPos.Y))
 
-	utils.PingSleep(1.0, 200) // Light operation: Pre-click delay
+	utils.PingSleep(utils.Light, 200) // Light operation: Pre-click delay
 	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-	utils.PingSleep(1.0, 200) // Light operation: Post-click delay
+	utils.PingSleep(utils.Light, 200) // Light operation: Post-click delay
 	ctx.Logger.Debug(fmt.Sprintf("Item %s [%s] sold", i.Desc().Name, i.Quality.ToString()))
 }
 
@@ -296,9 +296,9 @@ func SellItemFullStack(i data.Item) {
 
 	ctx.Logger.Debug(fmt.Sprintf("Attempting to sell full stack of item %s at screen coords X:%d Y:%d", i.Desc().Name, screenPos.X, screenPos.Y))
 
-	utils.PingSleep(1.0, 200) // Light operation: Pre-click delay for stack sell
+	utils.PingSleep(utils.Light, 200) // Light operation: Pre-click delay for stack sell
 	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-	utils.PingSleep(2.0, 500) // Medium operation: Post-click delay for stack sell (longer for confirmation)
+	utils.PingSleep(utils.Medium, 500) // Medium operation: Post-click delay for stack sell (longer for confirmation)
 	ctx.Logger.Debug(fmt.Sprintf("Full stack of %s [%s] sold", i.Desc().Name, i.Quality.ToString()))
 }
 
@@ -306,10 +306,10 @@ func BuyItem(i data.Item, quantity int) {
 	ctx := context.Get()
 	screenPos := ui.GetScreenCoordsForItem(i)
 
-	utils.PingSleep(2.0, 250) // Medium operation: Pre-buy delay
+	utils.PingSleep(utils.Medium, 250) // Medium operation: Pre-buy delay
 	for k := 0; k < quantity; k++ {
 		ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
-		utils.PingSleep(2.0, 600) // Medium operation: Wait for purchase to process
+		utils.PingSleep(utils.Medium, 600) // Medium operation: Wait for purchase to process
 		ctx.Logger.Debug(fmt.Sprintf("Purchased %s [X:%d Y:%d]", i.Desc().Name, i.Position.X, i.Position.Y))
 	}
 }
@@ -327,7 +327,7 @@ func buyFullStack(i data.Item, currentKeysInInventory int) {
 	// - If 0 keys: this buys 1 key.
 	// - If >0 keys: this fills the current stack.
 	ctx.HID.ClickWithModifier(game.RightButton, screenPos.X, screenPos.Y, game.ShiftKey)
-	utils.PingSleep(1.0, 200) // Light operation: Wait for first purchase
+	utils.PingSleep(utils.Light, 200) // Light operation: Wait for first purchase
 
 	// Special handling for keys: only perform a second click if starting from 0 keys.
 	if i.Name == item.Key {
@@ -335,7 +335,7 @@ func buyFullStack(i data.Item, currentKeysInInventory int) {
 			// As per user: if 0 keys, first click buys 1, second click fills the stack.
 			ctx.Logger.Debug("Initial keys were 0. Performing second Shift+Right Click to fill key stack.")
 			ctx.HID.ClickWithModifier(game.RightButton, screenPos.X, screenPos.Y, game.ShiftKey)
-			utils.PingSleep(1.0, 200) // Light operation: Wait for second purchase
+			utils.PingSleep(utils.Light, 200) // Light operation: Wait for second purchase
 		} else {
 			// As per user: if > 0 keys, the first click should have already filled the stack.
 			// No second click is needed to avoid buying an unnecessary extra key/stack.
