@@ -37,7 +37,7 @@ func IsPriorityMonster(m data.Monster) bool {
 	return false
 }
 
-func ClearAreaAroundPosition(pos data.Position, radius int, filter data.MonsterFilter) error {
+func ClearAreaAroundPosition(pos data.Position, radius int, filters ...data.MonsterFilter) error {
 	ctx := context.Get()
 	ctx.SetLastAction("ClearAreaAroundPosition")
 
@@ -48,7 +48,7 @@ func ClearAreaAroundPosition(pos data.Position, radius int, filter data.MonsterF
 	defer ctx.EnableItemPickup()
 
 	return ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
-		enemies := d.Monsters.Enemies(filter)
+		enemies := d.Monsters.Enemies(filters...)
 
 		sort.Slice(enemies, func(i, j int) bool {
 			monsterI := enemies[i]

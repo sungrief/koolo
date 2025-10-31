@@ -292,8 +292,17 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		return false, false, "", ""
 	}
 
+	tierRule, mercTierRule := ctx.CharacterCfg.Runtime.Rules.EvaluateTiers(i, ctx.CharacterCfg.Runtime.TierRules)
+	if tierRule.Tier() > 0.0 && IsBetterThanEquipped(i, false, PlayerScore) {
+		return true, true, tierRule.RawLine, tierRule.Filename + ":" + strconv.Itoa(tierRule.LineNumber)
+	}
+
+	if mercTierRule.Tier() > 0.0 && IsBetterThanEquipped(i, true, MercScore) {
+		return true, true, mercTierRule.RawLine, mercTierRule.Filename + ":" + strconv.Itoa(mercTierRule.LineNumber)
+	}
+
 	// NOW, evaluate pickit rules.
-	rule, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i)
+	rule, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAllIgnoreTiers(i)
 
 	if res == nip.RuleResultFullMatch {
 		if doesExceedQuantity(rule) {
@@ -498,6 +507,10 @@ func clickStashGoldBtn() {
 }
 
 func SwitchStashTab(tab int) {
+	// Ensure any chat messages that could prevent clicking on the tab are cleared
+	ClearMessages()
+	utils.Sleep(200)
+
 	ctx := context.Get()
 	ctx.SetLastStep("switchTab")
 

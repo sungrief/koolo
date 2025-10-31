@@ -323,8 +323,9 @@ type CharacterCfg struct {
 		EquipmentBroken bool `yaml:"equipmentBroken"`
 	} `yaml:"backtotown"`
 	Runtime struct {
-		Rules nip.Rules   `yaml:"-"`
-		Drops []data.Item `yaml:"-"`
+		Rules     nip.Rules   `yaml:"-"`
+		TierRules []int       `yaml:"-"`
+		Drops     []data.Item `yaml:"-"`
 	} `yaml:"-"`
 }
 
@@ -493,6 +494,12 @@ func Load() error {
 		}
 
 		charCfg.Runtime.Rules = rules
+
+		for ruleIndex, rule := range rules {
+			if rule.Tier() > 0 || rule.MercTier() > 0 {
+				charCfg.Runtime.TierRules = append(charCfg.Runtime.TierRules, ruleIndex)
+			}
+		}
 		Characters[entry.Name()] = &charCfg
 	}
 

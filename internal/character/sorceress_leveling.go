@@ -1041,3 +1041,25 @@ func (s SorceressLeveling) GetAdditionalRunewords() []string {
 	additionalRunewords := action.GetCastersCommonRunewords()
 	return additionalRunewords
 }
+
+func (s SorceressLeveling) InitialCharacterConfigSetup() {
+	ctx := context.Get()
+	ctx.CharacterCfg.Inventory.ManaPotionCount = 8
+}
+
+func (s SorceressLeveling) AdjustCharacterConfig() {
+	ctx := context.Get()
+	lvl, _ := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+
+	ctx.CharacterCfg.Character.UseTeleport = true
+
+	if lvl.Value >= 4 && lvl.Value < 24 {
+		ctx.CharacterCfg.Character.ClearPathDist = 7
+	}
+	if ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
+		// don't engage when teleing and running oom
+		ctx.CharacterCfg.Character.ClearPathDist = 0
+	}
+
+	ctx.CharacterCfg.Inventory.ManaPotionCount = 8
+}

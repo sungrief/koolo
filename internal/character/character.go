@@ -27,6 +27,8 @@ func BuildCharacter(ctx *context.Context) (context.Character, error) {
 			return AssassinLeveling{BaseCharacter: bc}, nil
 		case "druid_leveling":
 			return DruidLeveling{BaseCharacter: bc}, nil
+		case "amazon_leveling":
+			return AmazonLeveling{BaseCharacter: bc}, nil
 		}
 
 		return nil, fmt.Errorf("leveling only available for sorceress, assassin, necromancer, druid and paladin")

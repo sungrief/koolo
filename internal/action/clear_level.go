@@ -8,6 +8,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
+	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -87,7 +88,7 @@ func clearRoom(room data.Room, filter data.MonsterFilter) error {
 		X: path.To().X + ctx.Data.AreaOrigin.X,
 		Y: path.To().Y + ctx.Data.AreaOrigin.Y,
 	}
-	err := MoveToCoords(to)
+	err := MoveToCoords(to, step.WithMonsterFilter(filter))
 	if err != nil {
 		return fmt.Errorf("failed moving to room center: %w", err)
 	}

@@ -159,11 +159,17 @@ func HaveItemsToStashUnidentified() bool {
 	ctx := context.Get()
 	ctx.SetLastAction("HaveItemsToStashUnidentified")
 
-	items := ctx.Data.Inventory.ByLocation(item.LocationInventory)
-	for _, i := range items {
-		if !i.Identified {
-			if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i); result == nip.RuleResultFullMatch {
-				return true
+	// Do not stash unid items when leveling
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
+
+	if !isLevelingChar {
+		items := ctx.Data.Inventory.ByLocation(item.LocationInventory)
+		for _, i := range items {
+
+			if !i.Identified {
+				if _, result := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i); result == nip.RuleResultFullMatch {
+					return true
+				}
 			}
 		}
 	}

@@ -668,3 +668,11 @@ func (s DruidLeveling) KillNihlathak() error {
 func (s DruidLeveling) KillBaal() error {
 	return s.killMonster(npc.BaalCrab, data.MonsterTypeUnique)
 }
+
+func (s DruidLeveling) InitialCharacterConfigSetup() {
+
+}
+
+func (s DruidLeveling) AdjustCharacterConfig() {
+
+}

@@ -49,10 +49,10 @@ if %errorlevel% neq 0 (
     :: Extract Go version and check if it matches required version
     for /f "tokens=3" %%v in ('go version') do set go_version_full=%%v
     set go_version=!go_version_full:go=!
-    
+
     :: Extract major.minor version (e.g., 1.24 from 1.24.3)
     for /f "tokens=1,2 delims=." %%a in ("!go_version!") do set go_major_minor=%%a.%%b
-    
+
     if "!go_major_minor!"=="%REQUIRED_GO_VERSION%" (
         call :print_success "Go version !go_version! is installed."
     ) else (
@@ -89,13 +89,13 @@ if %errorlevel% neq 0 (
     for /f "tokens=1,2" %%a in ('garble version 2^>^&1') do (
         if "%%a"=="mvdan.cc/garble" set garble_version_with_v=%%b
     )
-    
+
     :: Remove the 'v' prefix
     set garble_version=!garble_version_with_v:~1!
-    
+
     :: Extract exact version
     for /f "tokens=1,2,3 delims=." %%a in ("!garble_version!") do set garble_major_minor=%%a.%%b.%%c
-    
+
     if "!garble_major_minor!"=="%REQUIRED_GARBLE_VERSION%" (
         call :print_success "Garble version !garble_version! is installed."
     ) else (

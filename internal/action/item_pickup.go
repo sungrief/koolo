@@ -375,8 +375,27 @@ func shouldBePickedUp(i data.Item) bool {
 		return true
 	}
 
-	// Evaluate item based on NIP rules
-	matchedRule, result := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAll(i)
+	playerRule, mercRule := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateTiers(i, ctx.Data.CharacterCfg.Runtime.TierRules)
+	if playerRule.Tier() > 0.0 || mercRule.MercTier() > 0.0 {
+		if i.Quality <= item.QualitySuperior {
+			//If item doesn't need ID, check tier right away and keep it if better than equipped
+			if playerRule.Tier() > 0.0 {
+				if IsBetterThanEquipped(i, false, PlayerScore) {
+					return true
+				}
+			} else {
+				if IsBetterThanEquipped(i, true, MercScore) {
+					return true
+				}
+			}
+		} else {
+			//need ID
+			return true
+		}
+	}
+
+	// Evaluate item based on NIP rules ignoring tier rules
+	matchedRule, result := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAllIgnoreTiers(i)
 	if result == nip.RuleResultNoMatch {
 		return false
 	}
