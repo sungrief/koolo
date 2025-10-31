@@ -173,7 +173,7 @@ func InteractEntranceMouse(targetArea area.ID) error {
 			lx, ly := ctx.PathFinder.GameCoordsToScreenCords(l.Position.X-1, l.Position.Y-1)
 			if ctx.Data.HoverData.UnitType == 5 || ctx.Data.HoverData.UnitType == 2 && ctx.Data.HoverData.IsHovered {
 				ping := utils.GetCurrentPing()
-				delay := utils.PingMultiplier(1.0, 200)
+				delay := utils.PingMultiplier(utils.Light, 200)
 				ctx.Logger.Debug("Entrance click registered - adaptive sleep",
 					slog.String("target_area", targetArea.Area().Name),
 					slog.Int("ping_ms", ping),
@@ -184,7 +184,7 @@ func InteractEntranceMouse(targetArea area.ID) error {
 
 				ctx.HID.Click(game.LeftButton, currentMouseCoords.X, currentMouseCoords.Y)
 				waitingForInteraction = true
-				utils.PingSleep(1.0, 200) // Light operation: Wait for click registration
+				utils.PingSleep(utils.Light, 200) // Light operation: Wait for click registration
 			}
 
 			x, y := utils.Spiral(interactionAttempts)
@@ -195,7 +195,7 @@ func InteractEntranceMouse(targetArea area.ID) error {
 			interactionAttempts++
 
 			ping := utils.GetCurrentPing()
-			delay := utils.PingMultiplier(1.0, 100)
+			delay := utils.PingMultiplier(utils.Light, 100)
 			ctx.Logger.Debug("Entrance mouse movement - adaptive sleep",
 				slog.String("target_area", targetArea.Area().Name),
 				slog.Int("attempt", interactionAttempts),
@@ -205,7 +205,7 @@ func InteractEntranceMouse(targetArea area.ID) error {
 				slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 100, 1.0, ping, delay)),
 			)
 
-			utils.PingSleep(1.0, 100) // Light operation: Mouse movement delay
+			utils.PingSleep(utils.Light, 100) // Light operation: Mouse movement delay
 
 			//Add a random movement logic when interaction attempts fail
 			if interactionAttempts > 1 && interactionAttempts%3 == 0 {
@@ -234,3 +234,5 @@ func InteractEntranceMouse(targetArea area.ID) error {
 		return fmt.Errorf("area %s [%d] is not an entrance", targetArea.Area().Name, targetArea)
 	}
 }
+
+

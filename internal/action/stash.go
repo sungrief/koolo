@@ -136,7 +136,7 @@ func stashGold() {
 			SwitchStashTab(tab + 1) // Stash tabs are 0-indexed in data, but 1-indexed for UI interaction
 			clickStashGoldBtn()
 			ping := utils.GetCurrentPing()
-			delay := utils.PingMultiplier(4.0, 1000)
+			delay := utils.PingMultiplier(utils.Critical, 1000)
 			ctx.Logger.Debug("Stashing gold - adaptive sleep",
 				slog.Int("inventory_gold", ctx.Data.Inventory.Gold),
 				slog.Int("ping_ms", ping),
@@ -144,7 +144,7 @@ func stashGold() {
 				slog.Int("actual_delay_ms", delay),
 				slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 1000, 4.0, ping, delay)),
 			)
-			utils.PingSleep(4.0, 1000) // Critical operation: Wait for stash UI to process gold deposit
+			utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for stash UI to process gold deposit
 			// After clicking, refresh data again to see if gold is now 0 or less
 			ctx.RefreshGameData()             // Crucial: Refresh data to see if gold has been deposited
 			if ctx.Data.Inventory.Gold == 0 { // Check if all gold was stashed in this tab
@@ -186,9 +186,9 @@ func stashInventory(firstRun bool) {
 		if dropIt {
 			ctx.Logger.Info(fmt.Sprintf("Dropping item %s [%s] due to MaxQuantity rule.", i.Desc().Name, i.Quality.ToString()))
 			blacklistItem(i)
-			utils.PingSleep(2.0, 500) // Medium operation: Prepare for item drop
+			utils.PingSleep(utils.Medium, 500) // Medium operation: Prepare for item drop
 			DropItem(i)
-			utils.PingSleep(2.0, 500) // Medium operation: Wait for drop to complete
+			utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for drop to complete
 			step.CloseAllMenus()
 			continue
 		}
@@ -302,17 +302,7 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 	}
 
 	// NOW, evaluate pickit rules.
-	tierRule, mercTierRule := ctx.CharacterCfg.Runtime.Rules.EvaluateTiers(i, ctx.CharacterCfg.Runtime.TierRules)
-	if tierRule.Tier() > 0.0 && IsBetterThanEquipped(i, false, PlayerScore) {
-		return true, true, tierRule.RawLine, tierRule.Filename + ":" + strconv.Itoa(tierRule.LineNumber)
-	}
-
-	if mercTierRule.Tier() > 0.0 && IsBetterThanEquipped(i, true, MercScore) {
-		return true, true, mercTierRule.RawLine, mercTierRule.Filename + ":" + strconv.Itoa(mercTierRule.LineNumber)
-	}
-
-	// NOW, evaluate pickit rules.
-	rule, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAllIgnoreTiers(i)
+	rule, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(i)
 
 	if res == nip.RuleResultFullMatch {
 		if doesExceedQuantity(rule) {
@@ -376,7 +366,7 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 	ctx.SetLastAction("stashItemAction")
 
 	ping := utils.GetCurrentPing()
-	delay := utils.PingMultiplier(2.0, 500)
+	delay := utils.PingMultiplier(utils.Medium, 500)
 	ctx.Logger.Debug("Stashing item - adaptive sleep",
 		slog.String("item_name", string(i.Name)),
 		slog.Int("ping_ms", ping),
@@ -387,11 +377,11 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 
 	screenPos := ui.GetScreenCoordsForItem(i)
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
-	utils.PingSleep(2.0, 170)                 // Medium operation: Move pointer to item
+	utils.PingSleep(utils.Medium, 170)                 // Medium operation: Move pointer to item
 	screenshot := ctx.GameReader.Screenshot() // Take screenshot *before* attempting stash
-	utils.PingSleep(2.0, 150)                 // Medium operation: Wait for screenshot
+	utils.PingSleep(utils.Medium, 150)                 // Medium operation: Wait for screenshot
 	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-	utils.PingSleep(2.0, 500) // Medium operation: Give game time to process the stash
+	utils.PingSleep(utils.Medium, 500) // Medium operation: Give game time to process the stash
 
 	// Verify if the item is no longer in inventory
 	ctx.RefreshGameData() // Crucial: Refresh data to see if item moved
@@ -461,18 +451,18 @@ func blacklistItem(i data.Item) {
 func DropItem(i data.Item) {
 	ctx := context.Get()
 	ctx.SetLastAction("DropItem")
-	utils.PingSleep(2.0, 170) // Medium operation: Prepare for drop
+	utils.PingSleep(utils.Medium, 170) // Medium operation: Prepare for drop
 	step.CloseAllMenus()
-	utils.PingSleep(2.0, 170) // Medium operation: Wait for menus to close
+	utils.PingSleep(utils.Medium, 170) // Medium operation: Wait for menus to close
 	ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
-	utils.PingSleep(2.0, 170) // Medium operation: Wait for inventory to open
+	utils.PingSleep(utils.Medium, 170) // Medium operation: Wait for inventory to open
 	screenPos := ui.GetScreenCoordsForItem(i)
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
-	utils.PingSleep(2.0, 170) // Medium operation: Position pointer on item
+	utils.PingSleep(utils.Medium, 170) // Medium operation: Position pointer on item
 	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-	utils.PingSleep(2.0, 500) // Medium operation: Wait for item to drop
+	utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for item to drop
 	step.CloseAllMenus()
-	utils.PingSleep(2.0, 170) // Medium operation: Clean up UI
+	utils.PingSleep(utils.Medium, 170) // Medium operation: Clean up UI
 	ctx.RefreshGameData()
 	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 		if it.UnitID == i.UnitID {
@@ -514,23 +504,19 @@ func clickStashGoldBtn() {
 	ctx := context.Get()
 	ctx.SetLastStep("clickStashGoldBtn")
 
-	utils.PingSleep(2.0, 170) // Medium operation: Prepare for gold button click
+	utils.PingSleep(utils.Medium, 170) // Medium operation: Prepare for gold button click
 	if ctx.GameReader.LegacyGraphics() {
 		ctx.HID.Click(game.LeftButton, ui.StashGoldBtnXClassic, ui.StashGoldBtnYClassic)
-		utils.PingSleep(4.0, 1000) // Critical operation: Wait for confirm dialog
+		utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for confirm dialog
 		ctx.HID.Click(game.LeftButton, ui.StashGoldBtnConfirmXClassic, ui.StashGoldBtnConfirmYClassic)
 	} else {
 		ctx.HID.Click(game.LeftButton, ui.StashGoldBtnX, ui.StashGoldBtnY)
-		utils.PingSleep(4.0, 1000) // Critical operation: Wait for confirm dialog
+		utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for confirm dialog
 		ctx.HID.Click(game.LeftButton, ui.StashGoldBtnConfirmX, ui.StashGoldBtnConfirmY)
 	}
 }
 
 func SwitchStashTab(tab int) {
-	// Ensure any chat messages that could prevent clicking on the tab are cleared
-	ClearMessages()
-	utils.Sleep(200)
-
 	ctx := context.Get()
 	ctx.SetLastStep("switchTab")
 
@@ -541,7 +527,7 @@ func SwitchStashTab(tab int) {
 		tabSize := ui.SwitchStashTabBtnTabSizeClassic
 		x = x + tabSize*tab - tabSize/2
 		ctx.HID.Click(game.LeftButton, x, y)
-		utils.PingSleep(2.0, 500) // Medium operation: Wait for tab switch
+		utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for tab switch
 	} else {
 		x := ui.SwitchStashTabBtnX
 		y := ui.SwitchStashTabBtnY
@@ -549,7 +535,7 @@ func SwitchStashTab(tab int) {
 		tabSize := ui.SwitchStashTabBtnTabSize
 		x = x + tabSize*tab - tabSize/2
 		ctx.HID.Click(game.LeftButton, x, y)
-		utils.PingSleep(2.0, 500) // Medium operation: Wait for tab switch
+		utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for tab switch
 	}
 
 }
@@ -596,7 +582,7 @@ func TakeItemsFromStash(stashedItems []data.Item) error {
 		}
 	}
 
-	utils.PingSleep(2.0, 250) // Medium operation: Wait for stash to open
+	utils.PingSleep(utils.Medium, 250) // Medium operation: Wait for stash to open
 
 	for _, i := range stashedItems {
 
@@ -611,8 +597,10 @@ func TakeItemsFromStash(stashedItems []data.Item) error {
 		screenPos := ui.GetScreenCoordsForItem(i)
 		ctx.HID.MovePointer(screenPos.X, screenPos.Y)
 		ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
-		utils.PingSleep(2.0, 500) // Medium operation: Wait for item to move to inventory
+		utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for item to move to inventory
 	}
 
 	return nil
 }
+
+

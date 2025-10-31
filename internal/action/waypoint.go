@@ -49,7 +49,7 @@ func WayPoint(dest area.ID) error {
 				ctx.HID.Click(game.LeftButton, actTabX, ui.WpTabStartY)
 			}
 			ping := utils.GetCurrentPing()
-			delay := utils.PingMultiplier(2.0, 250)
+			delay := utils.PingMultiplier(utils.Medium, 250)
 			ctx.Logger.Debug("Waypoint tab clicked - adaptive sleep",
 				slog.String("destination", area.Areas[dest].Name),
 				slog.Int("ping_ms", ping),
@@ -57,7 +57,7 @@ func WayPoint(dest area.ID) error {
 				slog.Int("actual_delay_ms", delay),
 				slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 250, 2.0, ping, delay)),
 			)
-			utils.PingSleep(2.0, 250) // Light operation: Wait for waypoint tab to load
+			utils.PingSleep(utils.Medium, 250) // Light operation: Wait for waypoint tab to load
 			// Just to make sure no message like TZ change or public game spam prevent bot from clicking on waypoint
 			ClearMessages()
 		}
@@ -115,7 +115,7 @@ func useWP(dest area.ID) error {
 
 	// First use the previous available waypoint that we have discovered
 	ping := utils.GetCurrentPing()
-	delay := utils.PingMultiplier(4.0, 1000)
+	delay := utils.PingMultiplier(utils.Critical, 1000)
 	ctx.Logger.Debug("Waypoint destination clicked - adaptive sleep",
 		slog.String("destination", area.Areas[dest].Name),
 		slog.Int("ping_ms", ping),
@@ -131,7 +131,7 @@ func useWP(dest area.ID) error {
 		areaBtnY := ui.WpListStartY + (currentWP.Row-1)*ui.WpAreaBtnHeight + (ui.WpAreaBtnHeight / 2)
 		ctx.HID.Click(game.LeftButton, ui.WpListPositionX, areaBtnY)
 	}
-	utils.PingSleep(4.0, 1000) // Critical operation: Wait for waypoint travel to complete
+	utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for waypoint travel to complete
 
 	// We have the WP discovered, just use it
 	if len(traverseAreas) == 0 {
@@ -159,3 +159,5 @@ func useWP(dest area.ID) error {
 
 	return nil
 }
+
+

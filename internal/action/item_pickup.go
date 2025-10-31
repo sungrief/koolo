@@ -196,7 +196,7 @@ func ItemPickup(maxDistance int) error {
 				}
 				// Pause to let the game state update from 'walking' to 'idle'
 				// Use adaptive delay based on ping
-				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(1.0, 100)))
+				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 100)))
 				continue
 			}
 			if errors.Is(err, step.ErrMonsterAroundItem) {
@@ -245,7 +245,7 @@ func ItemPickup(maxDistance int) error {
 			// Screenshot with show items on
 			ctx.HID.KeyDown(ctx.Data.KeyBindings.ShowItems)
 			// Adaptive delay to ensure items are shown before screenshot
-			time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(1.0, 200)))
+			time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 200)))
 			screenshot := ctx.GameReader.Screenshot()
 			event.Send(event.ItemBlackListed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] BlackListed in Area:%s", itemToPickup.Name, itemToPickup.Quality.ToString(), ctx.Data.PlayerUnit.Area.Area().Name), screenshot), data.Drop{Item: itemToPickup}))
 			ctx.HID.KeyUp(ctx.Data.KeyBindings.ShowItems)
@@ -378,27 +378,7 @@ func shouldBePickedUp(i data.Item) bool {
 	}
 
 	// Evaluate item based on NIP rules
-	playerRule, mercRule := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateTiers(i, ctx.Data.CharacterCfg.Runtime.TierRules)
-	if playerRule.Tier() > 0.0 || mercRule.MercTier() > 0.0 {
-		if i.Quality <= item.QualitySuperior {
-			//If item doesn't need ID, check tier right away and keep it if better than equipped
-			if playerRule.Tier() > 0.0 {
-				if IsBetterThanEquipped(i, false, PlayerScore) {
-					return true
-				}
-			} else {
-				if IsBetterThanEquipped(i, true, MercScore) {
-					return true
-				}
-			}
-		} else {
-			//need ID
-			return true
-		}
-	}
-
-	// Evaluate item based on NIP rules ignoring tier rules
-	matchedRule, result := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAllIgnoreTiers(i)
+	matchedRule, result := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAll(i)
 	if result == nip.RuleResultNoMatch {
 		return false
 	}
@@ -426,3 +406,5 @@ func IsBlacklisted(itm data.Item) bool {
 	}
 	return false
 }
+
+

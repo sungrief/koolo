@@ -265,7 +265,7 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 				ctx.HID.Click(game.LeftButton, x, y)
 
 				// Adaptive delay for obstacle interaction based on ping
-				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(1.0, 100)))
+				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 100)))
 			} else if door, found := ctx.PathFinder.GetClosestDoor(ctx.Data.PlayerUnit.Position); found {
 				//There's a door really close, try to open it
 				doorToOpen := *door
@@ -308,3 +308,5 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		ctx.PathFinder.MoveThroughPath(path, walkDuration)
 	}
 }
+
+
