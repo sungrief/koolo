@@ -71,18 +71,16 @@ func (a Leveling) act4() error {
 		}
 
 		err = action.InteractObject(harrogathPortal, func() bool {
+			// Skip Cinematic
+			utils.Sleep(1500)
+			a.HoldKey(win.VK_SPACE, 2000)
+
 			return a.ctx.Data.AreaData.Area == area.Harrogath && a.ctx.Data.AreaData.IsInside(a.ctx.Data.PlayerUnit.Position)
 		})
 		if err != nil {
 			return err
 		}
 
-		// Skip Cinematic
-		utils.Sleep(1000)
-		a.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(3000)
-		a.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(1000)
 		return nil
 	}
 
@@ -157,17 +155,15 @@ func (a Leveling) act4() error {
 		}
 
 		err = action.InteractObject(harrogathPortal, func() bool {
+
+			utils.Sleep(1500)
+			a.HoldKey(win.VK_SPACE, 2000)
+
 			return a.ctx.Data.AreaData.Area == area.Harrogath && a.ctx.Data.AreaData.IsInside(a.ctx.Data.PlayerUnit.Position)
 		})
 		if err != nil {
 			return err
 		}
-
-		utils.Sleep(1000)
-		a.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(3000)
-		a.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(1000)
 
 		return nil
 	}
@@ -199,17 +195,15 @@ func (a Leveling) act4() error {
 		}
 
 		err = action.InteractObject(harrogathPortal, func() bool {
+
+			utils.Sleep(1500)
+			a.HoldKey(win.VK_SPACE, 2000)
+
 			return a.ctx.Data.AreaData.Area == area.Harrogath && a.ctx.Data.AreaData.IsInside(a.ctx.Data.PlayerUnit.Position)
 		})
 		if err != nil {
 			return err
 		}
-
-		utils.Sleep(1000)
-		a.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(3000)
-		a.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(1000)
 
 		return nil
 	}
