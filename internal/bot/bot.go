@@ -239,8 +239,8 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 				// Perform item pickup if enabled
 				if b.ctx.CurrentGame.PickupItems {
 					canPickup := true
-					if isLevelingChar {
-						if enemyFound, _ := action.IsAnyEnemyAroundPlayer(max(b.ctx.CharacterCfg.Character.ClearPathDist*2, 30)); enemyFound {
+					if isLevelingChar && b.ctx.CharacterCfg.Character.ClearPathDist > 0 {
+						if enemyFound, _ := action.IsAnyEnemyAroundPlayer((b.ctx.CharacterCfg.Character.ClearPathDist * 2) / 3); enemyFound {
 							canPickup = false
 						}
 					}
