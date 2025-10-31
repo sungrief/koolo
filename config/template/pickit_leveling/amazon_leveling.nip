@@ -1,0 +1,126 @@
+// IGNORED by default, this directory is ONLY evaluated DURING the character leveling process.
+// Rules here are included ADDITIONALLY to the main pickit rules
+
+[name] == talrune # # [maxquantity] == 4
+[name] == ethrune # # [maxquantity] == 1
+[name] == ralrune # # [maxquantity] == 3
+[name] == ortrune # # [maxquantity] == 3
+[name] == solrune # # [maxquantity] == 3
+[name] == tirrune # # [maxquantity] == 1
+[name] == thulrune # # [maxquantity] == 3
+[name] == amnrune # # [maxquantity] == 2
+[name] == shaelrune # # [maxquantity] == 3
+[name] == eldrune # # [maxquantity] == 1
+[name] == nefrune # # [maxquantity] == 1
+[name] == lumrune # # [maxquantity] == 1
+[name] == korune # # [maxquantity] == 2
+[name] == helrune # # [maxquantity] == 5
+[name] == iorune # # [maxquantity] == 1
+[name] == lemrune
+[name] == pulrune
+[name] == umrune
+[name] == malrune
+[name] == istrune
+[name] == gulrune
+[name] == vexrune
+[name] == ohmrune
+[name] == lorune
+[name] == surrune
+[name] == berrune
+[name] == jahrune
+[name] == chamrune
+[name] == zodrune
+
+//gems
+//[name] == chippedamethyst # # [maxquantity] == 2
+//[name] == chippeddiamond # # [maxquantity] == 2
+//[name] == chippedemerald # # [maxquantity] == 2
+//[name] == chippedruby # # [maxquantity] = 2
+//[name] == chippedsapphire # # [maxquantity] == 2
+//[name] == chippedskull # # [maxquantity] == 2
+//[name] == chippedtopaz # # [maxquantity] == 5
+//[name] == flawedamethyst # # [maxquantity] == 5
+//[name] == flaweddiamond # # [maxquantity] == 5
+//[name] == flawedemerald # # [maxquantity] == 5
+//[name] == flawedruby # # [maxquantity] == 5
+//[name] == flawedsapphire # # [maxquantity] == 5
+//[name] == flawedskull # # [maxquantity] == 5
+//[name] == flawedtopaz # # [maxquantity] == 5
+[name] == flawlessamethyst # # [maxquantity] == 3
+
+// potions
+[name] == minorhealingpotion
+[name] == lighthealingpotion
+[name] == healingpotion
+[name] == greaterhealingpotion
+[name] == superhealingpotion
+[name] == minormanapotion
+[name] == lightmanapotion
+[name] == manapotion
+[name] == greatermanapotion
+[name] == supermanapotion
+[name] == rejuvenationpotion
+[name] == fullrejuvenationpotion
+
+
+//gear 
+//belt
+[name] == sharkskinbelt && [quality] == unique # [enhanceddefense] >= 150 # [tier] == 10000 //razortail
+[name] == WarBelt && [quality] == unique # [enhanceddefense] >= 100 # [tier] == 5000 //thundergods vigor
+
+//Rings
+[type] == ring && [quality] == unique # [dexterity] >= 15 && [tohit] >= 150 # [tier] == 10000 //ravenfrost
+[type] == ring && [quality] >= magic # [lifeleech] >= 2 && [manaleech] >= 2 # [tier] == 3000
+[type] == ring && [quality] == unique # [magicdamagereduction] >= 12 # [tier] == (2000) //dwarf
+[type] == ring && [quality] >= magic # [lifeleech] >= 2 || [manaleech] >= 2 # [tier] == 1000
+
+//Amulet
+[type] == amulet && [quality] == unique # [lightresist] >= 35 # [tier] == 10000 //Highlord
+[type] == amulet && [quality] == unique # [dexterity] >= 25	# [tier] == 5000 //cat's eye
+
+//Boots
+[name] == scarabshellboots && [quality] == unique && [flag] != ethereal # [enhanceddefense] >= 140 # [tier] == 10000 // sandstorm trek
+[name] == sharkskinboots && [quality] == unique && [flag] != ethereal # [enhanceddefense] >= 180 # [tier] == 8000 // waterwalk
+[name] == battleboots && [quality] == set # [fireresist] >= 40 # [tier] == 6000	// aldur's advance
+
+//Weapon
+[name] == ceremonialjavelin && [quality] == unique && [flag] == ethereal # [enhanceddamage] >= 150 && [lifeleech] >= 5 # [tier] == 10000 //eth titans
+[name] == ceremonialjavelin && [quality] == unique && [flag] != ethereal # [enhanceddamage] >= 150 && [lifeleech] >= 5 # [tier] == 8000 //titans
+
+([type] == javelin || [type] == amazonjavelin) && [Class] == elite # [itemreplenishquantity] >= 1 # [tier] == 6000
+([type] == javelin || [type] == amazonjavelin) && [Class] == elite && [flag] != ethereal # # [tier] == 5000
+
+([type] == javelin || [type] == amazonjavelin) && [Class] == exceptional # [itemreplenishquantity] >= 1 # [tier] == 4000
+([type] == javelin || [type] == amazonjavelin) && [Class] == exceptional && [flag] != ethereal # # [tier] == 3000
+
+([type] == javelin || [type] == amazonjavelin) # [itemreplenishquantity] >= 1 # [tier] == 2000
+([type] == javelin || [type] == amazonjavelin) && [flag] != ethereal # # [tier] == 1000
+
+//Gloves
+[type] == gloves && [quality] >= magic && [flag] != ethereal # [ias] >= 20 && [javelinandspearskilltab] >= 3 # [tier] == 5000
+[type] == gloves && [quality] >= magic && [flag] != ethereal # [ias] >= 20 && [javelinandspearskilltab] >= 2 # [tier] == 4000
+[type] == gloves && [quality] >= magic && [flag] != ethereal # [ias] >= 20 && [javelinandspearskilltab] >= 1 # [tier] == 3000
+[type] == gloves && [quality] >= magic && [flag] != ethereal # [ias] >= 10 && [javelinandspearskilltab] >= 1 # [tier] == 2000
+[type] == gloves && [quality] >= magic && [flag] != ethereal # [ias] >= 10 # [tier] == 1000
+
+//Shields
+[name] == monarch && [quality] == unique # # [tier] == 10000 //stormshield
+[name] == roundshield && [quality] == unique # # [tier] == 9000 //moser
+[type] == shield # [sockets] == 3  # [coldresist] >= 43 && [fireresist] >= 48 && [lightresist] >= 48 && [poisonresist] >= 48 # [tier] == 2000 //ancient's pledge
+
+//Armor
+[type] == armor && [class] == elite && [flag] != ethereal # [fireresist] == 50 && [lightresist] == 50 # [tier] == 3000 //elite smoke
+[type] == armor && [flag] != ethereal # [fireresist] == 50 && [lightresist] == 50 # [tier] == 2000 //smoke
+
+//Bases
+
+[Name] == Flail && [Quality] <= Superior && [Flag] != Ethereal # [Sockets] == 5 # [maxquantity] == 1 // CTA
+[type] == polearm && [quality] <= superior # [sockets] == 4 # [maxquantity] == 1 // any insight polearm
+[type] == polearm && [quality] <= superior && [flag] == ethereal && [Class] == elite # [sockets] == 4
+[type] == polearm && [quality] <= superior && [flag] == ethereal && [Class] == exceptional # [sockets] == 4 # [maxquantity] == 1
+[Type] == Armor && [Quality] <= Superior && [Flag] != Ethereal # [Sockets] == 2 # [maxquantity] == 1
+[Type] == Armor && [Quality] <= Superior && [Flag] != Ethereal # [Sockets] == 3 # [maxquantity] == 1
+[type] == helm && [Quality] <= Superior && [Flag] != Ethereal # [Sockets] == 2 # [maxquantity] == 1
+[name] == monarch && [quality] <= superior # [sockets] == 4 # [maxquantity] == 1
+[Type] == Shield && [quality] <= superior # [sockets] == 3 # [maxquantity] == 1
+[type] == helm && [quality] <= superior # [sockets] == 3 # [maxquantity] == 1 // bulwark
