@@ -387,9 +387,9 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 
 	screenPos := ui.GetScreenCoordsForItem(i)
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
-	utils.PingSleep(utils.Medium, 170)                 // Medium operation: Move pointer to item
+	utils.PingSleep(utils.Medium, 170)        // Medium operation: Move pointer to item
 	screenshot := ctx.GameReader.Screenshot() // Take screenshot *before* attempting stash
-	utils.PingSleep(utils.Medium, 150)                 // Medium operation: Wait for screenshot
+	utils.PingSleep(utils.Medium, 150)        // Medium operation: Wait for screenshot
 	ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
 	utils.PingSleep(utils.Medium, 500) // Medium operation: Give game time to process the stash
 

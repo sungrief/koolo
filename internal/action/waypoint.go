@@ -114,8 +114,8 @@ func useWP(dest area.ID) error {
 	currentWP = area.WPAddresses[dest]
 
 	// First use the previous available waypoint that we have discovered
-ping := utils.GetCurrentPing()
-delay := utils.PingMultiplier(utils.Critical, 1000)
+	ping := utils.GetCurrentPing()
+	delay := utils.PingMultiplier(utils.Critical, 1000)
 	ctx.Logger.Debug("Waypoint destination clicked - adaptive sleep",
 		slog.String("destination", area.Areas[dest].Name),
 		slog.Int("ping_ms", ping),

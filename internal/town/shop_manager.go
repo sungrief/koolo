@@ -219,9 +219,9 @@ func SellJunk(lockConfig ...[][]int) {
 				ctx.Logger.Debug(fmt.Sprintf("Selling full stack of %d keys from %v", qtyInStack.Value, keyStack.Position))
 				SellItemFullStack(keyStack)
 				keysSold += qtyInStack.Value
-				totalKeys -= qtyInStack.Value // Update total keys count
-				ctx.RefreshGameData()         // Refresh after selling a full stack
-				utils.PingSleep(utils.Light, 200)     // Light operation: Short delay for UI update
+				totalKeys -= qtyInStack.Value     // Update total keys count
+				ctx.RefreshGameData()             // Refresh after selling a full stack
+				utils.PingSleep(utils.Light, 200) // Light operation: Short delay for UI update
 			}
 		}
 
