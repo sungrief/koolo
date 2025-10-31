@@ -41,6 +41,8 @@
 			{"run":"radament", "maxLevel":18},
 			{"run":"tal_rasha_tombs", "maxLevel":24},
 			
+			{"run":"travincal", "lowGoldRun": true},
+			
 			{"run":"diablo", "maxLevel":30}		
 		],
 		

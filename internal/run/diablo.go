@@ -3,6 +3,7 @@ package run
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -37,16 +38,37 @@ func (d *Diablo) Name() string {
 	return string(config.DiabloRun)
 }
 
-func (a Diablo) CheckConditions(parameters *RunParameters) SequencerResult {
+func (d Diablo) CheckConditions(parameters *RunParameters) SequencerResult {
 	farmingRun := IsFarmingRun(parameters)
-	questCompleted := a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed()
-	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
+	questCompleted := d.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed()
+	if farmingRun && !questCompleted {
 		return SequencerSkip
+	}
+
+	if !farmingRun && questCompleted {
+		if slices.Contains(d.ctx.Data.PlayerUnit.AvailableWaypoints, area.Harrogath) {
+			return SequencerSkip
+		}
+
+		//Workaround AvailableWaypoints only filled when wp menu has been opened on act page
+		//Check if any act 5 quest is started or completed
+		for i := int(quest.Act5SiegeOnHarrogath); i <= int(quest.Act5EveOfDestruction); i++ {
+			q := d.ctx.Data.Quests[quest.Quest(i)]
+			if !q.NotStarted() || q.Completed() {
+				return SequencerSkip
+			}
+		}
 	}
 	return SequencerOk
 }
 
 func (d *Diablo) Run(parameters *RunParameters) error {
+	if IsQuestRun(parameters) && d.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
+		if err := d.goToAct5(); err != nil {
+			return err
+		}
+	}
+
 	// Just to be sure we always re-enable item pickup after the run
 	defer func() {
 		d.ctx.EnableItemPickup()
@@ -225,25 +247,7 @@ func (d *Diablo) Run(parameters *RunParameters) error {
 		action.ItemPickup(30)
 
 		if IsQuestRun(parameters) {
-
-			err := action.InteractNPC(npc.Tyrael2)
-			if err != nil {
-				return err
-			}
-			harrogathPortal, found := d.ctx.Data.Objects.FindOne(object.LastLastPortal)
-			if !found {
-				return errors.New("portal to Harrogath not found")
-			}
-
-			err = action.InteractObject(harrogathPortal, func() bool {
-
-				utils.Sleep(1500)
-				action.HoldKey(win.VK_SPACE, 2000)
-				utils.Sleep(1500)
-
-				return d.ctx.Data.AreaData.Area == area.Harrogath && d.ctx.Data.AreaData.IsInside(d.ctx.Data.PlayerUnit.Position)
-			})
-			if err != nil {
+			if err := d.goToAct5(); err != nil {
 				return err
 			}
 		}
@@ -363,4 +367,35 @@ func (d *Diablo) getMonsterFilter() data.MonsterFilter {
 
 		return filteredMonsters
 	}
+}
+
+func (d *Diablo) goToAct5() error {
+	err := action.InteractNPC(npc.Tyrael2)
+	if err != nil {
+		return err
+	}
+	harrogathPortal, found := d.ctx.Data.Objects.FindOne(object.LastLastPortal)
+	if !found {
+		return errors.New("portal to Harrogath not found")
+	}
+
+	err = action.InteractObject(harrogathPortal, func() bool {
+
+		utils.Sleep(1500)
+		action.HoldKey(win.VK_SPACE, 2000)
+		utils.Sleep(1500)
+
+		return d.ctx.Data.AreaData.Area == area.Harrogath && d.ctx.Data.AreaData.IsInside(d.ctx.Data.PlayerUnit.Position)
+	})
+	if err != nil {
+		return err
+	}
+
+	utils.Sleep(1500)
+	action.HoldKey(win.VK_SPACE, 2000)
+	utils.Sleep(3000)
+	action.HoldKey(win.VK_SPACE, 2000)
+	utils.Sleep(1500)
+
+	return nil
 }

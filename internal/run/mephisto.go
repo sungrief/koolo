@@ -59,17 +59,18 @@ func (m Mephisto) CheckConditions(parameters *RunParameters) SequencerResult {
 		return SequencerStop
 	}
 	if m.ctx.Data.Quests[quest.Act3TheGuardian].Completed() {
+		if slices.Contains(m.ctx.Data.PlayerUnit.AvailableWaypoints, area.ThePandemoniumFortress) ||
+			slices.Contains(m.ctx.Data.PlayerUnit.AvailableWaypoints, area.Harrogath) {
+			return SequencerSkip
+		}
+
 		//Workaround AvailableWaypoints only filled when wp menu has been opened on act page
 		//Check if any act 4 quests has started or is completed
-		a4q1 := m.ctx.Data.Quests[quest.Act4TheFallenAngel]
-		a4q2 := m.ctx.Data.Quests[quest.Act4HellForge]
-		a4q3 := m.ctx.Data.Quests[quest.Act4TerrorsEnd]
-		if slices.Contains(m.ctx.Data.PlayerUnit.AvailableWaypoints, area.ThePandemoniumFortress) ||
-			slices.Contains(m.ctx.Data.PlayerUnit.AvailableWaypoints, area.Harrogath) ||
-			(!a4q1.NotStarted() || a4q1.Completed()) ||
-			(!a4q2.NotStarted() || a4q2.Completed()) ||
-			(!a4q3.NotStarted() || a4q3.Completed()) {
-			return SequencerSkip
+		for i := int(quest.Act4TheFallenAngel); i <= int(quest.Act4TerrorsEnd); i++ {
+			q := m.ctx.Data.Quests[quest.Quest(i)]
+			if !q.NotStarted() || q.Completed() {
+				return SequencerSkip
+			}
 		}
 	}
 	return SequencerOk

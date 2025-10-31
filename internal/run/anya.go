@@ -75,6 +75,9 @@ func (a Anya) Run(parameters *RunParameters) error {
 		return err
 	}
 
+	a.ctx.RefreshGameData()
+	utils.Sleep(200)
+
 	err = action.MoveTo(func() (data.Position, bool) {
 		anya, found := a.ctx.Data.Objects.FindOne(object.FrozenAnya)
 		return anya.Position, found
@@ -83,7 +86,7 @@ func (a Anya) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	//action.ClearAreaAroundPlayer(15, data.MonsterAnyFilter())
+	action.ClearAreaAroundPlayer(15, data.MonsterAnyFilter())
 
 	anya, found := a.ctx.Data.Objects.FindOne(object.FrozenAnya)
 	if !found {
@@ -107,12 +110,13 @@ func (a Anya) Run(parameters *RunParameters) error {
 	action.Repair()
 	action.VendorRefill(false, true)
 
-	for range 10 {
+	for range 5 {
 		err = action.InteractNPC(npc.Malah)
 		if err != nil {
 			return err
 		}
-		utils.Sleep(1000)
+		a.ctx.RefreshGameData()
+		utils.Sleep(200)
 		if a.hasScroll() || a.hasPotion() {
 			break
 		}
@@ -148,7 +152,8 @@ func (a Anya) Run(parameters *RunParameters) error {
 		if err != nil {
 			return err
 		}
-		utils.Sleep(1000)
+		a.ctx.RefreshGameData()
+		utils.Sleep(200)
 		if a.hasScroll() {
 			break
 		}

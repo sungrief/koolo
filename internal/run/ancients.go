@@ -5,7 +5,6 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
-	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
@@ -76,9 +75,7 @@ func (a Ancients) Run(parameters *RunParameters) error {
 	}
 	action.Buff()
 
-	action.ReturnTown()
 	action.InRunReturnTownRoutine()
-	action.UsePortalInTown()
 	action.Buff()
 
 	action.MoveToCoords(ancientsAltar)
@@ -113,10 +110,5 @@ func (a Ancients) Run(parameters *RunParameters) error {
 	// The defer statement above will handle the restoration
 	// a.ctx.CharacterCfg.BackToTown = originalBackToTownCfg // This line is now removed
 	// a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.") // This line is now part of the defer
-
-	utils.Sleep(500)
-	step.CloseAllMenus()
-	action.ReturnTown()
-
 	return nil
 }

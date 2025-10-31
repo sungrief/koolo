@@ -1,12 +1,13 @@
 package run
 
 import (
+	"slices"
+
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
-	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -45,8 +46,7 @@ func (d Den) Run(parameters *RunParameters) error {
 
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 	if isLevelingChar {
-		lvl, _ := d.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
-		if lvl.Value == 1 {
+		if !slices.Contains(d.ctx.Data.PlayerUnit.AvailableWaypoints, area.ColdPlains) {
 			err := action.MoveToArea(area.BloodMoor)
 			if err != nil {
 				return err

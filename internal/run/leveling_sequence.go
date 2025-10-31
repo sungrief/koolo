@@ -8,12 +8,14 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 type LevelingSequence struct {
@@ -93,6 +95,8 @@ func (ls LevelingSequence) Run(parameters *RunParameters) error {
 	if loadErr := ls.LoadSettings(); loadErr != nil {
 		return loadErr
 	}
+
+	ls.GoToCurrentProgressionTown()
 
 	difficultyChanged, difErr := ls.AdjustDifficulty()
 	if difErr != nil {
@@ -500,6 +504,37 @@ func (ls LevelingSequence) CheckResCondition(resType stat.ID, resTarget *int, re
 		}
 	}
 	return true
+}
+
+func (ls LevelingSequence) GoToCurrentProgressionTown() error {
+	if !ls.ctx.Data.PlayerUnit.Area.IsTown() {
+		if err := action.ReturnTown(); err != nil {
+			return err
+		}
+	}
+
+	targetArea := ls.GetCurrentProgressionTownWP()
+
+	if targetArea != ls.ctx.Data.PlayerUnit.Area {
+		if err := action.WayPoint(ls.GetCurrentProgressionTownWP()); err != nil {
+			return err
+		}
+	}
+	utils.Sleep(500)
+	return nil
+}
+
+func (ls LevelingSequence) GetCurrentProgressionTownWP() area.ID {
+	if ls.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
+		return area.Harrogath
+	} else if ls.ctx.Data.Quests[quest.Act3TheGuardian].Completed() {
+		return area.ThePandemoniumFortress
+	} else if ls.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+		return area.KurastDocks
+	} else if ls.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed() {
+		return area.LutGholein
+	}
+	return area.RogueEncampment
 }
 
 // setupLevelOneConfig centralizes the configuration logic for a new character.
