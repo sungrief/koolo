@@ -39,7 +39,7 @@ func (jf JadeFigurine) CheckConditions(parameters *RunParameters) SequencerResul
 		return SequencerOk
 	}
 	q := jf.ctx.Data.Quests[quest.Act3TheGoldenBird]
-	if q.HasStatus(quest.StatusQuestNotStarted) || q.Completed() {
+	if q.NotStarted() || q.Completed() {
 		return SequencerSkip
 	}
 	return SequencerOk

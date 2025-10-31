@@ -50,9 +50,6 @@ func (a Amulet) CheckConditions(parameters *RunParameters) SequencerResult {
 }
 
 func (a Amulet) Run(parameters *RunParameters) error {
-
-	action.UpdateQuestLog(false)
-
 	action.InteractNPC(npc.Drognan)
 
 	err := action.WayPoint(area.LostCity)
@@ -111,8 +108,6 @@ func (a Amulet) Run(parameters *RunParameters) error {
 
 	// This stops us being blocked from getting into Palace
 	action.InteractNPC(npc.Drognan)
-
-	action.UpdateQuestLog(false)
 
 	return nil
 }

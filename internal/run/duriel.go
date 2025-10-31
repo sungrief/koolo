@@ -288,8 +288,6 @@ func (d Duriel) Run(parameters *RunParameters) error {
 
 		action.ReturnTown()
 
-		action.UpdateQuestLog(false)
-
 		if !d.tryTalkToJerhyn() {
 			return errors.New("failed to talk to jerhyn")
 		}

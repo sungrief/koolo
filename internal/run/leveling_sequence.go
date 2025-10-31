@@ -94,8 +94,6 @@ func (ls LevelingSequence) Run(parameters *RunParameters) error {
 		return loadErr
 	}
 
-	action.UpdateQuestLog(true)
-
 	difficultyChanged, difErr := ls.AdjustDifficulty()
 	if difErr != nil {
 		return difErr

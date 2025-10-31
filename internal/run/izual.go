@@ -1,8 +1,6 @@
 package run
 
 import (
-	"time"
-
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
@@ -85,10 +83,6 @@ func (i Izual) Run(parameters *RunParameters) error {
 	if err != nil {
 		return err
 	}
-
-	time.Sleep(500)
-	action.UpdateQuestLog(false)
-	time.Sleep(500)
 
 	return nil
 }

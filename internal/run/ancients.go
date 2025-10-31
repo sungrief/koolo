@@ -115,10 +115,6 @@ func (a Ancients) Run(parameters *RunParameters) error {
 	// a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.") // This line is now part of the defer
 
 	utils.Sleep(500)
-	action.UpdateQuestLog(false)
-	utils.Sleep(500)
-	action.UpdateQuestLog(false)
-	utils.Sleep(500)
 	step.CloseAllMenus()
 	action.ReturnTown()
 
