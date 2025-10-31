@@ -27,8 +27,6 @@ func (a Leveling) act5() error {
 		return nil
 	}
 
-	action.UpdateQuestLog(false)
-
 	action.VendorRefill(false, true)
 
 	// Gold Farming Logic (and immediate return if farming is needed)
