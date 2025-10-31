@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -93,6 +94,8 @@ func (ls LevelingSequence) Run(parameters *RunParameters) error {
 		return loadErr
 	}
 
+	action.UpdateQuestLog(true)
+
 	difficultyChanged, difErr := ls.AdjustDifficulty()
 	if difErr != nil {
 		return difErr
@@ -100,7 +103,6 @@ func (ls LevelingSequence) Run(parameters *RunParameters) error {
 		return nil
 	}
 
-	//TODO Adjust leveling config
 	ls.AdjustDifficultyConfig()
 
 	if healthErr := ls.AdjustHealthConfig(); healthErr != nil {
@@ -161,7 +163,7 @@ func (ls *LevelingSequence) RunSequences(sequences []SequenceSettings, farmSeque
 				return true, nil
 			}
 		} else {
-			parameters := BuildRunParameters(farmSequence, sequenceSettings.Parameters)
+			parameters := BuildRunParameters(farmSequence, &sequenceSettings)
 			runCondition := run.CheckConditions(parameters)
 			switch runCondition {
 			case SequencerError:
@@ -573,6 +575,11 @@ func (ls LevelingSequence) AdjustDifficultyConfig() {
 
 	ls.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = ls.GetRunewords()
 	ls.ctx.CharacterCfg.Game.MinGoldPickupThreshold = 5000 * lvl.Value
+
+	if !ls.ctx.CharacterCfg.Character.UseMerc && ls.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() {
+		ls.ctx.CharacterCfg.Character.UseMerc = true
+	}
+
 	if lvl.Value >= 4 && lvl.Value < 24 {
 		ls.ctx.CharacterCfg.Character.ClearPathDist = 15
 	}

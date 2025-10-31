@@ -35,7 +35,7 @@ func (t *Travincal) Name() string {
 
 func (t *Travincal) CheckConditions(parameters *RunParameters) SequencerResult {
 	farmingRun := IsFarmingRun(parameters)
-	questCompleted := t.ctx.Data.Quests[quest.Act3TheBlackenedTemple].Completed()
+	questCompleted := t.ctx.Data.Quests[quest.Act3TheBlackenedTemple].Completed() && t.ctx.Data.Quests[quest.Act3KhalimsWill].Completed()
 	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
 		return SequencerSkip
 	}
@@ -79,6 +79,7 @@ func (t *Travincal) Run(parameters *RunParameters) error {
 	}
 
 	if IsQuestRun(parameters) {
+
 		compellingorb, found := t.ctx.Data.Objects.FindOne(object.CompellingOrb)
 		if !found {
 			t.ctx.Logger.Debug("Compelling Orb not found")
@@ -123,8 +124,8 @@ func (t *Travincal) findCouncilPosition() data.Position {
 }
 
 func (t Travincal) prepareWill() error {
-	_, found := t.ctx.Data.Inventory.Find("KhalimsWill", item.LocationInventory, item.LocationStash, item.LocationEquipped)
-	if !found {
+	hasWill := t.hasKhalimsWill()
+	if !hasWill {
 		eye, found := t.ctx.Data.Inventory.Find("KhalimsEye", item.LocationInventory, item.LocationStash, item.LocationEquipped)
 		if !found {
 			t.ctx.Logger.Info("Khalim's Eye not found, skipping")
@@ -160,6 +161,39 @@ func (t Travincal) prepareWill() error {
 		}
 	}
 	return nil
+}
+
+func (t Travincal) hasKhalimsWill() bool {
+	_, found := t.ctx.Data.Inventory.Find("KhalimsWill", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	return found
+}
+
+func (t Travincal) hasAllWillIngredients() bool {
+	_, found := t.ctx.Data.Inventory.Find("KhalimsEye", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	if !found {
+		t.ctx.Logger.Info("Khalim's Eye not found, skipping")
+		return false
+	}
+
+	_, found = t.ctx.Data.Inventory.Find("KhalimsBrain", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	if !found {
+		t.ctx.Logger.Info("Khalim's Brain not found, skipping")
+		return false
+	}
+
+	_, found = t.ctx.Data.Inventory.Find("KhalimsHeart", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	if !found {
+		t.ctx.Logger.Info("Khalim's Heart not found, skipping")
+		return false
+	}
+
+	_, found = t.ctx.Data.Inventory.Find("KhalimsFlail", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	if !found {
+		t.ctx.Logger.Info("Khalim's Flail not found, skipping")
+		return false
+	}
+
+	return true
 }
 
 func (t Travincal) equipWill() error {

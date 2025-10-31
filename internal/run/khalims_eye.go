@@ -42,6 +42,10 @@ func (ke KhalimsEye) CheckConditions(parameters *RunParameters) SequencerResult 
 		return SequencerSkip
 	}
 
+	if _, found := ke.ctx.Data.Inventory.Find("KhalimsWill", item.LocationInventory, item.LocationStash, item.LocationEquipped); found {
+		return SequencerSkip
+	}
+
 	return SequencerOk
 }
 

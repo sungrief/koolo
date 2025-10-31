@@ -35,25 +35,26 @@ const (
 	EnduguRun           Run = "endugu"
 	UtilityRun          Run = "utility"
 	FireEyeRun          Run = "fire_eye"
-	//Leveling Sequence S
-	DenRun            Run = "den"
-	BloodravenRun     Run = "bloodraven"
-	RescueCainRun     Run = "rescue_cain"
-	RetrieveHammerRun Run = "retrieve_hammer"
-	RadamentRun       Run = "radament"
-	CubeRun           Run = "cube"
-	StaffRun          Run = "staff"
-	AmuletRun         Run = "amulet"
-	JadeFigurineRun   Run = "jade_figurine"
-	LamEsenRun        Run = "lam_esen"
-	KhalimsEyeRun     Run = "khalims_eye"
-	KhalimsBrainRun   Run = "khalims_brain"
-	KhalimsHeartRun   Run = "khalims_heart"
-	IzualRun          Run = "izual"
-	ShenkRun          Run = "shenk"
-	AnyaRun           Run = "anya"
-	AncientsRun       Run = "ancients"
-	FrozenAuraMercRun Run = "frozen_aura_merc"
+	//Leveling Sequence
+	DenRun                   Run = "den"
+	BloodravenRun            Run = "bloodraven"
+	RescueCainRun            Run = "rescue_cain"
+	RetrieveHammerRun        Run = "retrieve_hammer"
+	RadamentRun              Run = "radament"
+	CubeRun                  Run = "cube"
+	StaffRun                 Run = "staff"
+	AmuletRun                Run = "amulet"
+	JadeFigurineRun          Run = "jade_figurine"
+	LamEsenRun               Run = "lam_esen"
+	KhalimsEyeRun            Run = "khalims_eye"
+	KhalimsBrainRun          Run = "khalims_brain"
+	KhalimsHeartRun          Run = "khalims_heart"
+	IzualRun                 Run = "izual"
+	ShenkRun                 Run = "shenk"
+	AnyaRun                  Run = "anya"
+	AncientsRun              Run = "ancients"
+	FrozenAuraMercRun        Run = "frozen_aura_merc"
+	TristramEarlyGoldfarmRun Run = "tristram_early_gold_farm"
 )
 
 var AvailableRuns = map[Run]interface{}{
@@ -89,22 +90,4 @@ var AvailableRuns = map[Run]interface{}{
 	EnduguRun:           nil,
 	UtilityRun:          nil,
 	FireEyeRun:          nil,
-	//DenRun:              nil,
-	//BloodravenRun:       nil,
-	//RescueCainRun:       nil,
-	//RetrieveHammerRun:   nil,
-	//RadamentRun:         nil,
-	//CubeRun:             nil,
-	//StaffRun:            nil,
-	//AmuletRun:           nil,
-	//JadeFigurineRun:     nil,
-	//LamEsenRun:          nil,
-	//KhalimsEyeRun:       nil,
-	//KhalimsBrainRun:     nil,
-	//KhalimsHeartRun:     nil,
-	//IzualRun:            nil,
-	//ShenkRun:            nil,
-	//AnyaRun:             nil,
-	//AncientsRun:         nil,
-	//FrozenAuraMercRun:   nil,
 }

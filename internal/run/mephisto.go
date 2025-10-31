@@ -65,6 +65,7 @@ func (m Mephisto) CheckConditions(parameters *RunParameters) SequencerResult {
 		a4q2 := m.ctx.Data.Quests[quest.Act4HellForge]
 		a4q3 := m.ctx.Data.Quests[quest.Act4TerrorsEnd]
 		if slices.Contains(m.ctx.Data.PlayerUnit.AvailableWaypoints, area.ThePandemoniumFortress) ||
+			slices.Contains(m.ctx.Data.PlayerUnit.AvailableWaypoints, area.Harrogath) ||
 			(!a4q1.HasStatus(quest.StatusQuestNotStarted) || a4q1.Completed()) ||
 			(!a4q2.HasStatus(quest.StatusQuestNotStarted) || a4q2.Completed()) ||
 			(!a4q3.HasStatus(quest.StatusQuestNotStarted) || a4q3.Completed()) {

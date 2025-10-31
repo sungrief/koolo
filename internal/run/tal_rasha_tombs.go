@@ -4,6 +4,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
+	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -62,14 +63,28 @@ func (a TalRashaTombs) Run(parameters *RunParameters) error {
 			a.ctx.Logger.Error("Failed to save character configuration: %s", err.Error())
 		}
 
+		shouldInterrupt := func() bool {
+			if parameters != nil && parameters.SequenceSettings != nil && parameters.SequenceSettings.MaxLevel != nil {
+				ctx := context.Get()
+				if lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); found {
+					return lvl.Value >= *parameters.SequenceSettings.MaxLevel
+				}
+			}
+			return false
+		}
+
 		// Clear the Tomb
-		if err = action.ClearCurrentLevel(true, data.MonsterAnyFilter()); err != nil {
+		if err = action.ClearCurrentLevelEx(true, data.MonsterAnyFilter(), shouldInterrupt); err != nil {
 			return err
 		}
 
 		// Return to town
 		if err = action.ReturnTown(); err != nil {
 			return err
+		}
+
+		if shouldInterrupt() {
+			return nil
 		}
 	}
 

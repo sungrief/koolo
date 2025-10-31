@@ -7,7 +7,9 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
+	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
@@ -27,12 +29,15 @@ func NewTristramEarlyGoldfarm() *TristramEarlyGoldfarm {
 
 // Name returns the name of this run, which is used for configuration.
 func (t *TristramEarlyGoldfarm) Name() string {
-	return "TristramEarlyGoldfarm"
+	return string(config.TristramEarlyGoldfarmRun)
 }
 
 func (t *TristramEarlyGoldfarm) CheckConditions(parameters *RunParameters) SequencerResult {
 	if !IsFarmingRun(parameters) {
 		return SequencerError
+	}
+	if !t.ctx.Data.Quests[quest.Act1DenOfEvil].Completed() {
+		return SequencerSkip
 	}
 	return SequencerOk
 }

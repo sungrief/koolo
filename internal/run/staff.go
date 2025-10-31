@@ -36,7 +36,7 @@ func (s Staff) CheckConditions(parameters *RunParameters) SequencerResult {
 		return SequencerStop
 	}
 
-	if s.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+	if s.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() || s.ctx.Data.Quests[quest.Act2TheHoradricStaff].Completed() {
 		return SequencerSkip
 	}
 

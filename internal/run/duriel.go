@@ -57,11 +57,19 @@ func (d Duriel) CheckConditions(parameters *RunParameters) SequencerResult {
 	horadricStaffQuestCompleted := d.ctx.Data.Quests[quest.Act2TheHoradricStaff].Completed()
 	summonerQuestCompleted := d.ctx.Data.Quests[quest.Act2TheSummoner].Completed()
 	if horadricStaffQuestCompleted && summonerQuestCompleted {
-		_, found := d.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
-		if found {
-			return SequencerOk
-		}
+		return SequencerOk
 	}
+
+	if _, foundHoradric := d.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube); foundHoradric {
+		return SequencerOk
+	}
+
+	_, foundStaff := d.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
+	_, foundAmulet := d.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
+	if foundStaff && foundAmulet {
+		return SequencerOk
+	}
+
 	return SequencerStop
 }
 
@@ -314,7 +322,7 @@ func (d Duriel) findRealTomb() (area.ID, error) {
 }
 
 func (d Duriel) prepareStaff() error {
-	horadricStaff, found := d.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	horadricStaff, found := d.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 	if found {
 		d.ctx.Logger.Info("Horadric Staff found!")
 		if horadricStaff.Location.LocationType == item.LocationStash {

@@ -83,7 +83,10 @@ func (le LamEsen) Run(parameters *RunParameters) error {
 			return err
 		}
 
-		err = action.InteractObject(tome, nil)
+		err = action.InteractObject(tome, func() bool {
+			_, tomeFound := le.ctx.Data.Inventory.Find("LamEsensTome", item.LocationInventory, item.LocationGround)
+			return tomeFound
+		})
 		if err != nil {
 			return err
 		}

@@ -33,6 +33,7 @@
 		],
 		
 		"beforeQuests" : [
+			{"run":"tristram_early_gold_farm", "maxLevel":7, "lowGoldRun": true},
 			{"run":"tristram", "maxLevel":12},
 			{"run":"countess", "maxLevel":15},
 			{"run":"andariel", "maxLevel":15},

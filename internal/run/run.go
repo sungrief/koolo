@@ -14,8 +14,8 @@ const (
 )
 
 type RunParameters struct {
-	FarmingRun bool
-	Parameters string
+	FarmingRun       bool
+	SequenceSettings *SequenceSettings
 }
 
 type Run interface {
@@ -154,15 +154,17 @@ func BuildRun(run string) Run {
 		return NewAncients()
 	case string(config.FrozenAuraMercRun):
 		return NewFrozenAuraMerc()
+	case string(config.TristramEarlyGoldfarmRun):
+		return NewTristramEarlyGoldfarm()
 	}
 
 	return nil
 }
 
-func BuildRunParameters(farmingRun bool, parameters string) *RunParameters {
+func BuildRunParameters(farmingRun bool, sequenceSettings *SequenceSettings) *RunParameters {
 	var RunParameters RunParameters
 	RunParameters.FarmingRun = farmingRun
-	RunParameters.Parameters = parameters
+	RunParameters.SequenceSettings = sequenceSettings
 	return &RunParameters
 }
 

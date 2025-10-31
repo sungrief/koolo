@@ -44,6 +44,10 @@ func (kh KhalimsHeart) CheckConditions(parameters *RunParameters) SequencerResul
 		return SequencerSkip
 	}
 
+	if _, found := kh.ctx.Data.Inventory.Find("KhalimsWill", item.LocationInventory, item.LocationStash, item.LocationEquipped); found {
+		return SequencerSkip
+	}
+
 	return SequencerOk
 }
 

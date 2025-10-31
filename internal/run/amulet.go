@@ -35,7 +35,7 @@ func (a Amulet) CheckConditions(parameters *RunParameters) SequencerResult {
 		return SequencerStop
 	}
 
-	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
+	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() || a.ctx.Data.Quests[quest.Act2TheHoradricStaff].Completed() {
 		return SequencerSkip
 	}
 
