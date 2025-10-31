@@ -109,7 +109,7 @@ func ReturnTown() error {
 
 	// Wait for area transition and data sync
 	ping := utils.GetCurrentPing()
-	delay := utils.PingMultiplier(utils.Critical, 1000)
+	delay := utils.PingMultiplier(4.0, 1000)
 	ctx.Logger.Debug("Portal transition to town - adaptive sleep",
 		slog.String("current_area", ctx.Data.PlayerUnit.Area.Area().Name),
 		slog.Int("ping_ms", ping),
@@ -118,7 +118,7 @@ func ReturnTown() error {
 		slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 1000, 4.0, ping, delay)),
 	)
 
-	utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for portal transition
+	utils.PingSleep(4.0, 1000) // Critical operation: Wait for portal transition
 	ctx.RefreshGameData()
 
 	// Wait for town area data to be fully loaded
@@ -137,7 +137,7 @@ func ReturnTown() error {
 				}
 			}
 		}
-		utils.PingSleep(utils.Light, 100) // Light operation: Polling for town area data
+		utils.PingSleep(1.0, 100) // Light operation: Polling for town area data
 		ctx.RefreshGameData()
 	}
 
@@ -167,7 +167,7 @@ func UsePortalInTown() error {
 
 	// Wait for area sync before attempting any movement
 	ping := utils.GetCurrentPing()
-	delay := utils.PingMultiplier(utils.Medium, 500)
+	delay := utils.PingMultiplier(2.0, 500)
 	ctx.Logger.Debug("Portal exit transition - adaptive sleep",
 		slog.String("current_area", ctx.Data.PlayerUnit.Area.Area().Name),
 		slog.Int("ping_ms", ping),
@@ -176,7 +176,7 @@ func UsePortalInTown() error {
 		slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 500, 2.0, ping, delay)),
 	)
 
-	utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for portal exit transition
+	utils.PingSleep(2.0, 500) // Medium operation: Wait for portal exit transition
 	ctx.RefreshGameData()
 	// Check for death after refreshing game data
 	if err := checkPlayerDeathForTP(ctx); err != nil {
@@ -229,7 +229,7 @@ func UsePortalFrom(owner string) error {
 				if !ctx.Data.PlayerUnit.Area.IsTown() {
 					// Ensure area data is synced after portal transition
 					ping := utils.GetCurrentPing()
-					delay := utils.PingMultiplier(utils.Medium, 500)
+					delay := utils.PingMultiplier(2.0, 500)
 					ctx.Logger.Debug("Portal return from town - adaptive sleep",
 						slog.String("owner", owner),
 						slog.String("destination_area", ctx.Data.PlayerUnit.Area.Area().Name),
@@ -239,7 +239,7 @@ func UsePortalFrom(owner string) error {
 						slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 500, 2.0, ping, delay)),
 					)
 
-					utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for portal transition
+					utils.PingSleep(2.0, 500) // Medium operation: Wait for portal transition
 					ctx.RefreshGameData()
 					// Check for death after refreshing game data
 					if errCheck := checkPlayerDeathForTP(ctx); errCheck != nil {
@@ -258,5 +258,3 @@ func UsePortalFrom(owner string) error {
 
 	return errors.New("portal not found")
 }
-
-

@@ -5,30 +5,6 @@ import (
 	"time"
 )
 
-// PingMultiplierType represents the sensitivity level for ping-adaptive delays
-type PingMultiplierType float64
-
-const (
-	// Light - For lightweight operations (polling, small checks)
-	// Adds 1x ping to base delay - minimal impact from network latency
-	Light PingMultiplierType = 1.0
-
-	// Medium - For medium operations (UI interactions, clicks, movements)
-	// Adds 2x ping to base delay - moderate sensitivity to network conditions
-	Medium PingMultiplierType = 2.0
-
-	// Critical - For critical operations (state changes, transitions)
-	// Adds 4x ping to base delay - high sensitivity to ensure operation completes
-	Critical PingMultiplierType = 4.0
-)
-
-// Legacy constants for backward compatibility (deprecated)
-const (
-	PingMultiplierLight    = Light
-	PingMultiplierMedium   = Medium
-	PingMultiplierCritical = Critical
-)
-
 // pingGetter is a function that returns current ping
 // Set this at initialization to avoid import cycles
 var pingGetter func() int
@@ -53,14 +29,14 @@ func GetCurrentPing() int {
 }
 
 // PingMultiplier calculates delay based on current ping
-// multiplier: sensitivity level (use PingMultiplierLight/Medium/Critical constants)
+// multiplier: how many times ping to add to the base minimum (e.g., 2.0 = add 2x ping)
 // minimum: base delay to which ping adjustment is added
 // Returns the adjusted delay in milliseconds: minimum + (multiplier * ping)
-func PingMultiplier(multiplier PingMultiplierType, minimum int) int {
+func PingMultiplier(multiplier float64, minimum int) int {
 	ping := GetCurrentPing()
 
 	// Calculate adjusted delay: base minimum + ping adjustment
-	adjusted := minimum + int(float64(ping)*float64(multiplier))
+	adjusted := minimum + int(float64(ping)*multiplier)
 
 	// Cap at 5 seconds to prevent infinite waits
 	if adjusted > 5000 {
@@ -71,17 +47,15 @@ func PingMultiplier(multiplier PingMultiplierType, minimum int) int {
 }
 
 // PingSleep waits for minimum + (multiplier * ping)
-// multiplier: sensitivity level (use PingMultiplierLight/Medium/Critical constants)
-// minimum: base delay in milliseconds
 // This is the primary function to use for ping-based delays
-func PingSleep(multiplier PingMultiplierType, minimum int) {
+func PingSleep(multiplier float64, minimum int) {
 	ping := GetCurrentPing()
 	ms := PingMultiplier(multiplier, minimum)
 
 	// Debug logging for adaptive sleep behavior
 	slog.Debug("PingSleep executing",
 		slog.Int("current_ping_ms", ping),
-		slog.Float64("multiplier", float64(multiplier)),
+		slog.Float64("multiplier", multiplier),
 		slog.Int("minimum_ms", minimum),
 		slog.Int("calculated_delay_ms", ms),
 		slog.Float64("effective_multiplier", float64(ms)/float64(ping)),
