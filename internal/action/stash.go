@@ -527,6 +527,10 @@ func clickStashGoldBtn() {
 }
 
 func SwitchStashTab(tab int) {
+	// Ensure any chat messages that could prevent clicking on the tab are cleared
+	ClearMessages()
+	utils.Sleep(200)
+
 	ctx := context.Get()
 	ctx.SetLastStep("switchTab")
 
