@@ -358,6 +358,44 @@
                         placeholder="Chat ID"
                         value="{{ .Telegram.ChatID }}"
                 />
+                <h4>Ping Monitor</h4>
+                <label>
+                    <input
+                            {{ if .PingMonitor.Enabled }}
+                                checked="checked"
+                            {{ end }}
+                            type="checkbox"
+                            name="ping_monitor_enabled"
+                            value="true"
+                    />
+                    Enable ping monitoring (auto-stop bot on sustained high ping)
+                </label>
+                <label>
+                    High Ping Threshold (ms)
+                    <input
+                            name="ping_monitor_threshold"
+                            type="number"
+                            min="100"
+                            max="2000"
+                            step="50"
+                            placeholder="500"
+                            value="{{ if .PingMonitor.HighPingThreshold }}{{ .PingMonitor.HighPingThreshold }}{{ else }}500{{ end }}"
+                    />
+                    <small>Stop bot if ping exceeds this value (default: 500ms)</small>
+                </label>
+                <label>
+                    Sustained Duration (seconds)
+                    <input
+                            name="ping_monitor_duration"
+                            type="number"
+                            min="5"
+                            max="120"
+                            step="5"
+                            placeholder="30"
+                            value="{{ if .PingMonitor.SustainedDuration }}{{ .PingMonitor.SustainedDuration }}{{ else }}30{{ end }}"
+                    />
+                    <small>How long high ping must persist before stopping (default: 30s)</small>
+                </label>
             </fieldset>
             <fieldset class="grid">
                 {{ if not .FirstRun }}

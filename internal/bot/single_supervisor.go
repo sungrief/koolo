@@ -250,14 +250,31 @@ func (s *SinglePlayerSupervisor) Start() error {
 		defer runCancel()
 
 		// Initialize ping monitor for this game session
-		// Quit after sustained high ping (e.g., 30 seconds of ping > 1000ms)
+		// Configuration from koolo.yaml (default: quit after 30s of ping > 500ms)
+		pingThreshold := 500
+		sustainedDuration := 30 * time.Second
+		pingEnabled := false
+		
+		if config.Koolo.PingMonitor.Enabled {
+			pingEnabled = true
+			if config.Koolo.PingMonitor.HighPingThreshold > 0 {
+				pingThreshold = config.Koolo.PingMonitor.HighPingThreshold
+			}
+			if config.Koolo.PingMonitor.SustainedDuration > 0 {
+				sustainedDuration = time.Duration(config.Koolo.PingMonitor.SustainedDuration) * time.Second
+			}
+		}
+		
 		pingMonitor := health.NewPingMonitor(
 			s.bot.ctx.Logger,
-			1000,           // High ping threshold in ms
-			30*time.Second, // Sustained duration before quit
+			pingThreshold,
+			sustainedDuration,
 		)
+		pingMonitor.Enabled = pingEnabled
 		pingMonitor.SetCallback(func() {
-			s.bot.ctx.Logger.Error("Sustained high ping detected. Forcing game exit.")
+			s.bot.ctx.Logger.Error("Sustained high ping detected. Forcing game exit.",
+				slog.Int("threshold", pingThreshold),
+				slog.Duration("duration", sustainedDuration))
 			runCancel()
 		})
 
