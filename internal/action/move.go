@@ -599,7 +599,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			if errors.Is(moveErr, step.ErrMonstersInPath) {
 				continue
 			} else if errors.Is(moveErr, step.ErrPlayerStuck) {
-				if !ctx.Data.CanTeleport() {
+				if !ctx.Data.CanTeleport() || ctx.Data.PlayerUnit.Area.IsTown() {
 					ctx.PathFinder.RandomMovement()
 					time.Sleep(time.Millisecond * 200)
 				}
