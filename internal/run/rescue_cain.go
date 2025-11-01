@@ -52,13 +52,15 @@ func (rc RescueCain) Run(parameters *RunParameters) error {
 	}
 
 	scrollInifussUnitID := 524
+	scrollInifussAfterAkara := 525
 	scrollInifussName := "Scroll of Inifuss"
 
-	needToGoToTristram := rc.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress2) || rc.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress3)
+	needToGoToTristram := (rc.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress2) ||
+		rc.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress3))
 
 	infusInInventory := false
 	for _, itm := range rc.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-		if itm.ID == scrollInifussUnitID {
+		if itm.ID == scrollInifussUnitID || itm.ID == scrollInifussAfterAkara {
 			infusInInventory = true
 			break
 		}
