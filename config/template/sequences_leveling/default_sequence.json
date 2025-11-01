@@ -50,7 +50,7 @@
 			{"run":"baal"}
 		],
 		
-		"nextConditions" : {
+		"nextDifficultyConditions" : {
 			"level": 41,
 			"fireres": 0,
 			"lightres": 0,
@@ -135,7 +135,7 @@
 		
 		],
 
-		"nextConditions" : {
+		"nextDifficultyConditions" : {
 			"level": 70,
 			"fireres": 15,
 			"lightres": 15,
@@ -147,7 +147,7 @@
 	},
 	
 	"hell": {
-		"stayConditions": {
+		"stayDifficultyConditions": {
 			"fireres": 15,
 			"lightres": 15,
 			"aboveLowGold": true
