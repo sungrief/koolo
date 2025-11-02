@@ -100,16 +100,6 @@ function createCharacterCard(key) {
                         </div>
                           <span class="co-dot"> • </span>
                           <span class="co-difficulty">Difficulty</span>
-                          <span class="co-dot"> • </span>
-                          <span class="co-area">Area</span>
-                      </div>
-                      <div class="character-stats-inline">
-                          <button class="btn btn-outline btn-games">
-                              <i class="bi bi-controller btn-icon"></i><span class="games-count">0</span>
-                          </button>
-                          <button class="btn btn-outline btn-drops">
-                              <i class="bi bi-gem btn-icon"></i><span class="drops-count">0</span>
-                          </button>
                       </div>
                     </div>
                   </div>
@@ -117,6 +107,12 @@ function createCharacterCard(key) {
                 <div class="character-controls">
                       <button class="btn btn-outline companion-join-btn" onclick="showCompanionJoinPopup('${key}')" style="display:none;">
                           <i class="bi bi-door-open btn-icon"></i>Join Game
+                      </button>
+                      <button class="btn btn-outline btn-games">
+                          <i class="bi bi-controller btn-icon"></i><span class="games-count">0</span>
+                      </button>
+                      <button class="btn btn-outline btn-drops">
+                          <i class="bi bi-gem btn-icon"></i><span class="drops-count">0</span>
                       </button>
                       <button class="btn btn-outline" onclick="location.href='/debug?characterName=${key}'" title="Open Debug Page">
                           <i class="bi bi-bug"></i>
@@ -406,12 +402,12 @@ function updateStats(card, key, games, dropCount) {
   card.querySelector(".chickens").textContent = stats.totalChickens;
   card.querySelector(".deaths").textContent = stats.totalDeaths;
   card.querySelector(".errors").textContent = stats.totalErrors;
-  
+
   // Update inline stats
   const gamesCountEl = card.querySelector(".games-count");
   const dropsCountEl = card.querySelector(".drops-count");
   const dropsBtn = card.querySelector(".btn-drops");
-  
+
   if (gamesCountEl) gamesCountEl.textContent = stats.totalGames;
   if (dropsCountEl && dropCount !== undefined) dropsCountEl.textContent = dropCount;
   if (dropsBtn) {

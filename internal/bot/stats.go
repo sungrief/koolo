@@ -127,9 +127,9 @@ type RunStats struct {
 type CharacterOverview struct {
 	Class           string
 	Level           int
-	Experience      int
-	LastExp         int
-	NextExp         int
+	Experience      uint64 // Changed to uint64 - D2R stores XP as unsigned 32-bit, levels 93+ exceed int32 max
+	LastExp         uint64 // Changed to uint64 - D2R stores XP as unsigned 32-bit, levels 93+ exceed int32 max
+	NextExp         uint64 // Changed to uint64 - D2R stores XP as unsigned 32-bit, levels 93+ exceed int32 max
 	Difficulty      string
 	Area            string
 	Ping            int

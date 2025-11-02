@@ -409,8 +409,8 @@ func (s *HttpServer) getStatusData() IndexData {
 		// Enrich with lightweight live character overview for UI
 		if data := s.manager.GetData(supervisorName); data != nil {
 			// Defaults
-			var lvl, exp, life, maxLife, mana, maxMana, mf, gold, gf int
-			var lastExp, nextExp int
+			var lvl, life, maxLife, mana, maxMana, mf, gold, gf int
+			var exp, lastExp, nextExp uint64
 			var fr, cr, lr, pr int
 			var mfr, mcr, mlr, mpr int
 
@@ -418,13 +418,16 @@ func (s *HttpServer) getStatusData() IndexData {
 				lvl = v.Value
 			}
 			if v, ok := data.PlayerUnit.FindStat(stat.Experience, 0); ok {
-				exp = v.Value
+				// Treat as unsigned to handle values > 2^31-1
+				exp = uint64(uint32(v.Value))
 			}
 			if v, ok := data.PlayerUnit.FindStat(stat.LastExp, 0); ok {
-				lastExp = v.Value
+				// Treat as unsigned to handle values > 2^31-1
+				lastExp = uint64(uint32(v.Value))
 			}
 			if v, ok := data.PlayerUnit.FindStat(stat.NextExp, 0); ok {
-				nextExp = v.Value
+				// Treat as unsigned to handle values > 2^31-1
+				nextExp = uint64(uint32(v.Value))
 			}
 			if v, ok := data.PlayerUnit.FindStat(stat.Life, 0); ok {
 				life = v.Value
@@ -1026,7 +1029,7 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 			pingThreshold = 500 // Default to 500ms
 		}
 		newConfig.PingMonitor.HighPingThreshold = pingThreshold
-		
+
 		pingDuration, err := strconv.Atoi(r.Form.Get("ping_monitor_duration"))
 		if err != nil || pingDuration < 5 {
 			pingDuration = 30 // Default to 30 seconds
