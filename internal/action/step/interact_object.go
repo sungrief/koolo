@@ -85,6 +85,11 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		}
 	}
 
+	interactionCooldown := time.Millisecond * 200
+	if ctx.Data.PlayerUnit.Area.IsTown() {
+		interactionCooldown = time.Millisecond * 500
+	}
+
 	for !isCompletedFn() {
 		ctx.PauseIfNotPriority()
 
@@ -95,7 +100,8 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		ctx.RefreshGameData()
 
 		// Give some time before retrying the interaction
-		if waitingForInteraction && time.Since(lastRun) < time.Millisecond*200 {
+		if waitingForInteraction && time.Since(lastRun) < interactionCooldown {
+			time.Sleep(10 * time.Millisecond)
 			continue
 		}
 
@@ -130,7 +136,7 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 			}
 		}
 
-		if o.IsHovered {
+		if o.IsHovered && !utils.IsZeroPosition(currentMouseCoords) {
 			ctx.HID.Click(game.LeftButton, currentMouseCoords.X, currentMouseCoords.Y)
 
 			waitingForInteraction = true
