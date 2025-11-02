@@ -173,8 +173,10 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 500, float64(utils.Medium), ping, delay)),
 				)
 
-				utils.PingSleep(utils.Medium, 500) // Medium operation: Initial delay for area transition
-				for attempts := 0; attempts < maxPortalSyncAttempts; attempts++ {
+				utils.PingSleep(utils.Medium, 500)
+
+				maxQuickChecks := 5
+				for attempts := 0; attempts < maxQuickChecks; attempts++ {
 					ctx.RefreshGameData()
 					if ctx.Data.PlayerUnit.Area == expectedArea {
 						if areaData, ok := ctx.Data.Areas[expectedArea]; ok {
@@ -190,21 +192,28 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 						}
 					}
 
-					syncDelay := utils.RetryDelay(attempts, 1.0, int(portalSyncDelay))
+					delay := utils.PingMultiplier(utils.Light, 100)
 					ctx.Logger.Debug("Portal sync retry - adaptive sleep",
 						slog.String("expected_area", expectedArea.Area().Name),
 						slog.String("current_area", ctx.Data.PlayerUnit.Area.Area().Name),
 						slog.Int("sync_attempt", attempts),
 						slog.Int("ping_ms", ping),
-						slog.Int("base_delay_ms", int(portalSyncDelay)),
-						slog.Int("actual_delay_ms", syncDelay),
-						slog.String("formula", fmt.Sprintf("%d + (%.1f * %d * %d) = %d", int(portalSyncDelay), 1.0, ping, attempts, syncDelay)),
+						slog.Int("min_delay_ms", 100),
+						slog.Int("actual_delay_ms", delay),
+						slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 100, float64(utils.Light), ping, delay)),
 					)
 
-					// Escalating retry delay for portal sync attempts
-					utils.RetrySleep(attempts, float64(ctx.Data.Game.Ping), int(portalSyncDelay))
+					utils.PingSleep(utils.Light, 100)
 				}
-				return fmt.Errorf("portal sync timeout - expected area: %v, current: %v", expectedArea, ctx.Data.PlayerUnit.Area)
+
+				// Area transition didn't happen yet - reset hover state to retry portal click
+				ctx.Logger.Debug("Portal click may have failed - will retry",
+					slog.String("expected_area", expectedArea.Area().Name),
+					slog.String("current_area", ctx.Data.PlayerUnit.Area.Area().Name),
+					slog.Int("interaction_attempt", interactionAttempts),
+				)
+				waitingForInteraction = false
+				mouseOverAttempts = 0 // Reset to find portal again
 			}
 			continue
 		} else {
