@@ -243,6 +243,32 @@ body {
   margin-bottom: var(--spacing-sm);
 }
 
+.co-line-with-stats {
+  justify-content: space-between;
+  flex-wrap: nowrap;
+}
+
+.co-info-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.character-stats-inline {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+  margin-left: var(--spacing-md);
+}
+
+.btn-games {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
 .co-classlevel,
 .co-difficulty,
 .co-area {
@@ -1012,7 +1038,11 @@ body {
   }
 
   .character-controls {
-    flex-direction: column;
+    width: 100%;
+  }
+
+  .character-controls button:last-child {
+    margin-left: auto;
   }
 
   .stats-grid {
@@ -1021,6 +1051,14 @@ body {
 
   .run-stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .character-header {
+    flex-direction: column-reverse;
+  }
+
+  .co-line {
+    gap: var(--spacing-xs);
   }
 }
 
