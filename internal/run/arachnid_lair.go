@@ -24,7 +24,7 @@ func (a ArachnidLair) Name() string {
 }
 
 func (a ArachnidLair) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !a.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {

@@ -30,7 +30,7 @@ func (n Nihlathak) Name() string {
 }
 
 func (n Nihlathak) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		if !n.ctx.Data.Quests[quest.Act5BetrayalOfHarrogath].Completed() {
 			return SequencerSkip
 		}

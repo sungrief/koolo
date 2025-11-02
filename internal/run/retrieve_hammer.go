@@ -79,7 +79,7 @@ func (rh RetrieveHammer) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	action.ItemPickup(0)
+	action.ItemPickup(20)
 
 	err = action.ReturnTown()
 	if err != nil {

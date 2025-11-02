@@ -24,7 +24,7 @@ func (a LowerKurast) Name() string {
 }
 
 func (a LowerKurast) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !a.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {

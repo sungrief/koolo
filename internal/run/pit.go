@@ -23,7 +23,7 @@ func (p Pit) Name() string {
 }
 
 func (p Pit) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	return SequencerOk

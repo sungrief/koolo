@@ -29,7 +29,7 @@ func (b Bloodraven) Name() string {
 }
 
 func (b Bloodraven) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) && b.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() {
+	if IsQuestRun(parameters) && b.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() {
 		return SequencerSkip
 	}
 	return SequencerOk

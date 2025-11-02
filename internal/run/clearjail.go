@@ -23,7 +23,7 @@ func (t ClearJail) Name() string {
 }
 
 func (a ClearJail) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	return SequencerOk

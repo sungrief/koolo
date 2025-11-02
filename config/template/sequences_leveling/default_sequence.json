@@ -15,11 +15,11 @@
 			{"run":"summoner"},
 			{"run":"duriel", "minLevel":24, "StopIfCheckFails": true},
 			
+			{"run":"jade_figurine"},
 			{"run":"khalims_eye"},
 			{"run":"khalims_brain"},
 			{"run":"khalims_heart"},
 			{"run":"lam_esen"},
-			{"run":"jade_figurine"},
 			{"run":"travincal"},
 			{"run":"mephisto"},
 			
@@ -105,11 +105,11 @@
 			{"run":"summoner"},
 			{"run":"duriel"},
 			
+			{"run":"jade_figurine"},
 			{"run":"khalims_eye"},
 			{"run":"khalims_brain"},
 			{"run":"khalims_heart"},
 			{"run":"lam_esen"},
-			{"run":"jade_figurine"},
 			{"run":"travincal"},
 			{"run":"mephisto"},
 			
@@ -161,10 +161,10 @@
 			{"run":"summoner"},
 			{"run":"duriel"},
 			
+			{"run":"jade_figurine"},
 			{"run":"khalims_eye"},
 			{"run":"khalims_brain"},
 			{"run":"khalims_heart"},
-			{"run":"jade_figurine"},
 			{"run":"travincal"},
 			{"run":"mephisto"},
 			

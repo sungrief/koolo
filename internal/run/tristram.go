@@ -42,7 +42,7 @@ func (t Tristram) Name() string {
 }
 
 func (t Tristram) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !t.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed() {

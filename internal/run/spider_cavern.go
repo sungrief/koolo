@@ -24,7 +24,7 @@ func (run SpiderCavern) Name() string {
 }
 
 func (run SpiderCavern) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !run.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {

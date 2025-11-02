@@ -33,7 +33,7 @@ func (t *TristramEarlyGoldfarm) Name() string {
 }
 
 func (t *TristramEarlyGoldfarm) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !t.ctx.Data.Quests[quest.Act1DenOfEvil].Completed() {

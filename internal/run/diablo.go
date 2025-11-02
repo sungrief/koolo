@@ -67,6 +67,7 @@ func (d *Diablo) Run(parameters *RunParameters) error {
 		if err := d.goToAct5(); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	// Just to be sure we always re-enable item pickup after the run
@@ -370,7 +371,12 @@ func (d *Diablo) getMonsterFilter() data.MonsterFilter {
 }
 
 func (d *Diablo) goToAct5() error {
-	err := action.InteractNPC(npc.Tyrael2)
+	err := action.WayPoint(area.ThePandemoniumFortress)
+	if err != nil {
+		return err
+	}
+
+	err = action.InteractNPC(npc.Tyrael2)
 	if err != nil {
 		return err
 	}

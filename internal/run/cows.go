@@ -32,7 +32,7 @@ func (a Cows) Name() string {
 }
 
 func (a Cows) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !a.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {

@@ -28,7 +28,7 @@ func (d Den) Name() string {
 }
 
 func (d Den) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) && d.ctx.Data.Quests[quest.Act1DenOfEvil].Completed() {
+	if IsQuestRun(parameters) && d.ctx.Data.Quests[quest.Act1DenOfEvil].Completed() {
 		return SequencerSkip
 	}
 	return SequencerOk

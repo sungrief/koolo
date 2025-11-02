@@ -24,7 +24,7 @@ func (s StonyTomb) Name() string {
 }
 
 func (s StonyTomb) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !s.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed() {

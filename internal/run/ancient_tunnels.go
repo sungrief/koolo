@@ -24,7 +24,7 @@ func (a AncientTunnels) Name() string {
 }
 
 func (a AncientTunnels) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed() {

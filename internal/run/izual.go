@@ -42,6 +42,8 @@ func (i Izual) CheckConditions(parameters *RunParameters) SequencerResult {
 func (i Izual) Run(parameters *RunParameters) error {
 	i.ctx.Logger.Info("Starting Kill Izual Quest...")
 
+	action.WayPoint(area.ThePandemoniumFortress)
+
 	err := action.MoveToArea(area.OuterSteppes)
 	if err != nil {
 		return err

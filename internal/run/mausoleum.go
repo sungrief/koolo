@@ -23,7 +23,7 @@ func (a Mausoleum) Name() string {
 }
 
 func (a Mausoleum) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	return SequencerOk

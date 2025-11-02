@@ -161,26 +161,15 @@ func (d Duriel) Run(parameters *RunParameters) error {
 
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 	if isLevelingChar && d.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
-
 		action.ClearAreaAroundPlayer(20, data.MonsterAnyFilter())
-
-		action.ReturnTown()
-		action.IdentifyAll(false)
-		action.Stash(false)
-		action.ReviveMerc()
-		action.Repair()
-		action.VendorRefill(true, true)
-
-		err = action.UsePortalInTown()
-		if err != nil {
+		if err := action.InRunReturnTownRoutine(); err != nil {
 			return err
 		}
 	}
 
-	for _, obj := range d.ctx.Data.Areas[realTalRashaTomb].Objects {
-		if obj.Name == object.HoradricOrifice {
-			action.MoveToCoords(obj.Position)
-		}
+	err = action.MoveToCoords(orifice.Position)
+	if err != nil {
+		return err
 	}
 
 	// Get thawing potions before entering Duriel's lair
@@ -254,6 +243,9 @@ func (d Duriel) Run(parameters *RunParameters) error {
 			}
 		}
 	}
+
+	d.ctx.RefreshGameData()
+	utils.Sleep(200)
 
 	duriellair, found := d.ctx.Data.Objects.FindOne(object.DurielsLairPortal)
 	if found {
@@ -386,7 +378,7 @@ func (d Duriel) durielFilter() data.MonsterFilter {
 }
 
 func (d Duriel) tryTalkToJerhyn() bool {
-	if d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress5) {
+	if d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusLeaveTown + quest.StatusInProgress1) {
 		d.ctx.Logger.Info("The Seven Tombs quest in progress 5. Speaking to Jerhyn.")
 		action.MoveToCoords(data.Position{
 			X: 5092,
@@ -400,7 +392,7 @@ func (d Duriel) tryTalkToJerhyn() bool {
 }
 
 func (d Duriel) tryTalkToMeshif() bool {
-	if d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress6) {
+	if d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusStarted + quest.StatusEnterArea + quest.StatusInProgress1) {
 		d.ctx.Logger.Info("Act 2, The Seven Tombs quest completed. Moving to Act 3.")
 		action.MoveToCoords(data.Position{
 			X: 5195,

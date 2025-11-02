@@ -29,7 +29,7 @@ func (e Eldritch) Name() string {
 }
 
 func (a Eldritch) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {

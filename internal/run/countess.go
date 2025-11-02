@@ -69,5 +69,10 @@ func (c Countess) Run(parameters *RunParameters) error {
 	}
 
 	// Kill Countess
-	return c.ctx.Char.KillCountess()
+	if err := c.ctx.Char.KillCountess(); err != nil {
+		return err
+	}
+
+	action.ItemPickup(30)
+	return nil
 }

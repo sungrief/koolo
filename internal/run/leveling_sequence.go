@@ -116,9 +116,9 @@ func (ls LevelingSequence) Run(parameters *RunParameters) error {
 		return errors.New("couldn't find current difficulty leveling settings")
 	}
 	if sequencesErr := ls.RunDifficultySequences(difficultySettings); sequencesErr != nil {
+		ls.GoToCurrentProgressionTown()
 		return sequencesErr
 	}
-
 	return nil
 }
 
@@ -240,6 +240,7 @@ func (ls LevelingSequence) RunSequence(run Run, sequenceSettings SequenceSetting
 	}
 
 	if !sequenceSettings.SkipTownChores {
+		ls.GoToCurrentProgressionTown()
 		action.PreRun(false)
 	}
 

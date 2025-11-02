@@ -37,7 +37,7 @@ func (p Pindleskin) Name() string {
 }
 
 func (p Pindleskin) CheckConditions(parameters *RunParameters) SequencerResult {
-	if !IsFarmingRun(parameters) {
+	if IsQuestRun(parameters) {
 		return SequencerError
 	}
 	if !p.ctx.Data.Quests[quest.Act5PrisonOfIce].Completed() {
