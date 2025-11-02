@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -264,8 +265,11 @@ func (ls *LevelingSequence) LoadSettings() error {
 		return err
 	}
 
+	re := regexp.MustCompile("(?s)//.*?\n|/\\*.*?\\*/")
+	jsonData := re.ReplaceAll(data, nil)
+
 	var sequenceSettings LevelingSequenceSettings
-	err = json.Unmarshal(data, &sequenceSettings)
+	err = json.Unmarshal(jsonData, &sequenceSettings)
 	if err != nil {
 		ls.ctx.Logger.Error("failed to parse sequence json ", "file name", fileName)
 		return err

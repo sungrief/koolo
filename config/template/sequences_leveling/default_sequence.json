@@ -1,6 +1,20 @@
 {
 	"normal": {
+		//Quests runs
 		"quests" : [
+			/* Run parameters
+			{
+				"run": "name", //Name associated with run in run.go BuildRun function
+				"minLevel": 10, //Minimum level to start this run
+				"maxLevel": 20, //Maximum level to start this run
+				"lowGoldRun": true, //If true, start run only if gold < lvl*1000
+				"skipTownChores": true, //If true, don't do town stuff after this run
+				"exitGame": true, //If true, exit current game at the end of this run
+				"stopIfCheckFails": true, //If true, don't try executing following runs if requirements check fails
+				"parameters": "{}" //Provide additional parameters to the run (none implemented for now)
+			}
+			*/
+			
 			{"run":"den"},
 			{"run":"bloodraven"},
 			{"run":"rescue_cain"},
@@ -32,6 +46,7 @@
 			{"run":"baal"}
 		],
 		
+		//Farming runs to do before doing quest runs
 		"beforeQuests" : [
 			{"run":"tristram_early_gold_farm", "maxLevel":7, "lowGoldRun": true},
 			{"run":"tristram", "maxLevel":12},
@@ -46,17 +61,23 @@
 			{"run":"diablo", "maxLevel":30}		
 		],
 		
+		//Farming runs to do after doing quest runs
 		"afterQuests" : [
 			{"run":"baal"}
 		],
 		
+		//Requirements to switch to next difficulty
+		//coldRes and poisonRes also supported
+		//Resistences are calculated against values displayed in player stats for next difficulty 
 		"nextDifficultyConditions" : {
 			"level": 41,
-			"fireres": 0,
-			"lightres": 0,
+			"fireRes": 0,
+			"lighRres": 0,
 			"aboveGoldThreshold": true
 		},
 		
+		//Config adjustements
+		//if level is not provided, it will be applied if player difficulty is equal or above
 		"configSettings" : [
 			{
 				"healthSettings": {
@@ -137,8 +158,8 @@
 
 		"nextDifficultyConditions" : {
 			"level": 70,
-			"fireres": 15,
-			"lightres": 15,
+			"fireRes": 15,
+			"lighRres": 15,
 			"aboveGoldThreshold": true
 		},	
 		
@@ -147,9 +168,12 @@
 	},
 	
 	"hell": {
+		//Requirements to stay in this difficulty
+		//If doesn't match anymore (low gold, equipment change
+		//difficulty will reverted until previous difficulty requirements are met
 		"stayDifficultyConditions": {
-			"fireres": 15,
-			"lightres": 15,
+			"fireRes": 15,
+			"lightRes": 15,
 			"aboveLowGold": true
 		},
 		"quests" : [
