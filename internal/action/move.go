@@ -487,7 +487,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		}
 
 		//Only recompute path if needed, it can be heavy
-		if !utils.IsSamePosition(previousTargetPosition, targetPosition) {
+		if !utils.IsSamePosition(previousTargetPosition, targetPosition) || !pathFound {
 			previousTargetPosition = targetPosition
 			path, _, pathFound = ctx.PathFinder.GetPath(targetPosition)
 			pathOffsetX, pathOffsetY = getPathOffsets(targetPosition)
@@ -508,6 +508,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					ctx.Logger.Warn("No path found, trying random movement to fix")
 					ctx.PathFinder.RandomMovement()
 					utils.Sleep(200)
+					continue
 				} else {
 					return errors.New("path could not be calculated. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", to.X, to.Y) + "]")
 				}
@@ -598,8 +599,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			//... and handle errors if possible
 			if errors.Is(moveErr, step.ErrMonstersInPath) {
 				continue
-			} else if errors.Is(moveErr, step.ErrPlayerStuck) {
-				if !ctx.Data.CanTeleport() || ctx.Data.PlayerUnit.Area.IsTown() {
+			} else if errors.Is(moveErr, step.ErrPlayerStuck) || errors.Is(moveErr, step.ErrPlayerRoundTrip) {
+				if (!ctx.Data.CanTeleport() || stuck) || ctx.Data.PlayerUnit.Area.IsTown() {
 					ctx.PathFinder.RandomMovement()
 					time.Sleep(time.Millisecond * 200)
 				}
