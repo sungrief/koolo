@@ -386,22 +386,21 @@ func (d *Diablo) goToAct5() error {
 	}
 
 	err = action.InteractObject(harrogathPortal, func() bool {
-
-		utils.Sleep(1500)
-		action.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(1500)
-
-		return d.ctx.Data.AreaData.Area == area.Harrogath && d.ctx.Data.AreaData.IsInside(d.ctx.Data.PlayerUnit.Position)
+		utils.Sleep(100)
+		ctx := context.Get()
+		return !ctx.Manager.InGame()
 	})
+
 	if err != nil {
 		return err
 	}
 
-	utils.Sleep(1500)
+	// Skip Cinematics
+	utils.Sleep(2000)
 	action.HoldKey(win.VK_SPACE, 2000)
-	utils.Sleep(3000)
+	utils.Sleep(2000)
 	action.HoldKey(win.VK_SPACE, 2000)
-	utils.Sleep(1500)
+	utils.Sleep(2000)
 
 	return nil
 }
