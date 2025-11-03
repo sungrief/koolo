@@ -385,7 +385,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 	ignoreShrines := !ctx.CharacterCfg.Game.InteractWithShrines
 	initialMovementArea := ctx.Data.PlayerUnit.Area
 	actionLastMonsterHandlingTime := time.Time{}
-	var targetPosition, previousTargetPosition data.Position
+	var targetPosition, previousTargetPosition, previousPosition data.Position
 	var shrine, chest data.Object
 	var pathOffsetX, pathOffsetY int
 	var path pather.Path
@@ -394,6 +394,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 	var pathErrors int
 	var stuck bool
 	blacklistedInteractions := map[data.UnitID]bool{}
+	adjustMinDist := false
 
 	// Initial sync check
 	if err := ensureAreaSync(ctx, ctx.Data.PlayerUnit.Area); err != nil {
@@ -532,7 +533,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		}
 
 		//We've reached our target destination !
-		if distanceToTarget <= finishMoveDist {
+		if distanceToTarget <= finishMoveDist || (adjustMinDist && distanceToTarget <= finishMoveDist*2) {
 			if shrine.ID != 0 && targetPosition == shrine.Position {
 				//Handle shrine if any
 				if err := InteractObject(shrine, func() bool {
@@ -565,6 +566,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 			//We've reach the final destination
 			return nil
+		} else {
+			adjustMinDist = false
 		}
 
 		//We're not done yet, split the path into smaller segments when outside of town
@@ -588,6 +591,9 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			pathStep = min(maxPathStep, len(path)-1)
 			nextPathPos := path[pathStep]
 			nextPosition = utils.PositionAddCoords(nextPathPos, pathOffsetX, pathOffsetY)
+			if pather.DistanceFromPoint(nextPosition, targetPosition) <= minDistanceToFinishMoving {
+				nextPosition = targetPosition
+			}
 		}
 
 		//Do the actual movement...
@@ -614,10 +620,12 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 			//Cannot recover, abort and report error
 			return moveErr
+		} else if utils.IsSamePosition(previousPosition, ctx.Data.PlayerUnit.Position) {
+			adjustMinDist = true
 		}
 
 		stuck = false
-
+		previousPosition = ctx.Data.PlayerUnit.Position
 		//If we're not in town and moved without errors, move forward in the path
 		if !ctx.Data.AreaData.Area.IsTown() {
 			path = path[pathStep:]
