@@ -575,7 +575,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		pathStep := 0
 		if !ctx.Data.AreaData.Area.IsTown() {
 			//Default path step when teleporting
-			maxPathStep := 30
+			maxPathStep := 10
 
 			//Restrict path step when walking
 			if !ctx.Data.CanTeleport() {
@@ -585,6 +585,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					//baby steps for safety
 					maxPathStep = 3
 				}
+			} else {
+				maxPathStep = ctx.PathFinder.GetLastPathIndexOnScreen(path)
 			}
 
 			//Pick target position on path and convert path position to global coordinates
