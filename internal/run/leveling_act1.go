@@ -149,22 +149,9 @@ func (a Leveling) act1() error {
 
 		if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
 			a.ctx.CharacterCfg.Character.ClearPathDist = 4
-		} else {
-			a.ctx.CharacterCfg.Character.ClearPathDist = 20
 		}
 
-		if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
-			a.ctx.Logger.Error(fmt.Sprintf("Failed to save character configuration: %s", err.Error()))
-		}
-
-		if lvl.Value < 6 {
-			// Run Tristram and end the function
-			return NewTristram().Run()
-		} else {
-
-			NewTristram().Run()
-
-		}
+		NewTristram().Run()
 
 	}
 
@@ -191,11 +178,7 @@ func (a Leveling) act1() error {
 
 		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
 
-			if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
-				a.ctx.CharacterCfg.Character.ClearPathDist = 7
-			} else {
-				a.ctx.CharacterCfg.Character.ClearPathDist = 15
-			}
+			a.ctx.CharacterCfg.Character.ClearPathDist = 15
 
 			a.ctx.CharacterCfg.Inventory.BeltColumns = [4]string{"healing", "healing", "mana", "mana"}
 			if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
