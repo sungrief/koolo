@@ -91,7 +91,7 @@ func (s *Scheduler) supervisorNotStarted(name string) bool {
 
 func (s *Scheduler) startSupervisor(name string) {
 	if s.supervisorNotStarted(name) {
-		err := s.manager.Start(name, false)
+		err := s.manager.Start(name, false, false)
 		if err != nil {
 			s.logger.Error("Failed to start supervisor", "supervisor", name, "error", err)
 		}

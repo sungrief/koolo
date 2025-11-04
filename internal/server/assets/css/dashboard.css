@@ -621,6 +621,16 @@ body {
   box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
 }
 
+.btn-manual {
+  background: linear-gradient(135deg, #1a7a31 0%, #155724 100%);
+  color: var(--text-primary);
+}
+
+.btn-manual:hover {
+  background: linear-gradient(135deg, #155724 0%, #1a7a31 100%);
+  box-shadow: 0 4px 12px rgba(21, 87, 36, 0.4);
+}
+
 .btn-stop {
   background: linear-gradient(135deg, var(--status-danger) 0%, #c82333 100%);
   color: var(--text-primary);

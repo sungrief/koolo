@@ -62,6 +62,7 @@ type Context struct {
 	RestartWithCharacter string
 	PacketSender         *game.PacketSender
 	IsLevelingCharacter  *bool
+	ManualModeActive     bool // Manual play mode: stops after character selection
 }
 
 type Debug struct {
@@ -110,9 +111,10 @@ func NewContext(name string) *Status {
 			PriorityPause:      {},
 			PriorityStop:       {},
 		},
-		CurrentGame:     NewGameHelper(),
-		SkillPointIndex: 0,
-		ForceAttack:     false,
+		CurrentGame:      NewGameHelper(),
+		SkillPointIndex:  0,
+		ForceAttack:      false,
+		ManualModeActive: false, // Explicitly initialize to false
 	}
 	ctx.AttachRoutine(PriorityNormal)
 	return Get()
