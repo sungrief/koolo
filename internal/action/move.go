@@ -232,6 +232,9 @@ func MoveToArea(dst area.ID) error {
 		if errors.Is(err, health.ErrDied) { // Propagate death error
 			return err
 		}
+		if !lvl.IsEntrance {
+			return err
+		}
 		ctx.Logger.Warn("error moving to area, will try to continue", slog.String("error", err.Error()))
 	}
 
