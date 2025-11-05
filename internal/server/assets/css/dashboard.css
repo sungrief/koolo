@@ -1031,7 +1031,11 @@ body {
   }
 
   .character-controls {
-    flex-direction: column;
+    width: 100%;
+  }
+
+  .character-controls button:last-child {
+    margin-left: auto;
   }
 
   .stats-grid {
@@ -1040,6 +1044,14 @@ body {
 
   .run-stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .character-header {
+    flex-direction: column-reverse;
+  }
+
+  .co-line {
+    gap: var(--spacing-xs);
   }
 }
 
