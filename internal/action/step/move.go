@@ -7,6 +7,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
+	"github.com/hectorgimenez/d2go/pkg/data/state"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
@@ -121,13 +122,14 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 	opts.ignoreShrines = !ctx.CharacterCfg.Game.InteractWithShrines
 	stepLastMonsterCheck := time.Time{}
 
-	stuckThreshold := 1 * time.Second
+	blockThreshold := 200 * time.Millisecond
+	stuckThreshold := 2 * time.Second
 	stuckCheckStartTime := time.Now()
 
 	roundTripReferencePosition := ctx.Data.PlayerUnit.Position
 	roundTripCheckStartTime := time.Now()
 	const roundTripThreshold = 10 * time.Second
-	const roundTripMaxRadius = 5
+	const roundTripMaxRadius = 8
 
 	var walkDuration time.Duration
 	if !ctx.Data.AreaData.Area.IsTown() {
@@ -140,6 +142,7 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 	previousPosition := data.Position{}
 	clearPathDist := ctx.CharacterCfg.Character.ClearPathDist
 	overrideClearPathDist := false
+	blocked := false
 	if opts.ClearPathOverride() != nil {
 		clearPathDist = *opts.ClearPathOverride()
 		overrideClearPathDist = true
@@ -156,6 +159,11 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		//We've reached the destination, stop movement
 		if currentDistanceToDest <= minDistanceToFinishMoving {
 			return nil
+		} else if blocked {
+			//Add tolerance to reach destination if blocked
+			if currentDistanceToDest <= minDistanceToFinishMoving*2 {
+				return nil
+			}
 		}
 
 		//Check for Doors on path & open them
@@ -216,7 +224,7 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		}
 
 		currentPosition := ctx.Data.PlayerUnit.Position
-		blocked := false
+		blocked = false
 		//Detect if player is doing round trips around a position for too long and return error if it's the case
 		if utils.CalculateDistance(currentPosition, roundTripReferencePosition) <= roundTripMaxRadius {
 			timeInRoundtrip := time.Since(roundTripCheckStartTime)
@@ -232,12 +240,14 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 			roundTripCheckStartTime = time.Now()
 		}
 
-		if currentPosition == previousPosition {
-			//Player hasn't moved since last loop
-			blocked = true
-			//Finally if stuck for too long, abort movement
-			if time.Since(stuckCheckStartTime) > stuckThreshold {
+		if currentPosition == previousPosition && !ctx.Data.PlayerUnit.States.HasState(state.Stunned) {
+			stuckTime := time.Since(stuckCheckStartTime)
+			if stuckTime > stuckThreshold {
+				//if stuck for too long, abort movement
 				return ErrPlayerStuck
+			} else if stuckTime > blockThreshold {
+				//Detect blocked after short threshold
+				blocked = true
 			}
 		} else {
 			//Player moved, reset stuck detection timer
@@ -251,8 +261,6 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 					// Already destroyed, move on
 					continue
 				}
-				//ctx.Logger.Debug("Immediate obstacle detected, attempting to interact.", slog.String("object", obj.Desc().Name))
-
 				x, y := ui.GameCoordsToScreenCords(obj.Position.X, obj.Position.Y)
 				ctx.HID.Click(game.LeftButton, x, y)
 

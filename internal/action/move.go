@@ -385,15 +385,16 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 	ignoreShrines := !ctx.CharacterCfg.Game.InteractWithShrines
 	initialMovementArea := ctx.Data.PlayerUnit.Area
 	actionLastMonsterHandlingTime := time.Time{}
-	var targetPosition, previousTargetPosition data.Position
+	var targetPosition, previousTargetPosition, previousPosition data.Position
 	var shrine, chest data.Object
 	var pathOffsetX, pathOffsetY int
 	var path pather.Path
-	var pathDistance int
+	var distanceToTarget int
 	var pathFound bool
 	var pathErrors int
 	var stuck bool
 	blacklistedInteractions := map[data.UnitID]bool{}
+	adjustMinDist := false
 
 	// Initial sync check
 	if err := ensureAreaSync(ctx, ctx.Data.PlayerUnit.Area); err != nil {
@@ -487,14 +488,13 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		}
 
 		//Only recompute path if needed, it can be heavy
-		if !utils.IsSamePosition(previousTargetPosition, targetPosition) {
+		if !utils.IsSamePosition(previousTargetPosition, targetPosition) || !pathFound {
 			previousTargetPosition = targetPosition
-			path, pathDistance, pathFound = ctx.PathFinder.GetPath(targetPosition)
+			path, _, pathFound = ctx.PathFinder.GetPath(targetPosition)
 			pathOffsetX, pathOffsetY = getPathOffsets(targetPosition)
-		} else {
-			pathDistance = ctx.PathFinder.DistanceFromMe(targetPosition)
 		}
 
+		distanceToTarget = ctx.PathFinder.DistanceFromMe(targetPosition)
 		//We didn't find a path, try to handle the case
 		if !pathFound {
 			//We're in town for some reason, use tp
@@ -509,6 +509,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					ctx.Logger.Warn("No path found, trying random movement to fix")
 					ctx.PathFinder.RandomMovement()
 					utils.Sleep(200)
+					continue
 				} else {
 					return errors.New("path could not be calculated. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", to.X, to.Y) + "]")
 				}
@@ -532,7 +533,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		}
 
 		//We've reached our target destination !
-		if pathDistance <= finishMoveDist {
+		if distanceToTarget <= finishMoveDist || (adjustMinDist && distanceToTarget <= finishMoveDist*2) {
 			if shrine.ID != 0 && targetPosition == shrine.Position {
 				//Handle shrine if any
 				if err := InteractObject(shrine, func() bool {
@@ -565,6 +566,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 			//We've reach the final destination
 			return nil
+		} else {
+			adjustMinDist = false
 		}
 
 		//We're not done yet, split the path into smaller segments when outside of town
@@ -572,7 +575,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 		pathStep := 0
 		if !ctx.Data.AreaData.Area.IsTown() {
 			//Default path step when teleporting
-			maxPathStep := 30
+			maxPathStep := 10
 
 			//Restrict path step when walking
 			if !ctx.Data.CanTeleport() {
@@ -582,12 +585,17 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					//baby steps for safety
 					maxPathStep = 3
 				}
+			} else {
+				maxPathStep = ctx.PathFinder.GetLastPathIndexOnScreen(path)
 			}
 
 			//Pick target position on path and convert path position to global coordinates
 			pathStep = min(maxPathStep, len(path)-1)
 			nextPathPos := path[pathStep]
 			nextPosition = utils.PositionAddCoords(nextPathPos, pathOffsetX, pathOffsetY)
+			if pather.DistanceFromPoint(nextPosition, targetPosition) <= minDistanceToFinishMoving {
+				nextPosition = targetPosition
+			}
 		}
 
 		//Do the actual movement...
@@ -599,8 +607,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			//... and handle errors if possible
 			if errors.Is(moveErr, step.ErrMonstersInPath) {
 				continue
-			} else if errors.Is(moveErr, step.ErrPlayerStuck) {
-				if !ctx.Data.CanTeleport() {
+			} else if errors.Is(moveErr, step.ErrPlayerStuck) || errors.Is(moveErr, step.ErrPlayerRoundTrip) {
+				if (!ctx.Data.CanTeleport() || stuck) || ctx.Data.PlayerUnit.Area.IsTown() {
 					ctx.PathFinder.RandomMovement()
 					time.Sleep(time.Millisecond * 200)
 				}
@@ -614,10 +622,12 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 			//Cannot recover, abort and report error
 			return moveErr
+		} else if utils.IsSamePosition(previousPosition, ctx.Data.PlayerUnit.Position) {
+			adjustMinDist = true
 		}
 
 		stuck = false
-
+		previousPosition = ctx.Data.PlayerUnit.Position
 		//If we're not in town and moved without errors, move forward in the path
 		if !ctx.Data.AreaData.Area.IsTown() {
 			path = path[pathStep:]
