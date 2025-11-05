@@ -127,8 +127,9 @@ func (a Andariel) Name() string {
 
 func (a Andariel) CheckConditions(parameters *RunParameters) SequencerResult {
 	farmingRun := IsFarmingRun(parameters)
+	needLeaveTown := a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusEnterArea)
 	questCompleted := a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed()
-	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
+	if (farmingRun && !questCompleted) || (!farmingRun && (questCompleted && !needLeaveTown)) {
 		return SequencerSkip
 	}
 	return SequencerOk
@@ -136,6 +137,11 @@ func (a Andariel) CheckConditions(parameters *RunParameters) SequencerResult {
 
 func (a Andariel) Run(parameters *RunParameters) error {
 	_, isLevelingChar := a.ctx.Char.(context.LevelingCharacter)
+
+	if IsQuestRun(parameters) && a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusEnterArea) {
+		a.goToAct2()
+		return nil
+	}
 
 	a.ctx.Logger.Info("Moving to Catacombs 4")
 	err := action.WayPoint(area.CatacombsLevel2)
@@ -282,13 +288,17 @@ func (a Andariel) Run(parameters *RunParameters) error {
 	a.ctx.EnableItemPickup()
 
 	if IsQuestRun(parameters) {
-		action.ReturnTown()
-		action.InteractNPC(npc.Warriv)
-		a.ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
-		utils.Sleep(1000)
-		action.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(1000)
+		a.goToAct2()
 	}
 
 	return err
+}
+
+func (a Andariel) goToAct2() {
+	action.ReturnTown()
+	action.InteractNPC(npc.Warriv)
+	a.ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+	utils.Sleep(1000)
+	action.HoldKey(win.VK_SPACE, 2000)
+	utils.Sleep(1000)
 }

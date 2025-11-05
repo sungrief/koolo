@@ -388,7 +388,7 @@ func (ls LevelingSequence) AdjustDifficulty() (bool, error) {
 		}
 	}
 
-	if !difficultyChanged && difficultySettings.NextDifficultyConditions != nil {
+	if !difficultyChanged && difficultySettings.NextDifficultyConditions != nil && ls.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {
 		nextDifficulty := ls.GetNextDifficulty()
 		if ls.CheckDifficultyConditions(difficultySettings.NextDifficultyConditions, nextDifficulty) {
 			ls.ctx.CharacterCfg.Game.Difficulty = nextDifficulty

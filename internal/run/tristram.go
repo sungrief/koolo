@@ -163,10 +163,10 @@ func (t Tristram) openPortalIfNotOpened() error {
 		activeStones := 0
 		for _, cainStone := range []object.Name{
 			object.CairnStoneAlpha,
-			object.CairnStoneBeta,
 			object.CairnStoneGamma,
-			object.CairnStoneDelta,
+			object.CairnStoneBeta,
 			object.CairnStoneLambda,
+			object.CairnStoneDelta,
 		} {
 			st := cainStone
 			stone, _ := t.ctx.Data.Objects.FindOne(st)
