@@ -91,7 +91,7 @@ function createCharacterCard(key) {
                         <span class="co-dot"> • </span>
                         <span class="co-area">Area</span>
                         <span class="co-dot"> • </span>
-                        <span class="co-ping">Ping: —</span>
+                        <span class="co-ping">—</span>
                         <div class="co-xp" title="">
                             <div class="xp-bar" style="height:6px;background:#2b2f36;border-radius:4px;overflow:hidden;width:50px;display:inline-block;vertical-align:middle;">
                                 <div class="xp-bar-fill" style="height:100%;width:0;background:linear-gradient(90deg,#6aa0ff,#3a7bff);"></div>
@@ -113,9 +113,6 @@ function createCharacterCard(key) {
                       </button>
                       <button class="btn btn-outline btn-drops">
                           <i class="bi bi-gem btn-icon"></i><span class="drops-count">0</span>
-                      </button>
-                      <button class="btn btn-outline" onclick="location.href='/debug?characterName=${key}'" title="Open Debug Page">
-                          <i class="bi bi-bug"></i>
                       </button>
                           <button class="btn btn-outline reset-muling-btn" data-character-name="${key}" title="Reset Muling Progress">
                               <i class="bi bi-arrow-counterclockwise"></i>
@@ -175,6 +172,11 @@ function createCharacterCard(key) {
                         <div class="stat-label">Errors</div>
                         <div class="stat-value errors">0</div>
                     </div>
+                </div>
+                <div class="expanded-controls">
+                    <button class="btn btn-outline" onclick="location.href='/debug?characterName=${key}'" title="Open Debug Page">
+                        <i class="bi bi-bug"></i>
+                    </button>
                 </div>
                 <div class="run-stats"></div>
             </div>
@@ -437,7 +439,7 @@ function updateCharacterOverview(card, ui, status) {
     if (classLevelEl) classLevelEl.textContent = "—";
     if (diffEl) diffEl.textContent = "—";
     if (areaEl) areaEl.textContent = "—";
-    if (pingEl) pingEl.textContent = "Ping: —";
+    if (pingEl) pingEl.textContent = "—";
     if (lifeEl) lifeEl.textContent = "Life: —";
     if (manaEl) manaEl.textContent = "Mana: —";
     if (mfEl) mfEl.textContent = "MF: —";
@@ -663,7 +665,7 @@ function updateCharacterOverview(card, ui, status) {
   if (xpPct) xpPct.textContent = pctText;
   if (diffEl) diffEl.textContent = `${diff}`;
   if (areaEl) areaEl.textContent = `${area}`;
-  if (pingEl) pingEl.textContent = `Ping: ${ping}ms`;
+  if (pingEl) pingEl.textContent = `${ping}ms`;
   if (lifeEl) lifeEl.textContent = `Life: ${life}/${maxLife}`;
   if (manaEl) manaEl.textContent = `Mana: ${mana}/${maxMana}`;
   if (mfEl) mfEl.textContent = `MF: ${mf}%`;
