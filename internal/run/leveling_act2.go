@@ -77,7 +77,7 @@ func (a Leveling) act2() error {
 		}
 	}
 
-	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress6) {
+	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusStarted + quest.StatusEnterArea + quest.StatusInProgress1) {
 		a.ctx.Logger.Info("Act 2, The Seven Tombs quest completed. Need to talk to Meshif and then move to Act 3.")
 		action.MoveToCoords(data.Position{
 			X: 5195,

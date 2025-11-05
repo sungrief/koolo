@@ -214,6 +214,7 @@ func (a Quests) rescueCainQuest() error {
 	}
 
 	scrollInifussUnitID := 524
+	scrollInifussAfterAkara := 525
 	scrollInifussName := "Scroll of Inifuss"
 
 PickupLoop:
@@ -222,7 +223,7 @@ PickupLoop:
 
 		foundInInv := false
 		for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-			if itm.ID == scrollInifussUnitID {
+			if itm.ID == scrollInifussUnitID || itm.ID == scrollInifussAfterAkara {
 				foundInInv = true
 				break
 			}

@@ -108,8 +108,33 @@ func (a Leveling) act1() error {
 		}
 	}
 
+	const scrollInifussUnitID = 524
+	const scrollInifussAfterAkara = 525
+
+	found524InInv := false
+	found525InInv := false
+
+	for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		if itm.ID == scrollInifussUnitID {
+			found524InInv = true
+		}
+		if itm.ID == scrollInifussAfterAkara {
+			found525InInv = true
+		}
+	}
+
+	if found524InInv {
+		a.ctx.Logger.Info("Unidentified Scroll of Inifuss found (ID 524). Interacting with Akara to proceed.")
+
+		err := action.InteractNPC(npc.Akara)
+		if err != nil {
+			return err
+		}
+		found525InInv = true
+	}
+
 	// Cain quest: entering Tristram
-	if (a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusStarted+quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed()) && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
+	if ((a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusStarted+quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed()) || found525InInv) && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
 		return NewTristram().Run(nil)
 	}
 
@@ -124,22 +149,9 @@ func (a Leveling) act1() error {
 
 		if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
 			a.ctx.CharacterCfg.Character.ClearPathDist = 4
-		} else {
-			a.ctx.CharacterCfg.Character.ClearPathDist = 20
 		}
 
-		if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
-			a.ctx.Logger.Error(fmt.Sprintf("Failed to save character configuration: %s", err.Error()))
-		}
-
-		if lvl.Value < 6 {
-			// Run Tristram and end the function
-			return NewTristram().Run(nil)
-		} else {
-
-			NewTristram().Run(nil)
-
-		}
+		NewTristram().Run(nil)
 
 	}
 
@@ -166,11 +178,7 @@ func (a Leveling) act1() error {
 
 		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
 
-			if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
-				a.ctx.CharacterCfg.Character.ClearPathDist = 7
-			} else {
-				a.ctx.CharacterCfg.Character.ClearPathDist = 15
-			}
+			a.ctx.CharacterCfg.Character.ClearPathDist = 15
 
 			a.ctx.CharacterCfg.Inventory.BeltColumns = [4]string{"healing", "healing", "mana", "mana"}
 			if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
