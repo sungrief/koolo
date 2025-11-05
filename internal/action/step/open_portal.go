@@ -2,8 +2,6 @@ package step
 
 import (
 	"errors"
-	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data/item"
