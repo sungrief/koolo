@@ -8,6 +8,7 @@ const (
 	CollisionTypeLowPriority
 	CollisionTypeMonster
 	CollisionTypeObject
+	CollisionTypeTeleportOver
 )
 
 type CollisionType uint8
@@ -62,7 +63,11 @@ func (g *Grid) RelativePosition(p data.Position) data.Position {
 
 func (g *Grid) IsWalkable(p data.Position) bool {
 	p = g.RelativePosition(p)
-	return p.X >= 0 && p.X < g.Width && p.Y >= 0 && p.Y < g.Height && g.CollisionGrid[p.Y][p.X] != CollisionTypeNonWalkable
+	if p.X < 0 || p.X >= g.Width || p.Y < 0 || p.Y >= g.Height {
+		return false
+	}
+	positionType := g.CollisionGrid[p.Y][p.X]
+	return positionType != CollisionTypeNonWalkable && positionType != CollisionTypeTeleportOver
 }
 
 func (g *Grid) Copy() *Grid {

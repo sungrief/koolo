@@ -49,6 +49,7 @@ func (pf *PathFinder) GetPath(to data.Position) (Path, int, bool) {
 
 func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 	a := pf.data.AreaData
+	canTeleport := pf.data.CanTeleport()
 
 	// We don't want to modify the original grid
 	grid := a.Grid.Copy()
@@ -143,7 +144,8 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 			}
 		}
 	}
-	path, distance, found := astar.CalculatePath(grid, from, to)
+
+	path, distance, found := astar.CalculatePath(grid, from, to, canTeleport)
 
 	if config.Koolo.Debug.RenderMap {
 		pf.renderMap(grid, from, to, path)
