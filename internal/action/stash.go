@@ -135,15 +135,6 @@ func stashGold() {
 		if goldInStash < maxGoldPerStashTab {
 			SwitchStashTab(tab + 1) // Stash tabs are 0-indexed in data, but 1-indexed for UI interaction
 			clickStashGoldBtn()
-			ping := utils.GetCurrentPing()
-			delay := utils.PingMultiplier(utils.Critical, 1000)
-			ctx.Logger.Debug("Stashing gold - adaptive sleep",
-				slog.Int("inventory_gold", ctx.Data.Inventory.Gold),
-				slog.Int("ping_ms", ping),
-				slog.Int("min_delay_ms", 1000),
-				slog.Int("actual_delay_ms", delay),
-				slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 1000, float64(utils.Critical), ping, delay)),
-			)
 			utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for stash UI to process gold deposit
 			// After clicking, refresh data again to see if gold is now 0 or less
 			ctx.RefreshGameData()             // Crucial: Refresh data to see if gold has been deposited

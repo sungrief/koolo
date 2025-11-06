@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"log/slog"
 	"time"
 )
 
@@ -75,17 +74,7 @@ func PingMultiplier(multiplier PingMultiplierType, minimum int) int {
 // minimum: base delay in milliseconds
 // This is the primary function to use for ping-based delays
 func PingSleep(multiplier PingMultiplierType, minimum int) {
-	ping := GetCurrentPing()
 	ms := PingMultiplier(multiplier, minimum)
-
-	// Debug logging for adaptive sleep behavior
-	slog.Debug("PingSleep executing",
-		slog.Int("current_ping_ms", ping),
-		slog.Float64("multiplier", float64(multiplier)),
-		slog.Int("minimum_ms", minimum),
-		slog.Int("calculated_delay_ms", ms),
-		slog.Float64("effective_multiplier", float64(ms)/float64(ping)),
-	)
 
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
