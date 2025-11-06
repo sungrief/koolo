@@ -23,6 +23,8 @@ const (
 	assassinMaxAttacksLoop = 3
 	levelingminDistance    = 10
 	levelingmaxDistance    = 15
+	AssassinDangerDistance = 4
+	AssassinSafeDistance   = 6
 )
 
 type AssassinLeveling struct {
@@ -56,6 +58,7 @@ func (s AssassinLeveling) KillMonsterSequence(
 ) error {
 	completedAttackLoops := 0
 	previousUnitID := 0
+	var lastReposition time.Time
 
 	for {
 		context.Get().PauseIfNotPriority()
@@ -85,6 +88,17 @@ func (s AssassinLeveling) KillMonsterSequence(
 		lvl, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
 		mana, _ := s.Data.PlayerUnit.FindStat(stat.Mana, 0)
 
+		canReposition := (lvl.Value > 48 || mana.Value > 2) && time.Since(lastReposition) > time.Second*4
+		if canReposition {
+			isAnyEnemyNearby, _ := action.IsAnyEnemyAroundPlayer(AssassinDangerDistance)
+			if isAnyEnemyNearby {
+				if safePos, found := action.FindSafePosition(monster, AssassinDangerDistance, AssassinSafeDistance, levelingminDistance, levelingmaxDistance); found {
+					step.MoveTo(safePos, step.WithIgnoreMonsters())
+					lastReposition = time.Now()
+				}
+			}
+		}
+
 		mainAttackSkill := skill.FireBlast // Default before we get Wake of Fire.
 		if lvl.Value >= 12 {
 			mainAttackSkill = skill.WakeOfFire
@@ -96,6 +110,7 @@ func (s AssassinLeveling) KillMonsterSequence(
 			} else {
 				// Fallback to primary skill (basic attack) at close range when out of mana.
 				step.PrimaryAttack(id, 1, true, step.Distance(1, 3))
+				canReposition = false
 			}
 		} else {
 			// Post-reset Trapsin logic.
@@ -203,6 +218,7 @@ func (s AssassinLeveling) SkillsToBind() (skill.ID, []skill.ID) {
 			skill.DeathSentry,
 			skill.FireBlast,
 			skill.ShockWeb,
+			skill.Fade,
 		}
 	}
 
@@ -315,6 +331,7 @@ func (s AssassinLeveling) killBoss(bossNPC npc.ID, timeout time.Duration) error 
 		lvl, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
 
 		for boss.Stats[stat.Life] > 0 {
+			context.Get().PauseIfNotPriority()
 			if time.Since(startTime) > timeout {
 				return fmt.Errorf("%s timeout", bossNPC)
 			}
