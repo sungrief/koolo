@@ -375,16 +375,6 @@ func stashItemAction(i data.Item, rule string, ruleFile string, skipLogging bool
 	ctx := context.Get()
 	ctx.SetLastAction("stashItemAction")
 
-	ping := utils.GetCurrentPing()
-	delay := utils.PingMultiplier(utils.Medium, 500)
-	ctx.Logger.Debug("Stashing item - adaptive sleep",
-		slog.String("item_name", string(i.Name)),
-		slog.Int("ping_ms", ping),
-		slog.Int("min_delay_ms", 500),
-		slog.Int("actual_delay_ms", delay),
-		slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 500, float64(utils.Medium), ping, delay)),
-	)
-
 	screenPos := ui.GetScreenCoordsForItem(i)
 	ctx.HID.MovePointer(screenPos.X, screenPos.Y)
 	utils.PingSleep(utils.Medium, 170)        // Medium operation: Move pointer to item
