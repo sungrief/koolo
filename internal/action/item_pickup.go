@@ -10,12 +10,12 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
-	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/nip"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 func itemFitsInventory(i data.Item) bool {
@@ -52,6 +52,10 @@ func HasTPsAvailable() bool {
 	// Check for Tome of Town Portal
 	portalTome, found := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory)
 	if !found {
+		_, foundScroll := ctx.Data.Inventory.Find(item.ScrollOfTownPortal)
+		if foundScroll {
+			return true
+		}
 		return false // No portal tome found at all
 	}
 
@@ -87,17 +91,11 @@ func ItemPickup(maxDistance int) error {
 		if itemToPickup.UnitID == 0 {
 			ctx.Logger.Debug("No fitting items found for pickup after filtering.")
 			if HasTPsAvailable() {
-				_, found := ctx.Data.KeyBindings.KeyBindingForSkill(skill.TomeOfTownPortal)
-				if found {
-					ctx.Logger.Debug("TPs available and keybinding found, returning to town to sell junk and stash items.")
-					if err := InRunReturnTownRoutine(); err != nil {
-						ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
-					}
-					continue
-				} else {
-					ctx.Logger.Warn("TPs available but no keybinding found for TomeOfTownPortal. Skipping return to town.")
-					return nil
+				ctx.Logger.Debug("TPs available and keybinding found, returning to town to sell junk and stash items.")
+				if err := InRunReturnTownRoutine(); err != nil {
+					ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
 				}
+				continue
 			} else {
 				ctx.Logger.Warn("Inventory is full and NO Town Portals found. Skipping return to town and continuing current run (no more item pickups this cycle).")
 				return nil
@@ -194,7 +192,8 @@ func ItemPickup(maxDistance int) error {
 					break // Exit the inner loop to blacklist the item
 				}
 				// Pause to let the game state update from 'walking' to 'idle'
-				time.Sleep(100 * time.Millisecond)
+				// Use adaptive delay based on ping
+				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 100)))
 				continue
 			}
 			if errors.Is(err, step.ErrMonsterAroundItem) {
@@ -242,8 +241,8 @@ func ItemPickup(maxDistance int) error {
 
 			// Screenshot with show items on
 			ctx.HID.KeyDown(ctx.Data.KeyBindings.ShowItems)
-			// Small delay to ensure items are shown before screenshot
-			time.Sleep(200 * time.Millisecond)
+			// Adaptive delay to ensure items are shown before screenshot
+			time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 200)))
 			screenshot := ctx.GameReader.Screenshot()
 			event.Send(event.ItemBlackListed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] BlackListed in Area:%s", itemToPickup.Name, itemToPickup.Quality.ToString(), ctx.Data.PlayerUnit.Area.Area().Name), screenshot), data.Drop{Item: itemToPickup}))
 			ctx.HID.KeyUp(ctx.Data.KeyBindings.ShowItems)
@@ -369,12 +368,19 @@ func shouldBePickedUp(i data.Item) bool {
 		return true
 	}
 
+	if isLevelingChar && i.Name == "StaminaPotion" {
+		if ctx.HealthManager.ShouldPickStaminaPot() {
+			return true
+		}
+	}
+
 	// Pickup all magic or superior items if total gold is low, filter will not pass and items will be sold to vendor
 	minGoldPickupThreshold := ctx.CharacterCfg.Game.MinGoldPickupThreshold
 	if ctx.Data.PlayerUnit.TotalPlayerGold() < minGoldPickupThreshold && i.Quality >= item.QualityMagic {
 		return true
 	}
 
+	// Evaluate item based on NIP rules
 	playerRule, mercRule := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateTiers(i, ctx.Data.CharacterCfg.Runtime.TierRules)
 	if playerRule.Tier() > 0.0 || mercRule.MercTier() > 0.0 {
 		if i.Quality <= item.QualitySuperior {

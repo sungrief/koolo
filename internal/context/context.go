@@ -15,6 +15,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/health"
 	"github.com/hectorgimenez/koolo/internal/pather"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 var mu sync.Mutex
@@ -63,6 +64,7 @@ type Context struct {
 	PacketSender         *game.PacketSender
 	IsLevelingCharacter  *bool
 	ManualModeActive     bool // Manual play mode: stops after character selection
+	LastPortalTick       time.Time // NEW FIELD: Tracks last portal creation for spam prevention
 }
 
 type Debug struct {
@@ -117,6 +119,15 @@ func NewContext(name string) *Status {
 		ManualModeActive: false, // Explicitly initialize to false
 	}
 	ctx.AttachRoutine(PriorityNormal)
+
+	// Initialize ping getter for adaptive delays (avoids import cycle)
+	utils.SetPingGetter(func() int {
+		if ctx.Data != nil && ctx.Data.Game.Ping > 0 {
+			return ctx.Data.Game.Ping
+		}
+		return 50 // Safe default
+	})
+
 	return Get()
 }
 

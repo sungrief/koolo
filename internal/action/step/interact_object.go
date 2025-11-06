@@ -2,6 +2,7 @@ package step
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -85,6 +86,11 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		}
 	}
 
+	interactionCooldown := time.Millisecond * 200
+	if ctx.Data.PlayerUnit.Area.IsTown() {
+		interactionCooldown = time.Millisecond * 500
+	}
+
 	for !isCompletedFn() {
 		ctx.PauseIfNotPriority()
 
@@ -95,7 +101,8 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		ctx.RefreshGameData()
 
 		// Give some time before retrying the interaction
-		if waitingForInteraction && time.Since(lastRun) < time.Millisecond*200 {
+		if waitingForInteraction && time.Since(lastRun) < interactionCooldown {
+			time.Sleep(10 * time.Millisecond)
 			continue
 		}
 
@@ -117,20 +124,43 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 
 		// Check portal states
 		if o.IsPortal() || o.IsRedPortal() {
-			// If portal is still being created, wait
+			// If portal is still being created, wait with escalating delay
 			if o.Mode == mode.ObjectModeOperating {
-				utils.Sleep(100)
+				ping := utils.GetCurrentPing()
+				retryDelay := utils.RetryDelay(interactionAttempts, 1.0, 100)
+				ctx.Logger.Debug("Portal creating - adaptive retry sleep",
+					slog.String("object_name", string(o.Name)),
+					slog.Int("attempt", interactionAttempts),
+					slog.Int("ping_ms", ping),
+					slog.Int("base_delay_ms", 100),
+					slog.Int("actual_delay_ms", retryDelay),
+					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d * %d) = %d", 100, 1.0, ping, interactionAttempts, retryDelay)),
+				)
+
+				// Use retry escalation for portal opening waits
+				utils.RetrySleep(interactionAttempts, float64(ctx.Data.Game.Ping), 100)
 				continue
 			}
 
 			// Only interact when portal is fully opened
 			if o.Mode != mode.ObjectModeOpened {
-				utils.Sleep(100)
+				ping := utils.GetCurrentPing()
+				retryDelay := utils.RetryDelay(interactionAttempts, 1.0, 100)
+				ctx.Logger.Debug("Portal not fully opened - adaptive retry sleep",
+					slog.String("object_name", string(o.Name)),
+					slog.Int("attempt", interactionAttempts),
+					slog.Int("ping_ms", ping),
+					slog.Int("base_delay_ms", 100),
+					slog.Int("actual_delay_ms", retryDelay),
+					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d * %d) = %d", 100, 1.0, ping, interactionAttempts, retryDelay)),
+				)
+
+				utils.RetrySleep(interactionAttempts, float64(ctx.Data.Game.Ping), 100)
 				continue
 			}
 		}
 
-		if o.IsHovered {
+		if o.IsHovered && !utils.IsZeroPosition(currentMouseCoords) {
 			ctx.HID.Click(game.LeftButton, currentMouseCoords.X, currentMouseCoords.Y)
 
 			waitingForInteraction = true
@@ -138,8 +168,21 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 
 			// For portals with expected area, we need to wait for proper area sync
 			if expectedArea != 0 {
-				utils.Sleep(500) // Initial delay for area transition
-				for attempts := 0; attempts < maxPortalSyncAttempts; attempts++ {
+				ping := utils.GetCurrentPing()
+				delay := utils.PingMultiplier(utils.Medium, 500)
+				ctx.Logger.Debug("Portal area transition - adaptive sleep",
+					slog.String("object_name", string(o.Name)),
+					slog.String("expected_area", expectedArea.Area().Name),
+					slog.Int("ping_ms", ping),
+					slog.Int("min_delay_ms", 500),
+					slog.Int("actual_delay_ms", delay),
+					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 500, float64(utils.Medium), ping, delay)),
+				)
+
+				utils.PingSleep(utils.Medium, 500)
+
+				maxQuickChecks := 5
+				for attempts := 0; attempts < maxQuickChecks; attempts++ {
 					ctx.RefreshGameData()
 					if ctx.Data.PlayerUnit.Area == expectedArea {
 						if areaData, ok := ctx.Data.Areas[expectedArea]; ok {
@@ -154,9 +197,29 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 							}
 						}
 					}
-					utils.Sleep(portalSyncDelay)
+
+					delay := utils.PingMultiplier(utils.Light, 100)
+					ctx.Logger.Debug("Portal sync retry - adaptive sleep",
+						slog.String("expected_area", expectedArea.Area().Name),
+						slog.String("current_area", ctx.Data.PlayerUnit.Area.Area().Name),
+						slog.Int("sync_attempt", attempts),
+						slog.Int("ping_ms", ping),
+						slog.Int("min_delay_ms", 100),
+						slog.Int("actual_delay_ms", delay),
+						slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 100, float64(utils.Light), ping, delay)),
+					)
+
+					utils.PingSleep(utils.Light, 100)
 				}
-				return fmt.Errorf("portal sync timeout - expected area: %v, current: %v", expectedArea, ctx.Data.PlayerUnit.Area)
+
+				// Area transition didn't happen yet - reset hover state to retry portal click
+				ctx.Logger.Debug("Portal click may have failed - will retry",
+					slog.String("expected_area", expectedArea.Area().Name),
+					slog.String("current_area", ctx.Data.PlayerUnit.Area.Area().Name),
+					slog.Int("interaction_attempt", interactionAttempts),
+				)
+				waitingForInteraction = false
+				mouseOverAttempts = 0 // Reset to find portal again
 			}
 			continue
 		} else {
