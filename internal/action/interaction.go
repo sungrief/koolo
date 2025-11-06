@@ -66,7 +66,7 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 				continue
 			}
 		} else {
-			err = step.MoveTo(pos, step.WithDistanceToFinish(distFinish))
+			err = step.MoveTo(pos, step.WithDistanceToFinish(distFinish), step.WithIgnoreMonsters())
 			if err != nil {
 				continue
 			}

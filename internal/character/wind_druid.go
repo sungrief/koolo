@@ -31,6 +31,10 @@ type WindDruid struct {
 	lastCastTime  time.Time // Tracks the last time a skill was cast
 }
 
+func (s WindDruid) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 // Verify that required skills are bound to keys
 func (s WindDruid) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.Hurricane, skill.OakSage, skill.CycloneArmor, skill.TomeOfTownPortal, skill.Tornado}
@@ -89,6 +93,8 @@ func (s WindDruid) KillMonsterSequence(
 	}
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		if time.Since(lastRefresh) > time.Millisecond*100 {
 			ctx.RefreshGameData()
 			lastRefresh = time.Now()

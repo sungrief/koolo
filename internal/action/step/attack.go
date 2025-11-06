@@ -356,7 +356,7 @@ func ensureEnemyIsInRange(monster data.Monster, state *attackState, maxDistance,
 		))
 
 		dest := ctx.PathFinder.BeyondPosition(currentPos, monster.Position, 4)
-		err := MoveTo(dest)
+		err := MoveTo(dest, WithIgnoreMonsters())
 		state.repositionAttempts++ // Increment attempt count after trying to move
 		if err != nil {
 			ctx.Logger.Error(fmt.Sprintf("MoveTo failed during reposition attempt for monster [%d]: %v", monster.Name, err))
@@ -371,7 +371,7 @@ func ensureEnemyIsInRange(monster data.Monster, state *attackState, maxDistance,
 	// Any close-range combat (mosaic,barb...) should move directly to target
 	// This is general movement, not triggered by needsRepositioning (no damage), so don't touch repositionAttempts.
 	if maxDistance <= 3 {
-		return MoveTo(monster.Position)
+		return MoveTo(monster.Position, WithIgnoreMonsters(), WithDistanceToFinish(max(2, maxDistance)))
 	}
 
 	// Get path to monster
@@ -401,7 +401,7 @@ func ensureEnemyIsInRange(monster data.Monster, state *attackState, maxDistance,
 
 		if ctx.PathFinder.LineOfSight(dest, monster.Position) && !ctx.ForceAttack {
 			// This is also general movement to get into attack range, not a "repositioning attempt" for being stuck.
-			return MoveTo(dest)
+			return MoveTo(dest, WithIgnoreMonsters())
 		}
 	}
 

@@ -35,6 +35,10 @@ type BlizzardSorceress struct {
 	BaseCharacter
 }
 
+func (s BlizzardSorceress) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s BlizzardSorceress) isPlayerDead2() bool {
 	return s.Data.PlayerUnit.HPPercent() <= 0
 }
@@ -110,7 +114,7 @@ func (s BlizzardSorceress) KillMonsterSequence(
 			// Find a safe position
 			safePos, found := s.findSafePosition(targetMonster)
 			if found {
-				step.MoveTo(safePos)
+				step.MoveTo(safePos, step.WithIgnoreMonsters())
 			} else {
 				s.Logger.Info("Could not find safe position for repositioning")
 			}
@@ -275,7 +279,7 @@ func (s BlizzardSorceress) KillMephisto() error {
 
 		staticFieldRange := step.Distance(0, 4)
 		var attackOption step.AttackOption = step.Distance(SorceressLevelingMinDistance, SorceressLevelingMaxDistance)
-		err := step.MoveTo(data.Position{X: 17563, Y: 8072})
+		err := step.MoveTo(data.Position{X: 17563, Y: 8072}, step.WithIgnoreMonsters())
 		if err != nil {
 			return err
 		}
@@ -328,7 +332,7 @@ func (s BlizzardSorceress) KillMephisto() error {
 				if distanceToMonster > StaticFieldEffectiveRange && s.Data.PlayerUnit.Skills[skill.Teleport].Level > 0 {
 					s.Logger.Debug("Mephisto too far for Static Field, repositioning closer.")
 
-					step.MoveTo(monster.Position)
+					step.MoveTo(monster.Position, step.WithIgnoreMonsters())
 					utils.Sleep(150)
 					continue
 				}
@@ -346,7 +350,7 @@ func (s BlizzardSorceress) KillMephisto() error {
 			s.Logger.Info("Static Field not available or bound, skipping Static Phase.")
 		}
 
-		err = step.MoveTo(data.Position{X: 17563, Y: 8072})
+		err = step.MoveTo(data.Position{X: 17563, Y: 8072}, step.WithIgnoreMonsters())
 		if err != nil {
 			return err
 		}
@@ -375,7 +379,7 @@ func (s BlizzardSorceress) KillMephisto() error {
 
 		// Move to initial position
 		utils.Sleep(350)
-		err := step.MoveTo(data.Position{X: 17563, Y: 8072})
+		err := step.MoveTo(data.Position{X: 17563, Y: 8072}, step.WithIgnoreMonsters())
 		if err != nil {
 			return err
 		}
@@ -389,7 +393,7 @@ func (s BlizzardSorceress) KillMephisto() error {
 		}
 
 		for _, pos := range initialPositions {
-			err := step.MoveTo(data.Position{X: pos.x, Y: pos.y})
+			err := step.MoveTo(data.Position{X: pos.x, Y: pos.y}, step.WithIgnoreMonsters())
 			if err != nil {
 				return err
 			}
@@ -402,7 +406,7 @@ func (s BlizzardSorceress) KillMephisto() error {
 			return err
 		}
 
-		err = step.MoveTo(data.Position{X: 17609, Y: 8090})
+		err = step.MoveTo(data.Position{X: 17609, Y: 8090}, step.WithIgnoreMonsters())
 		if err != nil {
 			return err
 		}

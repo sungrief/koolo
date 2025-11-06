@@ -28,14 +28,8 @@ func (a Leveling) act1() error {
 		return nil
 	}
 
-	action.UpdateQuestLog(false)
-
 	// Check player level and set configuration for level 1
 	lvl, _ := a.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
-	if lvl.Value == 1 {
-		a.ctx.Logger.Info("Player level is 1. Setting Leveling Config.")
-		a.setupLevelOneConfig()
-	}
 
 	// Refill potions and ensure bindings for players level > 1
 	if lvl.Value > 1 {
@@ -114,8 +108,33 @@ func (a Leveling) act1() error {
 		}
 	}
 
+	const scrollInifussUnitID = 524
+	const scrollInifussAfterAkara = 525
+
+	found524InInv := false
+	found525InInv := false
+
+	for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		if itm.ID == scrollInifussUnitID {
+			found524InInv = true
+		}
+		if itm.ID == scrollInifussAfterAkara {
+			found525InInv = true
+		}
+	}
+
+	if found524InInv {
+		a.ctx.Logger.Info("Unidentified Scroll of Inifuss found (ID 524). Interacting with Akara to proceed.")
+
+		err := action.InteractNPC(npc.Akara)
+		if err != nil {
+			return err
+		}
+		found525InInv = true
+	}
+
 	// Cain quest: entering Tristram
-	if (a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress2) || a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress3) || a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress4)) && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
+	if ((a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusStarted+quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed()) || found525InInv) && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
 		return NewTristram().Run()
 	}
 
@@ -130,22 +149,9 @@ func (a Leveling) act1() error {
 
 		if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
 			a.ctx.CharacterCfg.Character.ClearPathDist = 4
-		} else {
-			a.ctx.CharacterCfg.Character.ClearPathDist = 20
 		}
 
-		if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
-			a.ctx.Logger.Error(fmt.Sprintf("Failed to save character configuration: %s", err.Error()))
-		}
-
-		if lvl.Value < 6 {
-			// Run Tristram and end the function
-			return NewTristram().Run()
-		} else {
-
-			NewTristram().Run()
-
-		}
+		NewTristram().Run()
 
 	}
 
@@ -172,11 +178,7 @@ func (a Leveling) act1() error {
 
 		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
 
-			if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
-				a.ctx.CharacterCfg.Character.ClearPathDist = 7
-			} else {
-				a.ctx.CharacterCfg.Character.ClearPathDist = 15
-			}
+			a.ctx.CharacterCfg.Character.ClearPathDist = 15
 
 			a.ctx.CharacterCfg.Inventory.BeltColumns = [4]string{"healing", "healing", "mana", "mana"}
 			if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
@@ -186,141 +188,6 @@ func (a Leveling) act1() error {
 		}
 		return NewAndariel().Run()
 	}
-}
-
-// setupLevelOneConfig centralizes the configuration logic for a new character.
-func (a Leveling) setupLevelOneConfig() {
-	a.ctx.CharacterCfg.Game.Difficulty = difficulty.Normal
-	a.ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation = true
-	a.ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding = true
-	a.ctx.CharacterCfg.Game.Leveling.AutoEquip = true
-	a.ctx.CharacterCfg.Game.Leveling.EnableRunewordMaker = true
-	a.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = a.GetRunewords()
-	a.ctx.CharacterCfg.Character.UseTeleport = true
-	a.ctx.CharacterCfg.Character.UseMerc = false
-	a.ctx.CharacterCfg.Character.StashToShared = false
-	a.ctx.CharacterCfg.Game.UseCainIdentify = true
-	a.ctx.CharacterCfg.CloseMiniPanel = false
-	a.ctx.CharacterCfg.Health.HealingPotionAt = 40
-	a.ctx.CharacterCfg.Health.ManaPotionAt = 25
-	a.ctx.CharacterCfg.Health.RejuvPotionAtLife = 0
-	a.ctx.CharacterCfg.Health.ChickenAt = 7
-	a.ctx.CharacterCfg.Gambling.Enabled = true
-	a.ctx.CharacterCfg.Health.MercRejuvPotionAt = 40
-	a.ctx.CharacterCfg.Health.MercChickenAt = 0
-	a.ctx.CharacterCfg.Health.MercHealingPotionAt = 25
-	a.ctx.CharacterCfg.MaxGameLength = 1200
-	a.ctx.CharacterCfg.CubeRecipes.Enabled = true
-	a.ctx.CharacterCfg.CubeRecipes.EnabledRecipes = []string{"Perfect Amethyst", "Reroll GrandCharms", "Caster Amulet"}
-	a.ctx.CharacterCfg.Inventory.BeltColumns = [4]string{"healing", "healing", "mana", "mana"}
-	a.ctx.CharacterCfg.BackToTown.NoHpPotions = true
-	a.ctx.CharacterCfg.BackToTown.NoMpPotions = true
-	a.ctx.CharacterCfg.BackToTown.MercDied = false
-	a.ctx.CharacterCfg.BackToTown.EquipmentBroken = false
-	a.ctx.CharacterCfg.Game.Tristram.ClearPortal = false
-	a.ctx.CharacterCfg.Game.Tristram.FocusOnElitePacks = true
-	a.ctx.CharacterCfg.Game.Pit.MoveThroughBlackMarsh = true
-	a.ctx.CharacterCfg.Game.Pit.OpenChests = true
-	a.ctx.CharacterCfg.Game.Pit.FocusOnElitePacks = false
-	a.ctx.CharacterCfg.Game.Pit.OnlyClearLevel2 = false
-	a.ctx.CharacterCfg.Game.Andariel.ClearRoom = true
-	a.ctx.CharacterCfg.Game.Andariel.UseAntidoes = true
-	a.ctx.CharacterCfg.Game.Mephisto.KillCouncilMembers = false
-	a.ctx.CharacterCfg.Game.Mephisto.OpenChests = false
-	a.ctx.CharacterCfg.Game.Mephisto.ExitToA4 = true
-	a.ctx.CharacterCfg.Inventory.InventoryLock = [][]int{
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-	}
-	a.ctx.CharacterCfg.Game.InteractWithShrines = true
-	a.ctx.CharacterCfg.Game.MinGoldPickupThreshold = 2000
-	a.ctx.CharacterCfg.Inventory.HealingPotionCount = 4
-	a.ctx.CharacterCfg.Inventory.ManaPotionCount = 8
-	a.ctx.CharacterCfg.Inventory.RejuvPotionCount = 0
-	a.ctx.CharacterCfg.Character.ShouldHireAct2MercFrozenAura = true
-	if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
-		a.ctx.Logger.Error(fmt.Sprintf("Failed to save character configuration: %s", err.Error()))
-	}
-}
-
-// adjustDifficultyConfig centralizes difficulty-based configuration changes.
-func (a Leveling) AdjustDifficultyConfig() {
-	lvl, _ := a.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
-
-	//Let setupLevelOneConfig do the initial setup
-	if lvl.Value == 1 {
-		return
-	}
-
-	if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
-		a.ctx.CharacterCfg.Character.UseTeleport = true
-	}
-
-	a.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = a.GetRunewords()
-	a.ctx.CharacterCfg.Game.MinGoldPickupThreshold = 5000 * lvl.Value
-	if lvl.Value >= 4 && lvl.Value < 24 {
-		a.ctx.CharacterCfg.Health.HealingPotionAt = 85
-
-		if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
-			a.ctx.CharacterCfg.Character.ClearPathDist = 7
-		} else {
-			a.ctx.CharacterCfg.Character.ClearPathDist = 15
-		}
-	}
-	if lvl.Value >= 24 {
-		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
-			a.ctx.CharacterCfg.Inventory.BeltColumns = [4]string{"healing", "healing", "mana", "mana"}
-			a.ctx.CharacterCfg.Health.MercHealingPotionAt = 55
-			a.ctx.CharacterCfg.Health.MercRejuvPotionAt = 0
-			a.ctx.CharacterCfg.Health.HealingPotionAt = 85
-			a.ctx.CharacterCfg.Health.ChickenAt = 30
-			a.ctx.CharacterCfg.Character.ClearPathDist = 15
-
-		} else if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare {
-			a.ctx.CharacterCfg.Inventory.BeltColumns = [4]string{"healing", "healing", "mana", "mana"}
-			a.ctx.CharacterCfg.Health.MercHealingPotionAt = 55
-			a.ctx.CharacterCfg.Health.MercRejuvPotionAt = 0
-			a.ctx.CharacterCfg.Health.HealingPotionAt = 85
-			a.ctx.CharacterCfg.Health.ChickenAt = 30
-			a.ctx.CharacterCfg.Character.ClearPathDist = 15
-
-		} else if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
-			a.ctx.CharacterCfg.Inventory.BeltColumns = [4]string{"healing", "healing", "mana", "rejuvenation"}
-			a.ctx.CharacterCfg.Health.MercHealingPotionAt = 80
-			a.ctx.CharacterCfg.Health.MercRejuvPotionAt = 40
-			a.ctx.CharacterCfg.Health.HealingPotionAt = 90
-			a.ctx.CharacterCfg.Health.ChickenAt = 40
-			if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
-				// don't engage when teleing and running oom
-				a.ctx.CharacterCfg.Character.ClearPathDist = 0
-			} else {
-				a.ctx.CharacterCfg.Character.ClearPathDist = 15
-			}
-
-		}
-		if err := config.SaveSupervisorConfig(a.ctx.CharacterCfg.ConfigFolderName, a.ctx.CharacterCfg); err != nil {
-			a.ctx.Logger.Error(fmt.Sprintf("Failed to save character configuration: %s", err.Error()))
-		}
-	}
-}
-
-func (a Leveling) GetRunewords() []string {
-	enabledRunewordRecipes := []string{"Ancients' Pledge", "Lore", "Insight", "Smoke", "Treachery", "Call to Arms"}
-
-	if !a.ctx.CharacterCfg.Game.IsNonLadderChar {
-		enabledRunewordRecipes = append(enabledRunewordRecipes, "Bulwark", "Hustle")
-		a.ctx.Logger.Info("Ladder character detected. Adding Bulwark and Hustle runewords.")
-	}
-
-	ch, isLevelingChar := a.ctx.Char.(context.LevelingCharacter)
-	if isLevelingChar {
-		additionalRunewords := ch.GetAdditionalRunewords()
-		enabledRunewordRecipes = append(enabledRunewordRecipes, additionalRunewords...)
-	}
-
-	return enabledRunewordRecipes
 }
 
 // goToAct2 handles the transition to Act 2.

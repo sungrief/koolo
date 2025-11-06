@@ -210,6 +210,7 @@ func (a Quests) rescueCainQuest() error {
 	}
 
 	scrollInifussUnitID := 524
+	scrollInifussAfterAkara := 525
 	scrollInifussName := "Scroll of Inifuss"
 
 PickupLoop:
@@ -218,7 +219,7 @@ PickupLoop:
 
 		foundInInv := false
 		for _, itm := range a.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
-			if itm.ID == scrollInifussUnitID {
+			if itm.ID == scrollInifussUnitID || itm.ID == scrollInifussAfterAkara {
 				foundInInv = true
 				break
 			}
@@ -675,8 +676,6 @@ func (a Quests) killIzualQuest() error {
 	}
 
 	time.Sleep(500)
-	action.UpdateQuestLog(false)
-	time.Sleep(500)
 
 	return nil
 }
@@ -828,11 +827,13 @@ func (a Quests) killAncientsQuest() error {
 
 	// Store the original configuration
 	originalBackToTownCfg := a.ctx.CharacterCfg.BackToTown
+	originalTownChicken := a.ctx.CharacterCfg.Health.TownChickenAt
 
 	// Defer the restoration of the configuration.
 	// This will run when the function exits, regardless of how.
 	defer func() {
 		a.ctx.CharacterCfg.BackToTown = originalBackToTownCfg
+		a.ctx.CharacterCfg.Health.TownChickenAt = originalTownChicken
 		a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.")
 	}()
 
@@ -872,6 +873,7 @@ func (a Quests) killAncientsQuest() error {
 	a.ctx.CharacterCfg.BackToTown.NoMpPotions = false
 	a.ctx.CharacterCfg.BackToTown.EquipmentBroken = false
 	a.ctx.CharacterCfg.BackToTown.MercDied = false
+	a.ctx.CharacterCfg.Health.TownChickenAt = 0
 
 	for {
 		ancients := a.ctx.Data.Monsters.Enemies(data.MonsterEliteFilter())
@@ -891,10 +893,6 @@ func (a Quests) killAncientsQuest() error {
 	// a.ctx.CharacterCfg.BackToTown = originalBackToTownCfg // This line is now removed
 	// a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.") // This line is now part of the defer
 
-	utils.Sleep(500)
-	action.UpdateQuestLog(false)
-	utils.Sleep(500)
-	action.UpdateQuestLog(false)
 	utils.Sleep(500)
 	step.CloseAllMenus()
 	action.ReturnTown()

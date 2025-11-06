@@ -36,6 +36,10 @@ const (
 	DruidMaxAttackRange = 8
 )
 
+func (s DruidLeveling) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 // Verify that required skills are bound to keys
 func (s DruidLeveling) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{}
@@ -646,7 +650,7 @@ func (s DruidLeveling) KillAncients() error {
 		if !found {
 			continue
 		}
-		step.MoveTo(data.Position{X: 10062, Y: 12639})
+		step.MoveTo(data.Position{X: 10062, Y: 12639}, step.WithIgnoreMonsters())
 
 		s.killMonster(foundMonster.Name, data.MonsterTypeSuperUnique)
 
@@ -663,4 +667,12 @@ func (s DruidLeveling) KillNihlathak() error {
 
 func (s DruidLeveling) KillBaal() error {
 	return s.killMonster(npc.BaalCrab, data.MonsterTypeUnique)
+}
+
+func (s DruidLeveling) InitialCharacterConfigSetup() {
+
+}
+
+func (s DruidLeveling) AdjustCharacterConfig() {
+
 }

@@ -29,6 +29,10 @@ type AssassinLeveling struct {
 	BaseCharacter
 }
 
+func (s AssassinLeveling) ShouldIgnoreMonster(m data.Monster) bool {
+	return false
+}
+
 func (s AssassinLeveling) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{}
 	missingKeybindings := []skill.ID{}
@@ -54,6 +58,8 @@ func (s AssassinLeveling) KillMonsterSequence(
 	previousUnitID := 0
 
 	for {
+		context.Get().PauseIfNotPriority()
+
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			return nil
@@ -297,6 +303,8 @@ func (s AssassinLeveling) killBoss(bossNPC npc.ID, timeout time.Duration) error 
 	lastTrapVolley := time.Time{}
 
 	for time.Since(startTime) < timeout {
+		context.Get().PauseIfNotPriority()
+
 		boss, found := s.Data.Monsters.FindOne(bossNPC, data.MonsterTypeUnique)
 		if !found {
 			time.Sleep(time.Second)
@@ -470,4 +478,12 @@ func (s AssassinLeveling) KillBaal() error {
 func (s AssassinLeveling) GetAdditionalRunewords() []string {
 	additionalRunewords := action.GetCastersCommonRunewords()
 	return additionalRunewords
+}
+
+func (s AssassinLeveling) InitialCharacterConfigSetup() {
+
+}
+
+func (s AssassinLeveling) AdjustCharacterConfig() {
+
 }

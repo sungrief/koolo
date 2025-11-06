@@ -15,6 +15,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/health"
 	"github.com/hectorgimenez/koolo/internal/pather"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 var mu sync.Mutex
@@ -61,6 +62,8 @@ type Context struct {
 	CleanStopRequested   bool
 	RestartWithCharacter string
 	PacketSender         *game.PacketSender
+	IsLevelingCharacter  *bool
+	LastPortalTick       time.Time // NEW FIELD: Tracks last portal creation for spam prevention
 }
 
 type Debug struct {
@@ -114,6 +117,15 @@ func NewContext(name string) *Status {
 		ForceAttack:     false,
 	}
 	ctx.AttachRoutine(PriorityNormal)
+
+	// Initialize ping getter for adaptive delays (avoids import cycle)
+	utils.SetPingGetter(func() int {
+		if ctx.Data != nil && ctx.Data.Game.Ping > 0 {
+			return ctx.Data.Game.Ping
+		}
+		return 50 // Safe default
+	})
+
 	return Get()
 }
 
@@ -152,6 +164,12 @@ func getGoroutineID() uint64 {
 
 func (ctx *Context) RefreshGameData() {
 	*ctx.Data = ctx.GameReader.GetData()
+	if ctx.IsLevelingCharacter == nil {
+		_, isLevelingCharacter := ctx.Char.(LevelingCharacter)
+		ctx.IsLevelingCharacter = &isLevelingCharacter
+	}
+	ctx.Data.IsLevelingCharacter = *ctx.IsLevelingCharacter
+
 }
 
 func (ctx *Context) RefreshInventory() {

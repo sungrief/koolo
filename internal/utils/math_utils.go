@@ -18,6 +18,10 @@ func CalculateDistance(p1, p2 data.Position) float64 {
 	return math.Sqrt(dx*dx + dy*dy)
 }
 
+func IsZeroPosition(v data.Position) bool {
+	return v.X == 0 && v.Y == 0
+}
+
 func IsSamePosition(v1, v2 data.Position) bool {
 	return v1.X == v2.X && v1.Y == v2.Y
 }

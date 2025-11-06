@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
-	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	botCtx "github.com/hectorgimenez/koolo/internal/context"
@@ -32,14 +31,7 @@ type Bot struct {
 }
 
 func (b *Bot) NeedsTPsToContinue() bool {
-	portalTome, found := b.ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory)
-	if !found {
-		return true // No portal tome found, effectively 0 TPs. Need to go back.
-	}
-
-	qty, found := portalTome.FindStat(stat.Quantity, 0)
-
-	return qty.Value == 0 || !found
+	return !action.HasTPsAvailable()
 }
 
 func NewBot(ctx *botCtx.Context, mm MuleManager) *Bot {
@@ -239,8 +231,8 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 				// Perform item pickup if enabled
 				if b.ctx.CurrentGame.PickupItems {
 					canPickup := true
-					if isLevelingChar {
-						if enemyFound, _ := action.IsAnyEnemyAroundPlayer(max(b.ctx.CharacterCfg.Character.ClearPathDist*2, 30)); enemyFound {
+					if isLevelingChar && b.ctx.CharacterCfg.Character.ClearPathDist > 0 {
+						if enemyFound, _ := action.IsAnyEnemyAroundPlayer((b.ctx.CharacterCfg.Character.ClearPathDist * 2) / 3); enemyFound {
 							canPickup = false
 						}
 					}
@@ -303,6 +295,8 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 					needManaPotionsRefill = !manaPotionsFoundInBelt && b.ctx.CharacterCfg.Inventory.BeltColumns.Total(data.ManaPotion) > 0
 				}
 
+				townChicken := b.ctx.CharacterCfg.Health.TownChickenAt > 0 && b.ctx.Data.PlayerUnit.HPPercent() <= b.ctx.CharacterCfg.Health.TownChickenAt
+
 				// Check if we need to go back to town (level, gold, and TP quantity are met, AND then other conditions)
 				if _, found := b.ctx.Data.KeyBindings.KeyBindingForSkill(skill.TomeOfTownPortal); found {
 
@@ -318,6 +312,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 							if (b.ctx.CharacterCfg.BackToTown.NoHpPotions && needHealingPotionsRefill ||
 								b.ctx.CharacterCfg.BackToTown.EquipmentBroken && action.IsEquipmentBroken() ||
 								b.ctx.CharacterCfg.BackToTown.NoMpPotions && needManaPotionsRefill ||
+								townChicken ||
 								b.ctx.CharacterCfg.BackToTown.MercDied &&
 									b.ctx.Data.MercHPPercent() <= 0 &&
 									b.ctx.CharacterCfg.Character.UseMerc &&
@@ -334,6 +329,8 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 									reason = "No mana potions found"
 								} else if b.ctx.CharacterCfg.BackToTown.MercDied && b.ctx.Data.MercHPPercent() <= 0 && b.ctx.CharacterCfg.Character.UseMerc {
 									reason = "Mercenary is dead"
+								} else if townChicken {
+									reason = "Town chicken"
 								}
 
 								b.ctx.Logger.Info("Going back to town", "reason", reason)

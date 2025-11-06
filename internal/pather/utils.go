@@ -96,7 +96,7 @@ func (pf *PathFinder) moveThroughPathWalk(p Path, walkDuration time.Duration) {
 		}
 
 		// Prevent mouse overlap the HUD
-		if screenY > int(float32(pf.gr.GameAreaSizeY)/1.21) {
+		if screenY > int(float32(pf.gr.GameAreaSizeY)/1.19) {
 			break
 		}
 
@@ -111,7 +111,7 @@ func (pf *PathFinder) moveThroughPathWalk(p Path, walkDuration time.Duration) {
 }
 
 func (pf *PathFinder) moveThroughPathTeleport(p Path) {
-	hudBoundary := int(float32(pf.gr.GameAreaSizeY) / 1.21)
+	hudBoundary := int(float32(pf.gr.GameAreaSizeY) / 1.19)
 	fromX, fromY := p.From().X, p.From().Y
 
 	for i := len(p) - 1; i >= 0; i-- {
@@ -129,6 +129,28 @@ func (pf *PathFinder) moveThroughPathTeleport(p Path) {
 			return
 		}
 	}
+}
+
+func (pf *PathFinder) GetLastPathIndexOnScreen(p Path) int {
+	hudBoundary := int(float32(pf.gr.GameAreaSizeY) / 1.19)
+	fromX, fromY := p.From().X, p.From().Y
+
+	for i := len(p) - 1; i >= 0; i-- {
+		pos := p[i]
+		screenX, screenY := pf.gameCoordsToScreenCords(fromX, fromY, pos.X, pos.Y)
+
+		// Prevent mouse overlap the HUD
+		if screenY > hudBoundary {
+			continue
+		}
+
+		// Check if coordinates are within screen bounds
+		if screenX >= 0 && screenY >= 0 && screenX <= pf.gr.GameAreaSizeX && screenY <= pf.gr.GameAreaSizeY {
+			return i
+		}
+	}
+
+	return 0
 }
 
 func (pf *PathFinder) MoveCharacter(x, y int) {
@@ -307,7 +329,7 @@ func (pf *PathFinder) GetClosestDoor(position data.Position) (*data.Object, bool
 	return nil, false
 }
 
-func (pf *PathFinder) GetClosestChest(position data.Position) (*data.Object, bool) {
+func (pf *PathFinder) GetClosestChest(position data.Position, losCheck bool) (*data.Object, bool) {
 	var closestObject *data.Object
 	minDistance := 20.0
 
@@ -320,8 +342,10 @@ func (pf *PathFinder) GetClosestChest(position data.Position) (*data.Object, boo
 
 			distanceToObj := utils.CalculateDistance(position, o.Position)
 			if distanceToObj < minDistance {
-				minDistance = distanceToObj
-				closestObject = &o
+				if !losCheck || pf.LineOfSight(position, o.Position) {
+					minDistance = distanceToObj
+					closestObject = &o
+				}
 			}
 		}
 	}

@@ -249,12 +249,42 @@ func (s *SinglePlayerSupervisor) Start() error {
 		}
 		defer runCancel()
 
+		// Initialize ping monitor for this game session
+		// Configuration from koolo.yaml (default: quit after 30s of ping > 500ms)
+		pingThreshold := 500
+		sustainedDuration := 30 * time.Second
+		pingEnabled := false
+		
+		if config.Koolo.PingMonitor.Enabled {
+			pingEnabled = true
+			if config.Koolo.PingMonitor.HighPingThreshold > 0 {
+				pingThreshold = config.Koolo.PingMonitor.HighPingThreshold
+			}
+			if config.Koolo.PingMonitor.SustainedDuration > 0 {
+				sustainedDuration = time.Duration(config.Koolo.PingMonitor.SustainedDuration) * time.Second
+			}
+		}
+		
+		pingMonitor := health.NewPingMonitor(
+			s.bot.ctx.Logger,
+			pingThreshold,
+			sustainedDuration,
+		)
+		pingMonitor.Enabled = pingEnabled
+		pingMonitor.SetCallback(func() {
+			s.bot.ctx.Logger.Error("Sustained high ping detected. Forcing game exit.",
+				slog.Int("threshold", pingThreshold),
+				slog.Duration("duration", sustainedDuration))
+			runCancel()
+		})
+
 		// In-Game Activity Monitor
 		go func() {
 			ticker := time.NewTicker(activityCheckInterval)
 			defer ticker.Stop()
 			var lastPosition data.Position
 			var stuckSince time.Time
+			var droppedMouseItem bool // Track if we've already tried dropping mouse item
 
 			// Initial position check
 			if s.bot.ctx.GameReader.InGame() && s.bot.ctx.Data.PlayerUnit.ID > 0 {
@@ -273,12 +303,33 @@ func (s *SinglePlayerSupervisor) Start() error {
 					if !s.bot.ctx.GameReader.InGame() || s.bot.ctx.Data.PlayerUnit.ID == 0 {
 						continue
 					}
+
+					// Check for sustained high ping
+					if pingMonitor.CheckPing(s.bot.ctx.Data.Game.Ping) {
+						s.bot.ctx.Logger.Error("Ping monitor triggered game exit.")
+						return
+					}
+
 					currentPos := s.bot.ctx.Data.PlayerUnit.Position
 					if currentPos.X == lastPosition.X && currentPos.Y == lastPosition.Y {
 						if stuckSince.IsZero() {
 							stuckSince = time.Now()
+							droppedMouseItem = false // Reset flag when first detecting stuck
 						}
-						if time.Since(stuckSince) > maxStuckDuration {
+
+						stuckDuration := time.Since(stuckSince)
+
+						// After 90 seconds stuck, try dropping mouse item
+						if stuckDuration > 90*time.Second && !droppedMouseItem {
+							s.bot.ctx.Logger.Warn("Player stuck for 90 seconds. Attempting to drop any item on cursor...")
+							// Click to drop any item that might be stuck on cursor
+							s.bot.ctx.HID.Click(game.LeftButton, 500, 500)
+							droppedMouseItem = true
+							s.bot.ctx.Logger.Info("Clicked to drop mouse item (if any). Continuing to monitor for movement...")
+						}
+
+						// After 3 minutes stuck, force restart
+						if stuckDuration > maxStuckDuration {
 							s.bot.ctx.Logger.Error(fmt.Sprintf("In-game activity monitor: Player has been stuck for over %s. Forcing client restart.", maxStuckDuration))
 							if err := s.KillClient(); err != nil {
 								s.bot.ctx.Logger.Error(fmt.Sprintf("Activity monitor failed to kill client: %v", err))
@@ -288,6 +339,7 @@ func (s *SinglePlayerSupervisor) Start() error {
 						}
 					} else {
 						stuckSince = time.Time{} // Reset timer if the player has moved
+						droppedMouseItem = false // Reset flag if player moved
 					}
 					lastPosition = currentPos
 				}

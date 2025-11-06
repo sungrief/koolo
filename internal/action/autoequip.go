@@ -135,6 +135,42 @@ func AutoEquip() error {
 	}
 }
 
+func IsBetterThanEquipped(itm data.Item, forMerc bool, scoreFunc func(data.Item) map[item.LocationType]float64) bool {
+	ctx := context.Get()
+
+	bodyLocs := itm.Desc().GetType().BodyLocs
+	if len(bodyLocs) == 0 {
+		return false
+	}
+
+	scores := scoreFunc(itm)
+
+	for loc, itmScore := range scores {
+		if !isEquippable(itm, loc, loc) {
+			continue
+		}
+
+		if !isValidLocation(itm, loc, loc) {
+			continue
+		}
+
+		var currentlyEquipped data.Item
+		if !forMerc {
+			currentlyEquipped = GetEquippedItem(ctx.Data.Inventory, loc)
+		} else {
+			currentlyEquipped = GetMercEquippedItem(ctx.Data.Inventory, loc)
+		}
+
+		equippedScore := scoreFunc(currentlyEquipped)
+
+		if itmScore > equippedScore[loc] {
+			return true
+		}
+	}
+
+	return false
+}
+
 func equipCTAIfFound(allItems []data.Item) (bool, error) {
 	ctx := context.Get()
 	var ctaWeapon data.Item
@@ -388,6 +424,10 @@ func evaluateItems(items []data.Item, target item.LocationType, scoreFunc func(d
 		}
 
 		if itm.Desc().Name == "Bolts" || itm.Desc().Name == "Arrows" || itm.Desc().Type == "thro" || itm.Desc().Type == "thrq" || itm.Desc().Type == "tkni" || itm.Desc().Type == "taxe" || itm.Desc().Type == "tpot" {
+			continue
+		}
+
+		if !itm.Identified && itm.Quality >= item.QualityMagic {
 			continue
 		}
 

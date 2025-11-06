@@ -7,7 +7,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
-	"github.com/hectorgimenez/d2go/pkg/data/stat"
+	"github.com/hectorgimenez/d2go/pkg/data/state"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
@@ -31,6 +31,8 @@ type MoveOpts struct {
 	ignoreShrines         bool
 	ignoreMonsters        bool
 	ignoreItems           bool
+	monsterFilters        []data.MonsterFilter
+	clearPathOverride     *int
 }
 
 type MoveOption func(*MoveOpts)
@@ -68,6 +70,18 @@ func IgnoreShrines() MoveOption {
 	}
 }
 
+func WithMonsterFilter(filters ...data.MonsterFilter) MoveOption {
+	return func(opts *MoveOpts) {
+		opts.monsterFilters = append(opts.monsterFilters, filters...)
+	}
+}
+
+func WithClearPathOverride(clearPathOverride int) MoveOption {
+	return func(opts *MoveOpts) {
+		opts.clearPathOverride = &clearPathOverride
+	}
+}
+
 func (opts MoveOpts) DistanceToFinish() *int {
 	return opts.distanceOverride
 }
@@ -78,6 +92,14 @@ func (opts MoveOpts) IgnoreMonsters() bool {
 
 func (opts MoveOpts) IgnoreItems() bool {
 	return opts.ignoreItems
+}
+
+func (opts MoveOpts) MonsterFilters() []data.MonsterFilter {
+	return opts.monsterFilters
+}
+
+func (opts MoveOpts) ClearPathOverride() *int {
+	return opts.clearPathOverride
 }
 
 func MoveTo(dest data.Position, options ...MoveOption) error {
@@ -100,28 +122,57 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 	opts.ignoreShrines = !ctx.CharacterCfg.Game.InteractWithShrines
 	stepLastMonsterCheck := time.Time{}
 
-	stuckThreshold := 1 * time.Second
+	blockThreshold := 200 * time.Millisecond
+	stuckThreshold := 2 * time.Second
 	stuckCheckStartTime := time.Now()
 
 	roundTripReferencePosition := ctx.Data.PlayerUnit.Position
 	roundTripCheckStartTime := time.Now()
 	const roundTripThreshold = 10 * time.Second
-	const roundTripMaxRadius = 5
+	const roundTripMaxRadius = 8
 
+	// Adaptive movement refresh intervals based on ping
+	// Adjust polling frequency based on network latency
 	var walkDuration time.Duration
 	if !ctx.Data.AreaData.Area.IsTown() {
-		walkDuration = utils.RandomDurationMs(300, 350)
+		// In dungeons: faster refresh for combat
+		baseMin, baseMax := 300, 350
+		pingAdjustment := int(float64(ctx.Data.Game.Ping) * 0.5) // Add half ping to base
+		walkDuration = utils.RandomDurationMs(baseMin+pingAdjustment, baseMax+pingAdjustment)
 	} else {
-		walkDuration = utils.RandomDurationMs(500, 800)
+		// In town: slower refresh is acceptable
+		baseMin, baseMax := 500, 800
+		pingAdjustment := int(float64(ctx.Data.Game.Ping) * 0.5)
+		walkDuration = utils.RandomDurationMs(baseMin+pingAdjustment, baseMax+pingAdjustment)
 	}
 
 	lastRun := time.Time{}
 	previousPosition := data.Position{}
+	clearPathDist := ctx.CharacterCfg.Character.ClearPathDist
+	overrideClearPathDist := false
+	blocked := false
+	if opts.ClearPathOverride() != nil {
+		clearPathDist = *opts.ClearPathOverride()
+		overrideClearPathDist = true
+	}
 
 	for {
 		ctx.PauseIfNotPriority()
 		ctx.RefreshGameData()
 		currentDest := dest
+
+		//Compute distance to destination
+		currentDistanceToDest := ctx.PathFinder.DistanceFromMe(currentDest)
+
+		//We've reached the destination, stop movement
+		if currentDistanceToDest <= minDistanceToFinishMoving {
+			return nil
+		} else if blocked {
+			//Add tolerance to reach destination if blocked
+			if currentDistanceToDest <= minDistanceToFinishMoving*2 {
+				return nil
+			}
+		}
 
 		//Check for Doors on path & open them
 		if !ctx.Data.CanTeleport() {
@@ -135,9 +186,6 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 				}
 			}
 		}
-
-		//Compute distance to destination
-		currentDistanceToDest := ctx.PathFinder.DistanceFromMe(currentDest)
 
 		//Handle stationary distance (not sure what it refers to...)
 		if opts.stationaryMinDistance != nil && opts.stationaryMaxDistance != nil {
@@ -156,13 +204,12 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		}
 
 		//Handle monsters if needed
-		if !opts.ignoreMonsters && !ctx.Data.AreaData.Area.IsTown() && !ctx.Data.CanTeleport() && time.Since(stepLastMonsterCheck) > stepMonsterCheckInterval {
+		if !opts.ignoreMonsters && !ctx.Data.AreaData.Area.IsTown() && (!ctx.Data.CanTeleport() || overrideClearPathDist) && clearPathDist > 0 && time.Since(stepLastMonsterCheck) > stepMonsterCheckInterval {
 			stepLastMonsterCheck = time.Now()
 			monsterFound := false
-			clearPathDist := ctx.CharacterCfg.Character.ClearPathDist
 
-			for _, m := range ctx.Data.Monsters.Enemies() {
-				if m.Stats[stat.Life] <= 0 {
+			for _, m := range ctx.Data.Monsters.Enemies(opts.monsterFilters...) {
+				if ctx.Char.ShouldIgnoreMonster(m) {
 					continue
 				}
 				//Check distance first as it is cheaper
@@ -184,18 +231,16 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 			}
 		}
 
-		//We've reached the destination, stop movement
-		if currentDistanceToDest <= minDistanceToFinishMoving {
-			return nil
-		}
-
 		currentPosition := ctx.Data.PlayerUnit.Position
-
+		blocked = false
 		//Detect if player is doing round trips around a position for too long and return error if it's the case
 		if utils.CalculateDistance(currentPosition, roundTripReferencePosition) <= roundTripMaxRadius {
-			if time.Since(roundTripCheckStartTime) > roundTripThreshold {
+			timeInRoundtrip := time.Since(roundTripCheckStartTime)
+			if timeInRoundtrip > roundTripThreshold {
 				ctx.Logger.Warn("Player is doing round trips. Current area: [" + ctx.Data.PlayerUnit.Area.Area().Name + "]. Trying to path to Destination: [" + fmt.Sprintf("%d,%d", currentDest.X, currentDest.Y) + "]")
 				return ErrPlayerRoundTrip
+			} else if timeInRoundtrip > roundTripThreshold/2.0 {
+				blocked = true
 			}
 		} else {
 			//Player moved significantly, reset Round Trip detection
@@ -203,20 +248,32 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 			roundTripCheckStartTime = time.Now()
 		}
 
-		if currentPosition == previousPosition {
-			//Player hasn't moved since last loop
+		if currentPosition == previousPosition && !ctx.Data.PlayerUnit.States.HasState(state.Stunned) {
+			stuckTime := time.Since(stuckCheckStartTime)
+			if stuckTime > stuckThreshold {
+				//if stuck for too long, abort movement
+				return ErrPlayerStuck
+			} else if stuckTime > blockThreshold {
+				//Detect blocked after short threshold
+				blocked = true
+			}
+		} else {
+			//Player moved, reset stuck detection timer
+			stuckCheckStartTime = time.Now()
+		}
+
+		if blocked {
 			//First check if there's a destructible nearby
 			if obj, found := ctx.PathFinder.GetClosestDestructible(ctx.Data.PlayerUnit.Position); found {
 				if !obj.Selectable {
 					// Already destroyed, move on
 					continue
 				}
-				//ctx.Logger.Debug("Immediate obstacle detected, attempting to interact.", slog.String("object", obj.Desc().Name))
-
 				x, y := ui.GameCoordsToScreenCords(obj.Position.X, obj.Position.Y)
 				ctx.HID.Click(game.LeftButton, x, y)
 
-				time.Sleep(time.Millisecond * 100)
+				// Adaptive delay for obstacle interaction based on ping
+				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 100)))
 			} else if door, found := ctx.PathFinder.GetClosestDoor(ctx.Data.PlayerUnit.Position); found {
 				//There's a door really close, try to open it
 				doorToOpen := *door
@@ -224,15 +281,7 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 					door, found := ctx.Data.Objects.FindByID(door.ID)
 					return found && !door.Selectable
 				})
-			} else {
-				//Finally if stuck for too long, abort movement
-				if time.Since(stuckCheckStartTime) > stuckThreshold {
-					return ErrPlayerStuck
-				}
 			}
-		} else {
-			//Player moved, reset stuck detection timer
-			stuckCheckStartTime = time.Now()
 		}
 
 		//Handle skills for navigation

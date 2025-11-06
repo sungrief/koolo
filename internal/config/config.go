@@ -60,6 +60,11 @@ type KooloCfg struct {
 		ChatID  int64  `yaml:"chatId"`
 		Token   string `yaml:"token"`
 	}
+	PingMonitor struct {
+		Enabled           bool `yaml:"enabled"`
+		HighPingThreshold int  `yaml:"highPingThreshold"` // Ping threshold in ms (default 500-1000)
+		SustainedDuration int  `yaml:"sustainedDuration"` // Seconds high ping must persist (default 10-30)
+	} `yaml:"pingMonitor"`
 }
 
 type Day struct {
@@ -110,6 +115,7 @@ type CharacterCfg struct {
 		MercHealingPotionAt int `yaml:"mercHealingPotionAt"`
 		MercRejuvPotionAt   int `yaml:"mercRejuvPotionAt"`
 		ChickenAt           int `yaml:"chickenAt"`
+		TownChickenAt       int `yaml:"townChickenAt"`
 		MercChickenAt       int `yaml:"mercChickenAt"`
 	} `yaml:"health"`
 	Inventory struct {
@@ -132,6 +138,7 @@ type CharacterCfg struct {
 		BerserkerBarb                struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
+			UseHowl                     bool `yaml:"use_howl"`
 		} `yaml:"berserker_barb"`
 		BlizzardSorceress struct {
 			UseMoatTrick        bool `yaml:"use_moat_trick"`
@@ -262,6 +269,10 @@ type CharacterCfg struct {
 			AutoEquip                bool     `yaml:"autoEquip"`
 			AutoEquipFromSharedStash bool     `yaml:"autoEquipFromSharedStash"`
 			EnableRunewordMaker      bool     `yaml:"enableRunewordMaker"`
+			NightmareRequiredLevel   int      `yaml:"nightmareRequiredLevel"`
+			HellRequiredLevel        int      `yaml:"hellRequiredLevel"`
+			HellRequiredFireRes      int      `yaml:"hellRequiredFireRes"`
+			HellRequiredLightRes     int      `yaml:"hellRequiredLightRes"`
 			EnabledRunewordRecipes   []string `yaml:"enabledRunewordRecipes"`
 		} `yaml:"leveling"`
 		Quests struct {
@@ -276,6 +287,9 @@ type CharacterCfg struct {
 			RescueAnya     bool `yaml:"rescueAnya"`
 			KillAncients   bool `yaml:"killAncients"`
 		} `yaml:"quests"`
+		Utility struct {
+			ParkingAct int `yaml:"parkingAct"`
+		} `yaml:"utility"`
 	} `yaml:"game"`
 	Companion struct {
 		Enabled               bool   `yaml:"enabled"`
@@ -312,8 +326,9 @@ type CharacterCfg struct {
 		EquipmentBroken bool `yaml:"equipmentBroken"`
 	} `yaml:"backtotown"`
 	Runtime struct {
-		Rules nip.Rules   `yaml:"-"`
-		Drops []data.Item `yaml:"-"`
+		Rules     nip.Rules   `yaml:"-"`
+		TierRules []int       `yaml:"-"`
+		Drops     []data.Item `yaml:"-"`
 	} `yaml:"-"`
 }
 
@@ -482,6 +497,12 @@ func Load() error {
 		}
 
 		charCfg.Runtime.Rules = rules
+
+		for ruleIndex, rule := range rules {
+			if rule.Tier() > 0 || rule.MercTier() > 0 {
+				charCfg.Runtime.TierRules = append(charCfg.Runtime.TierRules, ruleIndex)
+			}
+		}
 		Characters[entry.Name()] = &charCfg
 	}
 

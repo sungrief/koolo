@@ -161,18 +161,22 @@
         <label><input type="checkbox" name="gameLevelingEnsureKeyBinding" {{ if .Config.Game.Leveling.EnsureKeyBinding }}checked{{ end }}> Automatically bind skills</label>
         <label><input type="checkbox" name="gameLevelingAutoEquip" {{ if .Config.Game.Leveling.AutoEquip }}checked{{ end }}> Automatically equip better items</label>
         <label><input type="checkbox" name="gameLevelingAutoEquipFromSharedStash" {{ if .Config.Game.Leveling.AutoEquipFromSharedStash }}checked{{ end }}> AutoEquip items from Shared Stash</label>
-		        <h6>Create Runewords</h6>
-            <div style="margin-left: 20px;">
-                <input type="text" id="search-runewords" placeholder="Search runewords..." style="margin-bottom: 10px; width: 100%; max-width: 300px;">
-                <div class="recipe-grid" id="runeword-recipe-grid">
-                    {{ range $index, $recipe := .RunewordRecipeList }}
-                        <label class="runeword-item" style="display: none;"> <!-- Initially hidden -->
-                            <input type="checkbox" name="gameLevelingEnabledRunewordRecipes" value="{{ $recipe }}" {{ if contains $.Config.Game.Leveling.EnabledRunewordRecipes $recipe }}checked{{ end }}>
-                            <span class="runeword-name">{{ $recipe }}</span>
-                        </label>
-                    {{ end }}
-                </div>
-            </div>
+        <label>
+            Nightmare Level requirement :
+            <input type="number" name="gameLevelingNightmareRequiredLevel" value="{{ .Config.Game.Leveling.NightmareRequiredLevel }}" min="0" max="99">
+        </label>
+        <label>
+            Hell Level requirement :
+            <input type="number" name="gameLevelingHellRequiredLevel" value="{{ .Config.Game.Leveling.HellRequiredLevel }}" min="0" max="99">
+        </label>
+        <label>
+            Hell Fire Res requirement :
+            <input type="number" name="gameLevelingHellRequiredFireRes" value="{{ .Config.Game.Leveling.HellRequiredFireRes }}" min="-100" max="75">
+        </label>
+        <label>
+            Hell Light Res requirement :
+            <input type="number" name="gameLevelingHellRequiredLightRes" value="{{ .Config.Game.Leveling.HellRequiredLightRes }}" min="-100" max="75">
+        </label>
     </fieldset>
 {{ end }}
 
@@ -213,5 +217,20 @@
         {{ range $id, $name := .AvailableTZs }}
             <label><input type="checkbox" class="tzTrackCheckbox" name="gameTerrorZoneAreas[]" value="{{ $id }}" {{ if isTZSelected $topLevelContext.Config.Game.TerrorZone.Areas $id }}checked{{ end }}>{{ $name }}</label>
         {{ end }}
+    </fieldset>
+{{ end }}
+
+{{ define "utility" }}
+    <fieldset>
+        <label>
+            Parking Act
+            <select name="gameUtilityParkingAct">
+                <option value="1" {{ if eq .Config.Game.Utility.ParkingAct 1 }}selected{{ end }}>Act 1 - Rogue Encampment</option>
+                <option value="2" {{ if eq .Config.Game.Utility.ParkingAct 2 }}selected{{ end }}>Act 2 - Lut Gholein</option>
+                <option value="3" {{ if eq .Config.Game.Utility.ParkingAct 3 }}selected{{ end }}>Act 3 - Kurast Docks</option>
+                <option value="4" {{ if eq .Config.Game.Utility.ParkingAct 4 }}selected{{ end }}>Act 4 - Pandemonium Fortress</option>
+                <option value="5" {{ if eq .Config.Game.Utility.ParkingAct 5 }}selected{{ end }}>Act 5 - Harrogath</option>
+            </select>
+        </label>
     </fieldset>
 {{ end }}

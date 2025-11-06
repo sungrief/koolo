@@ -33,8 +33,6 @@ func (a Leveling) act2() error {
 
 	running = true
 
-	action.UpdateQuestLog(false)
-
 	// Buy a 12 slot belt if we don't have one
 	if err := buyAct2Belt(a.ctx); err != nil {
 		return err
@@ -66,10 +64,11 @@ func (a Leveling) act2() error {
 	}
 
 	// Gold Farming Logic (and immediate return if farming is needed)
-	if action.IsLowGold() || a.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
-		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
+	if action.IsLowGold() {
+		switch a.ctx.CharacterCfg.Game.Difficulty {
+		case difficulty.Normal:
 			return NewQuests().killRadamentQuest()
-		} else {
+		case difficulty.Hell:
 			NewMausoleum().Run()
 			err := action.WayPoint(area.LutGholein)
 			if err != nil {
@@ -78,7 +77,7 @@ func (a Leveling) act2() error {
 		}
 	}
 
-	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress6) {
+	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusStarted + quest.StatusEnterArea + quest.StatusInProgress1) {
 		a.ctx.Logger.Info("Act 2, The Seven Tombs quest completed. Need to talk to Meshif and then move to Act 3.")
 		action.MoveToCoords(data.Position{
 			X: 5195,
@@ -158,9 +157,8 @@ func (a Leveling) act2() error {
 		action.AutoEquip()
 	}
 
-	// Priority 2: Check if Duriel is defeated but not yet reported (StatusInProgress5)
-	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusInProgress5) {
-		a.ctx.Logger.Info("The Seven Tombs quest in progress 5. Speaking to Jerhyn.")
+	if a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusLeaveTown + quest.StatusInProgress1) {
+		a.ctx.Logger.Info("Speaking to Jerhyn.")
 		action.MoveToCoords(data.Position{
 			X: 5092,
 			Y: 5144,
@@ -224,7 +222,7 @@ func (a Leveling) act2() error {
 		return NewQuests().getHoradricCube()
 	}
 
-	if lvl, _ := a.ctx.Data.PlayerUnit.FindStat(stat.Level, 0); lvl.Value < 18 || (a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && !a.ctx.Data.Quests[quest.Act2RadamentsLair].Completed()) {
+	if a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell && !a.ctx.Data.Quests[quest.Act2RadamentsLair].Completed() {
 		a.ctx.Logger.Info("Starting Radament.")
 		return NewQuests().killRadamentQuest()
 
@@ -250,10 +248,10 @@ func (a Leveling) act2() error {
 	}
 
 	if !a.ctx.Data.Quests[quest.Act2TheHoradricStaff].Completed() {
-		_, horadricStaffFound := a.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+		_, horadricStaffFound := a.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 
 		// Find Staff of Kings
-		_, found = a.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+		_, found = a.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 		if found || horadricStaffFound {
 			a.ctx.Logger.Info("StaffOfKings found, skipping quest")
 		} else {
@@ -262,7 +260,7 @@ func (a Leveling) act2() error {
 		}
 
 		// Find Amulet
-		_, found = a.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+		_, found = a.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 		if found || horadricStaffFound {
 			a.ctx.Logger.Info("Amulet of the Viper found, skipping quest")
 		} else {
@@ -271,7 +269,7 @@ func (a Leveling) act2() error {
 		}
 	}
 
-	if !a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusQuestNotStarted) {
+	if !a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].NotStarted() {
 		a.ctx.Logger.Info("Starting summoner quest (Summoner not yet completed).")
 		action.InteractNPC(npc.Drognan)
 		err := NewSummoner().Run()
@@ -311,11 +309,10 @@ func (a Leveling) act2() error {
 			return err
 		}
 		a.ctx.Logger.Info("Summoner quest chain (journal, portal, WP) completed.")
-		action.UpdateQuestLog(false)
 		return nil // Return to re-evaluate after completing this chain.
 	}
 
-	if a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusQuestNotStarted) {
+	if a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].NotStarted() {
 		err := NewTalRashaTombs().Run()
 		if err != nil {
 			return err
@@ -353,11 +350,10 @@ func (a Leveling) act2() error {
 			return err
 		}
 		a.ctx.Logger.Info("Summoner quest chain (journal, portal, WP) completed.")
-		action.UpdateQuestLog(false)
 		return nil // Return to re-evaluate after completing this chain.
 	}
 
-	if !a.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusQuestNotStarted) {
+	if !a.ctx.Data.Quests[quest.Act2TheSevenTombs].NotStarted() {
 		// Try to get level 24 (or Bone Prison for Necromancer) before moving to Duriel and Act3
 		a.ctx.Logger.Info("Character class check", "class", a.ctx.CharacterCfg.Character.Class)
 
@@ -453,9 +449,6 @@ func (a Leveling) findStaff() error {
 }
 
 func (a Leveling) findAmulet() error {
-
-	action.UpdateQuestLog(false)
-
 	action.InteractNPC(npc.Drognan)
 
 	err := action.WayPoint(area.LostCity)
@@ -515,13 +508,11 @@ func (a Leveling) findAmulet() error {
 	// This stops us being blocked from getting into Palace
 	action.InteractNPC(npc.Drognan)
 
-	action.UpdateQuestLog(false)
-
 	return nil
 }
 
 func (a Leveling) prepareStaff() error {
-	horadricStaff, found := a.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	horadricStaff, found := a.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 	if found {
 		a.ctx.Logger.Info("Horadric Staff found!")
 		if horadricStaff.Location.LocationType == item.LocationStash {
@@ -548,13 +539,13 @@ func (a Leveling) prepareStaff() error {
 		}
 	}
 
-	staff, found := a.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	staff, found := a.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 	if !found {
 		a.ctx.Logger.Info("Staff of Kings not found, skipping")
 		return nil
 	}
 
-	amulet, found := a.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+	amulet, found := a.ctx.Data.Inventory.Find("AmuletOfTheViper", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 	if !found {
 		a.ctx.Logger.Info("Amulet of the Viper not found, skipping")
 		return nil
@@ -595,12 +586,15 @@ func (a Leveling) duriel() error {
 
 	action.ReturnTown()
 
-	action.UpdateQuestLog(false)
-
 	return nil
 }
 
 func buyAct2Belt(ctx *context.Status) error {
+	// Only buy belts in Normal difficulty
+	if ctx.CharacterCfg.Game.Difficulty != difficulty.Normal {
+		return nil
+	}
+
 	// Check equipped and inventory for a suitable belt first
 	for _, itm := range ctx.Data.Inventory.ByLocation(item.LocationEquipped) {
 		if itm.Name == "Belt" || itm.Name == "HeavyBelt" || itm.Name == "PlatedBelt" {
