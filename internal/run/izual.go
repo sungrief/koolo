@@ -70,10 +70,12 @@ func (i Izual) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	// Engage and kill Izual
-	err = i.ctx.Char.KillIzual()
-	if err != nil {
-		return err
+	if _, corpseFound := i.ctx.Data.Corpses.FindOne(npc.Izual, data.MonsterTypeNone); !corpseFound {
+		// Engage and kill Izual
+		err = i.ctx.Char.KillIzual()
+		if err != nil {
+			return err
+		}
 	}
 
 	err = action.ReturnTown()
@@ -86,5 +88,19 @@ func (i Izual) Run(parameters *RunParameters) error {
 		return err
 	}
 
+	if IsQuestRun(parameters) {
+		err = action.UsePortalInTown()
+		if err != nil {
+			return err
+		}
+		err = action.MoveToArea(area.CityOfTheDamned)
+		if err != nil {
+			return err
+		}
+		err = action.DiscoverWaypoint()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
