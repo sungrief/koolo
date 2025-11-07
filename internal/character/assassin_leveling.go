@@ -88,7 +88,7 @@ func (s AssassinLeveling) KillMonsterSequence(
 		lvl, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
 		mana, _ := s.Data.PlayerUnit.FindStat(stat.Mana, 0)
 
-		canReposition := (lvl.Value > 48 || mana.Value > 2) && time.Since(lastReposition) > time.Second*4
+		canReposition := lvl.Value > 12 && time.Since(lastReposition) > time.Second*4
 		if canReposition {
 			isAnyEnemyNearby, _ := action.IsAnyEnemyAroundPlayer(AssassinDangerDistance)
 			if isAnyEnemyNearby {
