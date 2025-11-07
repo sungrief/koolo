@@ -2,7 +2,6 @@ package run
 
 import (
 	"errors"
-	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -78,8 +77,9 @@ func (t *Travincal) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	if IsQuestRun(parameters) {
+	t.ctx.CurrentGame.AreaCorrection.Enabled = false
 
+	if IsQuestRun(parameters) {
 		compellingorb, found := t.ctx.Data.Objects.FindOne(object.CompellingOrb)
 		if !found {
 			t.ctx.Logger.Debug("Compelling Orb not found")
@@ -98,11 +98,11 @@ func (t *Travincal) Run(parameters *RunParameters) error {
 			return err
 		}
 		action.UsePortalInTown()
-		utils.Sleep(300)
+		utils.PingSleep(utils.Critical, 500)
 		if err := t.smashOrb(); err != nil {
 			return err
 		}
-		time.Sleep(12000)
+		utils.Sleep(12000)
 		if err := t.tryReachDuranceWp(); err != nil {
 			return err
 		}
@@ -278,20 +278,21 @@ func (t Travincal) smashOrb() error {
 func (t Travincal) tryReachDuranceWp() error {
 	if t.ctx.Data.Quests[quest.Act3TheBlackenedTemple].Completed() {
 		// Interact with the stairs to go to Durance of Hate Level 1
-		stairsr, found := t.ctx.Data.Objects.FindOne(object.StairSR)
+		_, found := t.ctx.Data.Objects.FindOne(object.StairSR)
 		if !found {
 			t.ctx.Logger.Debug("Stairs to Durance not found")
 		}
 
-		err := action.InteractObject(stairsr, func() bool {
-			return t.ctx.Data.PlayerUnit.Area == area.DuranceOfHateLevel1
-		})
+		err := action.MoveToArea(area.DuranceOfHateLevel1)
 		if err != nil {
 			return err
 		}
 
 		// Move to Durance of Hate Level 2 and discover the waypoint
-		action.MoveToArea(area.DuranceOfHateLevel2)
+		err = action.MoveToArea(area.DuranceOfHateLevel2)
+		if err != nil {
+			return err
+		}
 		err = action.DiscoverWaypoint()
 		if err != nil {
 			return err
