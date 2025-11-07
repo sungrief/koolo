@@ -621,6 +621,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			} else if errors.Is(moveErr, step.ErrNoPath) && pathStep > 0 {
 				ctx.PathFinder.RandomMovement()
 				time.Sleep(time.Millisecond * 200)
+				pathFound = false
 				continue
 			}
 
