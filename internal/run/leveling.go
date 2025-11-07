@@ -152,7 +152,7 @@ func (a Leveling) setupLevelOneConfig() {
 	a.ctx.CharacterCfg.Game.Leveling.AutoEquip = true
 	a.ctx.CharacterCfg.Game.Leveling.EnableRunewordMaker = true
 	a.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = a.GetRunewords()
-	a.ctx.CharacterCfg.Character.UseTeleport = true
+	a.ctx.CharacterCfg.Character.UseTeleport = false
 	a.ctx.CharacterCfg.Character.UseMerc = false
 	a.ctx.CharacterCfg.Character.StashToShared = false
 	a.ctx.CharacterCfg.Game.UseCainIdentify = true

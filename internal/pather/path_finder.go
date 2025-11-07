@@ -71,7 +71,7 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 	}
 
 	if !a.IsInside(to) {
-		expandedGrid, err := pf.mergeGrids(to)
+		expandedGrid, err := pf.mergeGrids(to, canTeleport)
 		if err != nil {
 			return nil, 0, false
 		}
@@ -154,7 +154,7 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 	return path, distance, found
 }
 
-func (pf *PathFinder) mergeGrids(to data.Position) (*game.Grid, error) {
+func (pf *PathFinder) mergeGrids(to data.Position, canTeleport bool) (*game.Grid, error) {
 	for _, a := range pf.data.AreaData.AdjacentLevels {
 		destination := pf.data.Areas[a.Area]
 		if destination.IsInside(to) {
@@ -182,7 +182,7 @@ func (pf *PathFinder) mergeGrids(to data.Position) (*game.Grid, error) {
 			copyGrid(resultGrid, origin.CollisionGrid, origin.OffsetX-minX, origin.OffsetY-minY)
 			copyGrid(resultGrid, destination.CollisionGrid, destination.OffsetX-minX, destination.OffsetY-minY)
 
-			grid := game.NewGrid(resultGrid, minX, minY)
+			grid := game.NewGrid(resultGrid, minX, minY, canTeleport)
 
 			return grid, nil
 		}

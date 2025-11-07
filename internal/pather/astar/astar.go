@@ -72,7 +72,7 @@ func CalculatePath(g *game.Grid, start, goal data.Position, canTeleport bool) ([
 			return path, len(path), true
 		}
 
-		updateNeighbors(g, current, &neighbors)
+		updateNeighbors(g, current, &neighbors, canTeleport)
 
 		for _, neighbor := range neighbors {
 			tileType := g.CollisionGrid[neighbor.Y][neighbor.X]
@@ -112,7 +112,7 @@ func CalculatePath(g *game.Grid, start, goal data.Position, canTeleport bool) ([
 }
 
 // Get walkable neighbors of a given node
-func updateNeighbors(grid *game.Grid, node *Node, neighbors *[]data.Position) {
+func updateNeighbors(grid *game.Grid, node *Node, neighbors *[]data.Position, canTeleport bool) {
 	*neighbors = (*neighbors)[:0]
 
 	x, y := node.X, node.Y
@@ -122,7 +122,8 @@ func updateNeighbors(grid *game.Grid, node *Node, neighbors *[]data.Position) {
 		if px < 0 || px >= gridWidth || py < 0 || py >= gridHeight {
 			return true
 		}
-		return grid.CollisionGrid[py][px] == game.CollisionTypeNonWalkable
+		collisionType := grid.CollisionGrid[py][px]
+		return collisionType == game.CollisionTypeNonWalkable || (!canTeleport && collisionType == game.CollisionTypeTeleportOver)
 	}
 
 	for _, d := range directions {
