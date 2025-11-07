@@ -154,9 +154,6 @@ func useWP(dest area.ID) error {
 			if err != nil {
 				return err
 			}
-
-			ctx.RefreshGameData()
-			utils.PingSleep(utils.Critical, 200)
 		}
 	}
 
