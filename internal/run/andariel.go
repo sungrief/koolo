@@ -127,7 +127,9 @@ func (a Andariel) Name() string {
 
 func (a Andariel) CheckConditions(parameters *RunParameters) SequencerResult {
 	farmingRun := IsFarmingRun(parameters)
-	needLeaveTown := a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusEnterArea)
+	needLeaveTown := (a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusRewardGranted+quest.StatusLeaveTown+quest.StatusEnterArea) &&
+		!action.HasAnyQuestStartedOrCompleted(quest.Act2RadamentsLair, quest.Act2TheSevenTombs) &&
+		a.ctx.Data.PlayerUnit.Area.Act() == 1)
 	questCompleted := a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed()
 	if (farmingRun && !questCompleted) || (!farmingRun && (questCompleted && !needLeaveTown)) {
 		return SequencerSkip
@@ -138,9 +140,12 @@ func (a Andariel) CheckConditions(parameters *RunParameters) SequencerResult {
 func (a Andariel) Run(parameters *RunParameters) error {
 	_, isLevelingChar := a.ctx.Char.(context.LevelingCharacter)
 
-	if IsQuestRun(parameters) && a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusEnterArea) {
-		a.goToAct2()
-		return nil
+	if IsQuestRun(parameters) {
+		needLeaveTown := a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusRewardGranted + quest.StatusLeaveTown + quest.StatusEnterArea)
+		if needLeaveTown {
+			a.goToAct2()
+			return nil
+		}
 	}
 
 	a.ctx.Logger.Info("Moving to Catacombs 4")

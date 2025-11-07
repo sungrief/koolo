@@ -47,21 +47,8 @@ func (r Radament) CheckConditions(parameters *RunParameters) SequencerResult {
 }
 
 func (r Radament) Run(parameters *RunParameters) error {
-	if itm, found := r.ctx.Data.Inventory.Find("BookofSkill"); found {
-		r.ctx.Logger.Info("BookofSkill found in inventory. Using it...")
-
-		// Use the book of skill
-		step.CloseAllMenus()
-		r.ctx.HID.PressKeyBinding(r.ctx.Data.KeyBindings.Inventory)
-		screenPos := ui.GetScreenCoordsForItem(itm)
-		utils.Sleep(200)
-		r.ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
-		step.CloseAllMenus()
-
-		r.ctx.Logger.Info("Book of Skill used successfully.")
-		if r.ctx.Data.Quests[quest.Act2RadamentsLair].Completed() {
-			return nil
-		}
+	if _, found := r.ctx.Data.Inventory.Find("BookofSkill"); found {
+		return r.finishQuest()
 	}
 
 	var startingPositionAtma = data.Position{
@@ -104,8 +91,7 @@ func (r Radament) Run(parameters *RunParameters) error {
 
 	action.ClearAreaAroundPlayer(30, data.MonsterAnyFilter())
 
-	if !r.ctx.Data.Quests[quest.Act2RadamentsLair].Completed() {
-
+	if IsQuestRun(parameters) {
 		// Sometimes it moves too far away from the book to pick it up, making sure it moves back to the chest
 		err = action.MoveTo(func() (data.Position, bool) {
 			for _, o := range r.ctx.Data.Objects {
@@ -128,25 +114,34 @@ func (r Radament) Run(parameters *RunParameters) error {
 			return err
 		}
 
+		utils.PingSleep(utils.Medium, 1000)
+
 		err = action.MoveToCoords(startingPositionAtma)
 		if err != nil {
 			return err
 		}
 
-		err = action.InteractNPC(npc.Atma)
+		err = r.finishQuest()
 		if err != nil {
 			return err
 		}
-
-		step.CloseAllMenus()
-		r.ctx.HID.PressKeyBinding(r.ctx.Data.KeyBindings.Inventory)
-		itm, _ := r.ctx.Data.Inventory.Find("BookofSkill")
-		screenPos := ui.GetScreenCoordsForItem(itm)
-		utils.Sleep(200)
-		r.ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
-		step.CloseAllMenus()
-
 	}
 
+	return nil
+}
+
+func (r Radament) finishQuest() error {
+	err := action.InteractNPC(npc.Atma)
+	if err != nil {
+		return err
+	}
+
+	step.CloseAllMenus()
+	r.ctx.HID.PressKeyBinding(r.ctx.Data.KeyBindings.Inventory)
+	itm, _ := r.ctx.Data.Inventory.Find("BookofSkill")
+	screenPos := ui.GetScreenCoordsForItem(itm)
+	utils.Sleep(200)
+	r.ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
+	step.CloseAllMenus()
 	return nil
 }

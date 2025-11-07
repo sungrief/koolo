@@ -314,9 +314,19 @@ func (d Duriel) findRealTomb() (area.ID, error) {
 func (d Duriel) prepareStaff() error {
 	horadricStaff, found := d.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)
 	if found {
-		d.ctx.Logger.Info("Horadric Staff found!")
+		if horadricStaff.Location.LocationType == item.LocationCube {
+			if err := action.EmptyCube(); err != nil {
+				return err
+			}
+			d.ctx.RefreshGameData()
+			utils.Sleep(200)
+			horadricStaff, found = d.ctx.Data.Inventory.Find("HoradricStaff", item.LocationInventory, item.LocationStash, item.LocationEquipped)
+			if !found {
+				return errors.New("failed to move horadric staff out of cube")
+			}
+		}
+
 		if horadricStaff.Location.LocationType == item.LocationStash {
-			d.ctx.Logger.Info("It's in the stash, let's pick it up")
 
 			bank, found := d.ctx.Data.Objects.FindOne(object.Bank)
 			if !found {
@@ -334,9 +344,8 @@ func (d Duriel) prepareStaff() error {
 			d.ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
 			utils.Sleep(300)
 			step.CloseAllMenus()
-
-			return nil
 		}
+		return nil
 	}
 
 	staff, found := d.ctx.Data.Inventory.Find("StaffOfKings", item.LocationInventory, item.LocationStash, item.LocationEquipped, item.LocationCube)

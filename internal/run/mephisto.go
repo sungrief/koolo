@@ -66,11 +66,8 @@ func (m Mephisto) CheckConditions(parameters *RunParameters) SequencerResult {
 
 		//Workaround AvailableWaypoints only filled when wp menu has been opened on act page
 		//Check if any act 4 quests has started or is completed
-		for i := int(quest.Act4TheFallenAngel); i <= int(quest.Act4TerrorsEnd); i++ {
-			q := m.ctx.Data.Quests[quest.Quest(i)]
-			if !q.NotStarted() || q.Completed() {
-				return SequencerSkip
-			}
+		if action.HasAnyQuestStartedOrCompleted(quest.Act4TheFallenAngel, quest.Act4TerrorsEnd) || m.ctx.Data.PlayerUnit.Area.Act() >= 4 {
+			return SequencerSkip
 		}
 	}
 	return SequencerOk

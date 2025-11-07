@@ -92,5 +92,48 @@ func (s Summoner) Run(parameters *RunParameters) error {
 	}
 
 	// Kill Summoner
-	return s.ctx.Char.KillSummoner()
+	if err := s.ctx.Char.KillSummoner(); err != nil {
+		return err
+	}
+
+	if IsQuestRun(parameters) {
+		if err := s.goToCanyon(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s Summoner) goToCanyon() error {
+	// Interact with journal to open poratl
+	tome, found := s.ctx.Data.Objects.FindOne(object.YetAnotherTome)
+	if !found {
+		s.ctx.Logger.Error("YetAnotherTome (journal) not found after Summoner kill. This is unexpected.")
+		return errors.New("Journal not found after summoner")
+	}
+
+	err := action.InteractObject(tome, func() bool {
+		_, found := s.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
+		return found
+	})
+	if err != nil {
+		return err
+	}
+
+	//go through portal
+	portal, _ := s.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
+	err = action.InteractObject(portal, func() bool {
+		return s.ctx.Data.PlayerUnit.Area == area.CanyonOfTheMagi && s.ctx.Data.AreaData.IsInside(s.ctx.Data.PlayerUnit.Position)
+	})
+	if err != nil {
+		return err
+	}
+
+	//Get WP
+	err = action.DiscoverWaypoint()
+	if err != nil {
+		return err
+	}
+	return nil // Return to re-evaluate after completing this chain.
 }

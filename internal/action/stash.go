@@ -269,7 +269,7 @@ func shouldStashIt(i data.Item, firstRun bool) (bool, bool, string, string) {
 		return false, false, "", "" // Explicitly do NOT stash the Horadric Staff
 	}
 
-	if i.Name == "tomeoftownportal" || i.Name == "tomeofidentify" || i.Name == "key" || i.Name == "wirtsleg" {
+	if i.Name == "TomeOfTownPortal" || i.Name == "TomeOfIdentify" || i.Name == "Key" || i.Name == "WirtsLeg" {
 		fmt.Printf("DEBUG: ABSOLUTELY PREVENTING stash for '%s' (Quest/Special item exclusion).\n", i.Name)
 		return false, false, "", ""
 	}

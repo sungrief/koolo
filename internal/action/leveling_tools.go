@@ -18,6 +18,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/memory"
@@ -579,4 +580,15 @@ func TryConsumeStaminaPot() {
 			step.CloseAllMenus()
 		}
 	}
+}
+
+func HasAnyQuestStartedOrCompleted(startQuest, endQuest quest.Quest) bool {
+	ctx := context.Get()
+	for i := int(startQuest); i <= int(endQuest); i++ {
+		q := ctx.Data.Quests[quest.Quest(i)]
+		if !q.NotStarted() || q.Completed() {
+			return true
+		}
+	}
+	return false
 }

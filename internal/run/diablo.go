@@ -52,11 +52,8 @@ func (d Diablo) CheckConditions(parameters *RunParameters) SequencerResult {
 
 		//Workaround AvailableWaypoints only filled when wp menu has been opened on act page
 		//Check if any act 5 quest is started or completed
-		for i := int(quest.Act5SiegeOnHarrogath); i <= int(quest.Act5EveOfDestruction); i++ {
-			q := d.ctx.Data.Quests[quest.Quest(i)]
-			if !q.NotStarted() || q.Completed() {
-				return SequencerSkip
-			}
+		if action.HasAnyQuestStartedOrCompleted(quest.Act5SiegeOnHarrogath, quest.Act5EveOfDestruction) {
+			return SequencerSkip
 		}
 	}
 	return SequencerOk

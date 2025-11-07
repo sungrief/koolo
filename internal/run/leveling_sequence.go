@@ -550,7 +550,7 @@ func (ls LevelingSequence) setupLevelOneConfig() {
 	ls.ctx.CharacterCfg.Game.Leveling.AutoEquip = true
 	ls.ctx.CharacterCfg.Game.Leveling.EnableRunewordMaker = true
 	ls.ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes = ls.GetRunewords()
-	ls.ctx.CharacterCfg.Character.UseTeleport = true
+	ls.ctx.CharacterCfg.Character.UseTeleport = false
 	ls.ctx.CharacterCfg.Character.UseMerc = false
 	ls.ctx.CharacterCfg.Character.StashToShared = false
 	ls.ctx.CharacterCfg.Game.UseCainIdentify = true
