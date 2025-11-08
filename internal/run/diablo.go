@@ -216,7 +216,7 @@ func (d *Diablo) killSealElite(boss string) error {
 	d.ctx.Logger.Debug(fmt.Sprintf("Starting kill sequence for %s", boss))
 	startTime := time.Now()
 
-	timeout := 15 * time.Second
+	timeout := 20 * time.Second
 
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 	sealElite := data.Monster{}
@@ -230,7 +230,6 @@ func (d *Diablo) killSealElite(boss string) error {
 		for _, m := range d.ctx.Data.Monsters.Enemies(d.ctx.Data.MonsterFilterAnyReachable()) {
 			if action.IsMonsterSealElite(m) {
 				sealElite = m
-				//d.ctx.Logger.Debug(fmt.Sprintf("Seal elite found: %v at position X: %d, Y: %d", m.Name, m.Position.X, m.Position.Y))
 				break
 			}
 		}
@@ -239,7 +238,6 @@ func (d *Diablo) killSealElite(boss string) error {
 		if sealElite.UnitID == 0 {
 			for _, corpse := range d.ctx.Data.Corpses {
 				if action.IsMonsterSealElite(corpse) {
-					d.ctx.Logger.Debug(fmt.Sprintf("Seal elite %s found already dead in corpses", boss))
 					sealEliteAlreadyDead = true
 					break
 				}
@@ -261,8 +259,29 @@ func (d *Diablo) killSealElite(boss string) error {
 
 	// If seal elite was already dead, no need to kill it
 	if sealEliteAlreadyDead {
-		d.ctx.Logger.Debug(fmt.Sprintf("Seal elite %s was already dead, skipping kill sequence", boss))
 		return nil
+	}
+
+	// If we didn't find the boss at all after timeout, it might have spawned far away or died before we could detect it
+	// For Lord De Seis this is acceptable (he can be far), but for others it's suspicious
+	if sealElite.UnitID == 0 {
+		// Try one more time to check corpses after clearing nearby area
+		action.ClearAreaAroundPlayer(40, data.MonsterAnyFilter())
+		d.ctx.RefreshGameData()
+
+		for _, corpse := range d.ctx.Data.Corpses {
+			if action.IsMonsterSealElite(corpse) {
+				return nil
+			}
+		}
+
+		// If it's Lord De Seis, this is acceptable (he spawns far sometimes)
+		if boss == "Lord De Seis" {
+			d.ctx.Logger.Debug("Lord De Seis not found but this is acceptable, continuing")
+			return nil
+		}
+
+		return fmt.Errorf("no seal elite found for %s within %v seconds", boss, timeout)
 	}
 
 	utils.Sleep(500)
