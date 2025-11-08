@@ -149,7 +149,7 @@ func (d *Diablo) Run() error {
 				}); err != nil {
 					d.ctx.Logger.Error(fmt.Sprintf("Attempt %d to interact with seal %d: %v failed", attempts+1, sealID, err))
 					d.ctx.PathFinder.RandomMovement()
-					utils.Sleep(200)
+					utils.PingSleep(utils.Medium, 200)
 				}
 
 				attempts++
@@ -254,7 +254,7 @@ func (d *Diablo) killSealElite(boss string) error {
 			startTime = time.Now()
 		}
 
-		utils.Sleep(250)
+		utils.PingSleep(utils.Light, 250)
 	}
 
 	// If seal elite was already dead, no need to kill it
@@ -284,7 +284,7 @@ func (d *Diablo) killSealElite(boss string) error {
 		return fmt.Errorf("no seal elite found for %s within %v seconds", boss, timeout)
 	}
 
-	utils.Sleep(500)
+	utils.PingSleep(utils.Medium, 500)
 
 	killSealEliteAttempts := 0
 	if sealElite.UnitID != 0 {
@@ -295,16 +295,36 @@ func (d *Diablo) killSealElite(boss string) error {
 
 			//If in town, wait until back to battlefield
 			if d.ctx.Data.PlayerUnit.Area.IsTown() {
-				utils.Sleep(100)
+				utils.PingSleep(utils.Light, 100)
 				continue
 			}
 
 			if !found {
-				if _, corpseFound := d.ctx.Data.Corpses.FindByID(sealElite.UnitID); corpseFound {
-					d.ctx.Logger.Debug(fmt.Sprintf("Successfully killed seal elite %s after %d attempts", boss, killSealEliteAttempts))
-					return nil
-				} else {
-					return fmt.Errorf("seal elite %s not found after first detection ", boss)
+				// Boss UnitID lost, try to re-detect by checking all seal elites
+				for _, monster := range d.ctx.Data.Monsters.Enemies(d.ctx.Data.MonsterFilterAnyReachable()) {
+					if action.IsMonsterSealElite(monster) {
+						sealElite = monster
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					// Check corpses - not just by UnitID but by IsMonsterSealElite
+					for _, corpse := range d.ctx.Data.Corpses {
+						if action.IsMonsterSealElite(corpse) {
+							d.ctx.Logger.Debug(fmt.Sprintf("Successfully killed seal elite %s (found in corpses)", boss))
+							return nil
+						}
+					}
+
+					// Still not found - only fail after multiple attempts (not first iteration)
+					if killSealEliteAttempts > 2 {
+						return fmt.Errorf("seal elite %s not found after first detection", boss)
+					}
+					// Continue loop to retry
+					utils.PingSleep(utils.Light, 250)
+					continue
 				}
 			}
 
@@ -334,7 +354,7 @@ func (d *Diablo) killSealElite(boss string) error {
 				continue
 			}
 
-			utils.Sleep(250)
+			utils.PingSleep(utils.Light, 250)
 		}
 	} else {
 		return fmt.Errorf("no seal elite found for %s within %v seconds", boss, timeout.Seconds())
