@@ -221,7 +221,7 @@ func (d *Diablo) killSealElite(boss string) error {
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 	sealElite := data.Monster{}
 	sealEliteAlreadyDead := false
-	
+
 	for time.Since(startTime) < timeout {
 		d.ctx.PauseIfNotPriority()
 		d.ctx.RefreshGameData()
@@ -258,7 +258,7 @@ func (d *Diablo) killSealElite(boss string) error {
 
 		utils.Sleep(250)
 	}
-	
+
 	// If seal elite was already dead, no need to kill it
 	if sealEliteAlreadyDead {
 		d.ctx.Logger.Debug(fmt.Sprintf("Seal elite %s was already dead, skipping kill sequence", boss))
