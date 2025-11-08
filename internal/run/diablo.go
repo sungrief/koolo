@@ -220,10 +220,13 @@ func (d *Diablo) killSealElite(boss string) error {
 
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 	sealElite := data.Monster{}
+	sealEliteAlreadyDead := false
+	
 	for time.Since(startTime) < timeout {
 		d.ctx.PauseIfNotPriority()
 		d.ctx.RefreshGameData()
 
+		// Check for living seal elite
 		for _, m := range d.ctx.Data.Monsters.Enemies(d.ctx.Data.MonsterFilterAnyReachable()) {
 			if action.IsMonsterSealElite(m) {
 				sealElite = m
@@ -232,8 +235,19 @@ func (d *Diablo) killSealElite(boss string) error {
 			}
 		}
 
-		if sealElite.UnitID != 0 {
-			//Seal elite found, stop detection loop
+		// If not found alive, check if already dead in corpses
+		if sealElite.UnitID == 0 {
+			for _, corpse := range d.ctx.Data.Corpses {
+				if action.IsMonsterSealElite(corpse) {
+					d.ctx.Logger.Debug(fmt.Sprintf("Seal elite %s found already dead in corpses", boss))
+					sealEliteAlreadyDead = true
+					break
+				}
+			}
+		}
+
+		if sealElite.UnitID != 0 || sealEliteAlreadyDead {
+			//Seal elite found (alive or dead), stop detection loop
 			break
 		}
 
@@ -243,6 +257,12 @@ func (d *Diablo) killSealElite(boss string) error {
 		}
 
 		utils.Sleep(250)
+	}
+	
+	// If seal elite was already dead, no need to kill it
+	if sealEliteAlreadyDead {
+		d.ctx.Logger.Debug(fmt.Sprintf("Seal elite %s was already dead, skipping kill sequence", boss))
+		return nil
 	}
 
 	utils.Sleep(500)
