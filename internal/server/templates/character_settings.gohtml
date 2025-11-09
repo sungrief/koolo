@@ -239,8 +239,9 @@
                         <input type="checkbox" name="packetCastingUseForEntranceInteraction" {{ if .Config.PacketCasting.UseForEntranceInteraction }}checked{{ end }}/>
                         Use packets for entrance interaction
                     </label>
-                    <label style="visibility: hidden;">
-                        <!-- Spacer for grid alignment -->
+                    <label>
+                        <input type="checkbox" name="packetCastingUseForTeleport" {{ if .Config.PacketCasting.UseForTeleport }}checked{{ end }}/>
+                        Use packets for teleport movement
                     </label>
                 </fieldset>
             </article>

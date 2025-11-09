@@ -1261,6 +1261,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.PacketCasting.UseForEntranceInteraction = r.Form.Has("packetCastingUseForEntranceInteraction")
 		cfg.PacketCasting.UseForItemPickup = r.Form.Has("packetCastingUseForItemPickup")
 		cfg.PacketCasting.UseForTpInteraction = r.Form.Has("packetCastingUseForTpInteraction")
+		cfg.PacketCasting.UseForTeleport = r.Form.Has("packetCastingUseForTeleport")
 		cfg.Game.Difficulty = difficulty.Difficulty(r.Form.Get("gameDifficulty"))
 		cfg.Game.RandomizeRuns = r.Form.Has("gameRandomizeRuns")
 
