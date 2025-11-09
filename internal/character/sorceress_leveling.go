@@ -1047,6 +1047,8 @@ func (s SorceressLeveling) GetAdditionalRunewords() []string {
 func (s SorceressLeveling) InitialCharacterConfigSetup() {
 	ctx := context.Get()
 	ctx.CharacterCfg.Inventory.ManaPotionCount = 8
+	ctx.CharacterCfg.Character.BlizzardSorceress.UseStaticOnMephisto = true
+	ctx.CharacterCfg.Character.BlizzardSorceress.UseMoatTrick = true
 }
 
 func (s SorceressLeveling) AdjustCharacterConfig() {
