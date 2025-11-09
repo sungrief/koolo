@@ -2,7 +2,6 @@ package run
 
 import (
 	"errors"
-	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -43,7 +42,10 @@ func (a Anya) CheckConditions(parameters *RunParameters) SequencerResult {
 		return SequencerOk
 	}
 	if a.ctx.Data.Quests[quest.Act5PrisonOfIce].Completed() {
-		return SequencerSkip
+		a5q4 := a.ctx.Data.Quests[quest.Act5BetrayalOfHarrogath]
+		if !a5q4.NotStarted() || a5q4.Completed() {
+			return SequencerSkip
+		}
 	}
 	return SequencerOk
 }
@@ -51,10 +53,17 @@ func (a Anya) CheckConditions(parameters *RunParameters) SequencerResult {
 func (a Anya) Run(parameters *RunParameters) error {
 	a.ctx.Logger.Info("Starting Rescuing Anya Quest...")
 
-	if a.tryUseScroll() {
-		return nil
+	//Quest already complete, try finish (use scroll, talk to anya)
+	if a.ctx.Data.Quests[quest.Act5PrisonOfIce].Completed() {
+		err := action.InteractNPC(npc.Malah)
+		if err != nil {
+			return err
+		}
+
+		return a.finishQuest()
 	}
 
+	//Go to anya in frozen river
 	err := action.WayPoint(area.CrystallinePassage)
 	if err != nil {
 		return err
@@ -93,60 +102,65 @@ func (a Anya) Run(parameters *RunParameters) error {
 		a.ctx.Logger.Debug("Frozen Anya not found")
 	}
 
-	err = action.InteractObject(anya, nil)
-	if err != nil {
-		return err
-	}
-	utils.Sleep(300)
+	//If potion is not in inventory, interact with anya & go get it
+	if !a.hasPotion() {
+		for range 3 {
+			utils.Sleep(300)
+			err = action.InteractObject(anya, nil)
+			if err != nil {
+				return err
+			}
+		}
+		utils.Sleep(300)
 
-	err = action.ReturnTown()
-	if err != nil {
-		return err
-	}
-
-	action.IdentifyAll(false)
-	action.Stash(false)
-	action.ReviveMerc()
-	action.Repair()
-	action.VendorRefill(false, true)
-
-	for range 5 {
-		err = action.InteractNPC(npc.Malah)
+		err = action.ReturnTown()
 		if err != nil {
 			return err
 		}
-		a.ctx.RefreshGameData()
-		utils.Sleep(200)
-		if a.hasScroll() || a.hasPotion() {
-			break
+
+		action.IdentifyAll(false)
+		action.Stash(false)
+		action.ReviveMerc()
+		action.Repair()
+		action.VendorRefill(false, true)
+
+		for range 5 {
+			err = action.InteractNPC(npc.Malah)
+			if err != nil {
+				return err
+			}
+			a.ctx.RefreshGameData()
+			utils.Sleep(200)
+			if a.hasScroll() || a.hasPotion() {
+				break
+			}
 		}
+
+		if !a.hasScroll() && !a.hasPotion() {
+			return errors.New("failed to get potion from malah")
+		}
+
+		err = action.UsePortalInTown()
+		if err != nil {
+			return err
+		}
+		utils.Sleep(500)
 	}
 
-	if !a.hasScroll() && !a.hasPotion() {
-		return errors.New("failed to get potion from malah")
-	}
-
-	if a.tryUseScroll() {
-		return nil
-	}
-
-	err = action.UsePortalInTown()
-	if err != nil {
-		return err
-	}
-
+	//Unfreeze anya
 	err = action.InteractObject(anya, nil)
 	if err != nil {
 		return err
 	}
+
+	utils.Sleep(10000)
 
 	err = action.ReturnTown()
 	if err != nil {
 		return err
 	}
 
-	time.Sleep(8000)
-
+	//Get scroll
 	for range 10 {
 		err = action.InteractNPC(npc.Malah)
 		if err != nil {
@@ -159,11 +173,8 @@ func (a Anya) Run(parameters *RunParameters) error {
 		}
 	}
 
-	if !a.tryUseScroll() {
-		return errors.New("scroll not found after anya quest")
-	}
-
-	return nil
+	//Talk to anya
+	return a.finishQuest()
 }
 
 func (a Anya) hasScroll() bool {
@@ -172,7 +183,7 @@ func (a Anya) hasScroll() bool {
 }
 
 func (a Anya) hasPotion() bool {
-	_, found := a.ctx.Data.Inventory.Find("Malah's Potion")
+	_, found := a.ctx.Data.Inventory.Find("MalahsPotion")
 	return found
 }
 
@@ -197,4 +208,20 @@ func (a Anya) tryUseScroll() bool {
 		return true
 	}
 	return false
+}
+
+func (a Anya) finishQuest() error {
+	a.tryUseScroll()
+
+	anyaTownPos, found := a.ctx.Data.Objects.FindOne(object.DrehyaTownStartPosition)
+	if !found {
+		return errors.New("couldn't find anya pos in town")
+	}
+	action.MoveToCoords(anyaTownPos.Position)
+	err := action.InteractNPC(npc.Drehya)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
