@@ -40,23 +40,6 @@ func (a Ancients) CheckConditions(parameters *RunParameters) SequencerResult {
 }
 
 func (a Ancients) Run(parameters *RunParameters) error {
-	var ancientsAltar = data.Position{
-		X: 10049,
-		Y: 12623,
-	}
-
-	// Store the original configuration
-	originalBackToTownCfg := a.ctx.CharacterCfg.BackToTown
-	originalTownChicken := a.ctx.CharacterCfg.Health.TownChickenAt
-
-	// Defer the restoration of the configuration.
-	// This will run when the function exits, regardless of how.
-	defer func() {
-		a.ctx.CharacterCfg.BackToTown = originalBackToTownCfg
-		a.ctx.CharacterCfg.Health.TownChickenAt = originalTownChicken
-		a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.")
-	}()
-
 	err := action.WayPoint(area.Harrogath)
 	if err != nil {
 		return err
@@ -77,6 +60,49 @@ func (a Ancients) Run(parameters *RunParameters) error {
 
 	action.InRunReturnTownRoutine()
 	action.Buff()
+
+	a.killAncients()
+
+	action.InRunReturnTownRoutine()
+
+	err = action.MoveToArea(area.TheWorldStoneKeepLevel1)
+	if err != nil {
+		return err
+	}
+
+	err = action.MoveToArea(area.TheWorldStoneKeepLevel2)
+	if err != nil {
+		return err
+	}
+
+	err = action.DiscoverWaypoint()
+	if err != nil {
+		return err
+	}
+
+	// The defer statement above will handle the restoration
+	// a.ctx.CharacterCfg.BackToTown = originalBackToTownCfg // This line is now removed
+	// a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.") // This line is now part of the defer
+	return nil
+}
+
+func (a Ancients) killAncients() error {
+	var ancientsAltar = data.Position{
+		X: 10049,
+		Y: 12623,
+	}
+
+	// Store the original configuration
+	originalBackToTownCfg := a.ctx.CharacterCfg.BackToTown
+	originalTownChicken := a.ctx.CharacterCfg.Health.TownChickenAt
+
+	// Defer the restoration of the configuration.
+	// This will run when the function exits, regardless of how.
+	defer func() {
+		a.ctx.CharacterCfg.BackToTown = originalBackToTownCfg
+		a.ctx.CharacterCfg.Health.TownChickenAt = originalTownChicken
+		a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.")
+	}()
 
 	action.MoveToCoords(ancientsAltar)
 
@@ -107,8 +133,5 @@ func (a Ancients) Run(parameters *RunParameters) error {
 		}, nil)
 	}
 
-	// The defer statement above will handle the restoration
-	// a.ctx.CharacterCfg.BackToTown = originalBackToTownCfg // This line is now removed
-	// a.ctx.Logger.Info("Restored original back-to-town checks after Ancients fight.") // This line is now part of the defer
 	return nil
 }
