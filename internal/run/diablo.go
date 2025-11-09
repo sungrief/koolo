@@ -46,7 +46,7 @@ func (d Diablo) CheckConditions(parameters *RunParameters) SequencerResult {
 	}
 
 	if !farmingRun && questCompleted {
-		if slices.Contains(d.ctx.Data.PlayerUnit.AvailableWaypoints, area.Harrogath) {
+		if slices.Contains(d.ctx.Data.PlayerUnit.AvailableWaypoints, area.Harrogath) || d.ctx.Data.PlayerUnit.Area.Act() == 5 {
 			return SequencerSkip
 		}
 
@@ -377,27 +377,43 @@ func (d *Diablo) goToAct5() error {
 	if err != nil {
 		return err
 	}
-	harrogathPortal, found := d.ctx.Data.Objects.FindOne(object.LastLastPortal)
-	if !found {
-		return errors.New("portal to Harrogath not found")
+
+	//Choose travel to harrogath option
+	d.ctx.HID.KeySequence(win.VK_DOWN, win.VK_RETURN)
+	utils.Sleep(1000)
+	d.ctx.RefreshGameData()
+	utils.Sleep(1000)
+
+	d.trySkipCinematic()
+
+	if d.ctx.Data.PlayerUnit.Area.Act() != 5 {
+		harrogathPortal, found := d.ctx.Data.Objects.FindOne(object.LastLastPortal)
+		if found {
+			err = action.InteractObject(harrogathPortal, func() bool {
+				utils.Sleep(100)
+				ctx := context.Get()
+				return !ctx.Manager.InGame() || d.ctx.Data.PlayerUnit.Area.Act() == 5
+			})
+
+			if err != nil {
+				return err
+			}
+
+			d.trySkipCinematic()
+		}
+		return errors.New("failed to go to act 5")
 	}
-
-	err = action.InteractObject(harrogathPortal, func() bool {
-		utils.Sleep(100)
-		ctx := context.Get()
-		return !ctx.Manager.InGame()
-	})
-
-	if err != nil {
-		return err
-	}
-
-	// Skip Cinematics
-	utils.Sleep(2000)
-	action.HoldKey(win.VK_SPACE, 2000)
-	utils.Sleep(2000)
-	action.HoldKey(win.VK_SPACE, 2000)
-	utils.Sleep(2000)
 
 	return nil
+}
+
+func (d Diablo) trySkipCinematic() {
+	if !d.ctx.Manager.InGame() {
+		// Skip Cinematics
+		utils.Sleep(2000)
+		action.HoldKey(win.VK_SPACE, 2000)
+		utils.Sleep(2000)
+		action.HoldKey(win.VK_SPACE, 2000)
+		utils.Sleep(2000)
+	}
 }
