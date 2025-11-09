@@ -132,15 +132,15 @@ func (a Leveling) act1() error {
 		}
 		found525InInv = true
 	}
-
 	// Cain quest: entering Tristram
-	if ((a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusStarted+quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed()) || found525InInv) && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
+	if ((a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusStarted+quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed()) ||
+		found525InInv || a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusLeaveTown+quest.StatusEnterArea)) &&
+		!a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed() && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
 		return NewTristram().Run()
 	}
 
 	// Cain quest: talking to Akara
 	if !a.isCainInTown() && !a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed() && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
-
 		return NewQuests().rescueCainQuest()
 	}
 
