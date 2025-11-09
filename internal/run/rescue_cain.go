@@ -182,34 +182,6 @@ func (rc RescueCain) gatherInfussScroll() error {
 		return errors.New("InifussTree not found")
 	}
 
-	// Get the player's current position.
-	playerPos := rc.ctx.Data.PlayerUnit.Position
-
-	// --- New segmented approach to clear the path to the Inifuss Tree ---
-	// Start 55 units away and move closer in 10-unit increments.
-
-	clearRadius := 20
-	for distance := 55; distance > 0; distance -= 5 {
-		rc.ctx.Logger.Info(fmt.Sprintf("Moving to position %d units away from the Inifuss Tree to clear the area.", distance))
-
-		// Calculate the new position based on the current distance.
-		safePos := atDistance(inifussTreePos, playerPos, distance)
-
-		// Move to the calculated position.
-		err = action.MoveToCoords(safePos)
-		if err != nil {
-			return err
-		}
-
-		// Clear a large area around the new position.
-		rc.ctx.Logger.Info(fmt.Sprintf("Clearing a %d unit radius around the current position...", clearRadius))
-		if err := action.ClearAreaAroundPlayer(clearRadius, data.MonsterAnyFilter()); err != nil {
-			return err
-		}
-	}
-
-	// --- End of new segmented approach ---
-
 	err = action.MoveToCoords(inifussTreePos)
 	if err != nil {
 		return err
