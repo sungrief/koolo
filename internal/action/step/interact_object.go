@@ -86,11 +86,6 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		}
 	}
 
-	interactionCooldown := time.Millisecond * 200
-	if ctx.Data.PlayerUnit.Area.IsTown() {
-		interactionCooldown = time.Millisecond * 500
-	}
-
 	for !isCompletedFn() {
 		ctx.PauseIfNotPriority()
 
@@ -100,8 +95,13 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 
 		ctx.RefreshGameData()
 
+		interactionCooldown := utils.PingMultiplier(utils.Light, 200)
+		if ctx.Data.PlayerUnit.Area.IsTown() {
+			interactionCooldown = utils.PingMultiplier(utils.Medium, 400)
+		}
+
 		// Give some time before retrying the interaction
-		if waitingForInteraction && time.Since(lastRun) < interactionCooldown {
+		if waitingForInteraction && time.Since(lastRun) < time.Duration(interactionCooldown)*time.Millisecond {
 			time.Sleep(10 * time.Millisecond)
 			continue
 		}
