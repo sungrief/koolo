@@ -78,6 +78,11 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 		grid = expandedGrid
 	}
 
+	if !grid.IsWalkable(to) {
+		if walkableTo, found := pf.findNearbyWalkablePositionInGrid(grid, to); found {
+			to = walkableTo
+		}
+	}
 	from = grid.RelativePosition(from)
 	to = grid.RelativePosition(to)
 
@@ -237,7 +242,7 @@ func (pf *PathFinder) GetClosestWalkablePathFrom(from, dest data.Position) (Path
 	return nil, 0, false
 }
 
-func (pf *PathFinder) findNearbyWalkablePosition(target data.Position) (data.Position, bool) {
+func (pf *PathFinder) findNearbyWalkablePositionInGrid(grid *game.Grid, target data.Position) (data.Position, bool) {
 	// Search in expanding squares around the target position
 	for radius := 1; radius <= 3; radius++ {
 		for x := -radius; x <= radius; x++ {
@@ -246,11 +251,16 @@ func (pf *PathFinder) findNearbyWalkablePosition(target data.Position) (data.Pos
 					continue
 				}
 				pos := data.Position{X: target.X + x, Y: target.Y + y}
-				if pf.data.AreaData.IsWalkable(pos) {
+				if (*grid).IsWalkable(pos) {
 					return pos, true
 				}
 			}
 		}
 	}
 	return data.Position{}, false
+}
+
+func (pf *PathFinder) findNearbyWalkablePosition(target data.Position) (data.Position, bool) {
+
+	return pf.findNearbyWalkablePositionInGrid(pf.data.AreaData.Grid, target)
 }
