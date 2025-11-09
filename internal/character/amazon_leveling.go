@@ -3,6 +3,7 @@ package character
 import (
 	"fmt"
 	"log/slog"
+	"math"
 	"sort"
 	"time"
 
@@ -164,9 +165,18 @@ func (s AmazonLeveling) KillMonsterSequence(
 		}
 
 		if !rangedAttack && !repositioned {
-			if err := step.SecondaryAttack(s.getMeleeSkill(monster), id, 1, step.Distance(1, 1)); err != nil {
-				if err == step.ErrPlayerStuck {
-					return err
+			meleeSkill := s.getMeleeSkill(monster)
+			if meleeSkill == skill.AttackSkill {
+				if err := step.PrimaryAttack(id, 1, false, step.Distance(1, 1)); err != nil {
+					if err == step.ErrPlayerStuck {
+						return err
+					}
+				}
+			} else {
+				if err := step.SecondaryAttack(meleeSkill, id, 1, step.Distance(1, 1)); err != nil {
+					if err == step.ErrPlayerStuck {
+						return err
+					}
 				}
 			}
 		}
@@ -407,12 +417,16 @@ func (s AmazonLeveling) ShouldResetSkills() bool {
 func (s AmazonLeveling) getRemainingThrowables() int {
 	for _, itm := range s.Data.Inventory.ByLocation(item.LocationEquipped) {
 		if itm.Location.BodyLocation == item.LocLeftArm {
-			if qty, twoHanded := itm.FindStat(stat.Quantity, 0); twoHanded {
+			itmType := itm.Type()
+			if !itmType.IsType(item.TypeJavelin) && !itmType.IsType(item.TypeAmazonJavelin) {
+				return math.MaxInt32
+			}
+			if qty, qtyFound := itm.FindStat(stat.Quantity, 0); qtyFound {
 				return qty.Value
 			}
 		}
 	}
-	return 0
+	return math.MaxInt32
 }
 
 func (s AmazonLeveling) getMeleeSkill(m data.Monster) skill.ID {
@@ -420,21 +434,33 @@ func (s AmazonLeveling) getMeleeSkill(m data.Monster) skill.ID {
 	mana, _ := s.Data.PlayerUnit.FindStat(stat.Mana, 0)
 	manaRequired := 5
 
-	if m.UnitID != 0 && m.IsImmune(stat.LightImmune) {
-		meleeSkill = skill.Jab
-	} else {
-		if s.Data.PlayerUnit.Skills[skill.ChargedStrike].Level > 0 {
-			meleeSkill = skill.ChargedStrike
-			manaRequired = 10
-		} else if s.Data.PlayerUnit.Skills[skill.PowerStrike].Level > 0 {
-			meleeSkill = skill.PowerStrike
-		} else if s.Data.PlayerUnit.Skills[skill.Jab].Level > 0 {
-			meleeSkill = skill.Jab
+	hasJavs := false
+	for _, itm := range s.Data.Inventory.ByLocation(item.LocationEquipped) {
+		if itm.Location.BodyLocation == item.LocLeftArm {
+			itmType := itm.Type()
+			if itmType.IsType(item.TypeJavelin) || itmType.IsType(item.TypeAmazonJavelin) {
+				hasJavs = true
+			}
 		}
 	}
 
-	if mana.Value < manaRequired {
-		meleeSkill = skill.AttackSkill
+	if hasJavs {
+		if m.UnitID != 0 && m.IsImmune(stat.LightImmune) {
+			meleeSkill = skill.Jab
+		} else {
+			if s.Data.PlayerUnit.Skills[skill.ChargedStrike].Level > 0 {
+				meleeSkill = skill.ChargedStrike
+				manaRequired = 10
+			} else if s.Data.PlayerUnit.Skills[skill.PowerStrike].Level > 0 {
+				meleeSkill = skill.PowerStrike
+			} else if s.Data.PlayerUnit.Skills[skill.Jab].Level > 0 {
+				meleeSkill = skill.Jab
+			}
+		}
+
+		if mana.Value < manaRequired {
+			meleeSkill = skill.AttackSkill
+		}
 	}
 	return meleeSkill
 }
