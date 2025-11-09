@@ -99,11 +99,11 @@ type CharacterCfg struct {
 
 	ConfigFolderName string `yaml:"-"`
 
-	// Packet casting options (disabled by default for safety)
 	PacketCasting struct {
 		UseForEntranceInteraction bool `yaml:"useForEntranceInteraction"`
 		UseForItemPickup          bool `yaml:"useForItemPickup"`
 		UseForTpInteraction       bool `yaml:"useForTpInteraction"`
+		UseForTeleport            bool `yaml:"useForTeleport"`
 	} `yaml:"packetCasting"`
 
 	Scheduler Scheduler `yaml:"scheduler"`
