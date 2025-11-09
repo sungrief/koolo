@@ -126,10 +126,11 @@
 			{"run":"summoner"},
 			{"run":"duriel"},
 			
-			{"run":"jade_figurine"},
 			{"run":"khalims_eye"},
 			{"run":"khalims_brain"},
+			{"run":"gidbinn"},
 			{"run":"khalims_heart"},
+			{"run":"jade_figurine"},
 			{"run":"lam_esen"},
 			{"run":"travincal"},
 			{"run":"mephisto"},
@@ -138,7 +139,9 @@
 			{"run":"diablo"},
 			
 			{"run":"shenk"},
+			{"run":"rescue_barbs"},
 			{"run":"anya"},
+			{"run":"nihlathak"},
 			{"run":"ancients"},
 			{"run":"baal"}
 		],

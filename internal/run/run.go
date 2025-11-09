@@ -136,6 +136,8 @@ func BuildRun(run string) Run {
 		return NewAmulet()
 	case string(config.JadeFigurineRun):
 		return NewJadeFigurine()
+	case string(config.GidbinnRun):
+		return NewGidbinn()
 	case string(config.LamEsenRun):
 		return NewLamEsen()
 	case string(config.KhalimsEyeRun):
@@ -148,6 +150,8 @@ func BuildRun(run string) Run {
 		return NewIzual()
 	case string(config.ShenkRun):
 		return NewShenk()
+	case string(config.RescueBarbsRun):
+		return NewRescueBarbs()
 	case string(config.AnyaRun):
 		return NewAnya()
 	case string(config.AncientsRun):
