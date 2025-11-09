@@ -44,9 +44,12 @@ func (a Leveling) act5() error {
 			a.ctx.CharacterCfg.Character.UseTeleport = false
 			oldInteractWithShrines := a.ctx.CharacterCfg.Game.InteractWithShrines
 			a.ctx.CharacterCfg.Game.InteractWithShrines = false
+			oldKillShenk := a.ctx.CharacterCfg.Game.Eldritch.KillShenk
+			a.ctx.CharacterCfg.Game.Eldritch.KillShenk = true
 			defer func() {
 				a.ctx.CharacterCfg.Character.UseTeleport = oldUseTeleport
 				a.ctx.CharacterCfg.Game.InteractWithShrines = oldInteractWithShrines
+				a.ctx.CharacterCfg.Game.Eldritch.KillShenk = oldKillShenk
 			}()
 
 			a.ctx.Logger.Info("Low on gold. Initiating gold farm.")
@@ -54,7 +57,7 @@ func (a Leveling) act5() error {
 				a.ctx.Logger.Error("Error during gold farm: %v", err)
 				return err // Propagate error if farming fails
 			}
-			NewQuests().killShenkQuest()
+
 			a.ctx.Logger.Info("Gold farming completed. Quitting current run to re-evaluate in next game.")
 			return nil // Key: This immediately exits the 'act5' function, ending the current game run.
 		}

@@ -24,6 +24,7 @@ type Node struct {
 	Cost     int
 	Priority int
 	Index    int
+	TpStreak int
 }
 
 func direction(from, to data.Position) (dx, dy int) {
@@ -32,7 +33,9 @@ func direction(from, to data.Position) (dx, dy int) {
 	return
 }
 
-func CalculatePath(g *game.Grid, start, goal data.Position) ([]data.Position, int, bool) {
+const MaxConsecutiveTeleportOver = 12
+
+func CalculatePath(g *game.Grid, start, goal data.Position, canTeleport bool) ([]data.Position, int, bool) {
 	pq := make(PriorityQueue, 0)
 	heap.Init(&pq)
 
@@ -60,16 +63,34 @@ func CalculatePath(g *game.Grid, start, goal data.Position) ([]data.Position, in
 		if current.Position == goal {
 			var path []data.Position
 			for p := goal; p != start; p = cameFrom[p.X][p.Y] {
+				if g.CollisionGrid[p.Y][p.X] == game.CollisionTypeTeleportOver {
+					continue
+				}
 				path = append([]data.Position{p}, path...)
 			}
 			path = append([]data.Position{start}, path...)
 			return path, len(path), true
 		}
 
-		updateNeighbors(g, current, &neighbors)
+		updateNeighbors(g, current, &neighbors, canTeleport)
 
 		for _, neighbor := range neighbors {
-			newCost := costSoFar[current.X][current.Y] + getCost(g.CollisionGrid[neighbor.Y][neighbor.X])
+			tileType := g.CollisionGrid[neighbor.Y][neighbor.X]
+
+			// Determine teleport streak
+			teleportStreak := 0
+			if tileType == game.CollisionTypeTeleportOver {
+				teleportStreak = current.TpStreak + 1
+			} else {
+				teleportStreak = 0
+			}
+
+			// Skip if exceeds allowed consecutive teleport tiles
+			if teleportStreak > MaxConsecutiveTeleportOver {
+				continue
+			}
+
+			newCost := costSoFar[current.X][current.Y] + getCost(tileType, canTeleport)
 
 			// Handicap for changing direction, this prevents zig-zagging around obstacles
 			//curDirX, curDirY := direction(cameFrom[current.X][current.Y], current.Position)
@@ -81,7 +102,7 @@ func CalculatePath(g *game.Grid, start, goal data.Position) ([]data.Position, in
 			if newCost < costSoFar[neighbor.X][neighbor.Y] {
 				costSoFar[neighbor.X][neighbor.Y] = newCost
 				priority := newCost + int(0.5*float64(heuristic(neighbor, goal)))
-				heap.Push(&pq, &Node{Position: neighbor, Cost: newCost, Priority: priority})
+				heap.Push(&pq, &Node{Position: neighbor, Cost: newCost, Priority: priority, TpStreak: teleportStreak})
 				cameFrom[neighbor.X][neighbor.Y] = current.Position
 			}
 		}
@@ -91,7 +112,7 @@ func CalculatePath(g *game.Grid, start, goal data.Position) ([]data.Position, in
 }
 
 // Get walkable neighbors of a given node
-func updateNeighbors(grid *game.Grid, node *Node, neighbors *[]data.Position) {
+func updateNeighbors(grid *game.Grid, node *Node, neighbors *[]data.Position, canTeleport bool) {
 	*neighbors = (*neighbors)[:0]
 
 	x, y := node.X, node.Y
@@ -101,7 +122,8 @@ func updateNeighbors(grid *game.Grid, node *Node, neighbors *[]data.Position) {
 		if px < 0 || px >= gridWidth || py < 0 || py >= gridHeight {
 			return true
 		}
-		return grid.CollisionGrid[py][px] == game.CollisionTypeNonWalkable
+		collisionType := grid.CollisionGrid[py][px]
+		return collisionType == game.CollisionTypeNonWalkable || (!canTeleport && collisionType == game.CollisionTypeTeleportOver)
 	}
 
 	for _, d := range directions {
@@ -124,7 +146,7 @@ func updateNeighbors(grid *game.Grid, node *Node, neighbors *[]data.Position) {
 	}
 }
 
-func getCost(tileType game.CollisionType) int {
+func getCost(tileType game.CollisionType, canTeleport bool) int {
 	switch tileType {
 	case game.CollisionTypeWalkable:
 		return 1 // Walkable
@@ -134,6 +156,11 @@ func getCost(tileType game.CollisionType) int {
 		return 4 // Soft blocker
 	case game.CollisionTypeLowPriority:
 		return 20
+	case game.CollisionTypeTeleportOver:
+		if canTeleport {
+			return 1
+		}
+		return math.MaxInt32
 	default:
 		return math.MaxInt32
 	}

@@ -178,11 +178,20 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		if !ctx.Data.CanTeleport() {
 			if doorFound, doorObj := ctx.PathFinder.HasDoorBetween(ctx.Data.PlayerUnit.Position, currentDest); doorFound {
 				doorToOpen := *doorObj
-				if err := InteractObject(doorToOpen, func() bool {
-					door, found := ctx.Data.Objects.FindByID(doorToOpen.ID)
-					return found && !door.Selectable
-				}); err != nil {
-					return err
+				interactErr := error(nil)
+				//Retry a few times (maggot lair slime door fix)
+				for range 5 {
+					if interactErr = InteractObject(doorToOpen, func() bool {
+						door, found := ctx.Data.Objects.FindByID(doorToOpen.ID)
+						return found && !door.Selectable
+					}); interactErr == nil {
+						break
+					}
+					ctx.PathFinder.RandomMovement()
+					utils.Sleep(250)
+				}
+				if interactErr != nil {
+					return interactErr
 				}
 			}
 		}

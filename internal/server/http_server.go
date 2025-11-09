@@ -1414,7 +1414,18 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 		// Muling
 		cfg.Muling.Enabled = r.FormValue("mulingEnabled") == "on"
-		cfg.Muling.MuleProfiles = r.Form["mulingMuleProfiles[]"]
+
+		// Validate mule profiles - filter out any deleted mule profiles
+		requestedMuleProfiles := r.Form["mulingMuleProfiles[]"]
+		validMuleProfiles := []string{}
+		allCharacters := config.GetCharacters()
+		for _, muleName := range requestedMuleProfiles {
+			if muleCfg, exists := allCharacters[muleName]; exists && strings.ToLower(muleCfg.Character.Class) == "mule" {
+				validMuleProfiles = append(validMuleProfiles, muleName)
+			}
+		}
+		cfg.Muling.MuleProfiles = validMuleProfiles
+
 		cfg.Muling.ReturnTo = r.FormValue("mulingReturnTo")
 
 		config.SaveSupervisorConfig(supervisorName, cfg)
@@ -1471,6 +1482,16 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(muleProfiles)
 	sort.Strings(farmerProfiles)
+
+	// Filter out any invalid mule profiles from the config before rendering
+	// This prevents form validation errors when deleted mules are still referenced
+	validConfigMuleProfiles := []string{}
+	for _, muleName := range cfg.Muling.MuleProfiles {
+		if muleCfg, exists := allCharacters[muleName]; exists && strings.ToLower(muleCfg.Character.Class) == "mule" {
+			validConfigMuleProfiles = append(validConfigMuleProfiles, muleName)
+		}
+	}
+	cfg.Muling.MuleProfiles = validConfigMuleProfiles
 
 	s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
 		Supervisor:         supervisor,
