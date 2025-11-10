@@ -33,15 +33,19 @@
 			{"run":"khalims_eye"},
 			{"run":"khalims_brain"},
 			{"run":"khalims_heart"},
+			{"run":"gidbinn"},
 			{"run":"lam_esen"},
 			{"run":"travincal"},
 			{"run":"mephisto"},
 			
 			{"run":"izual"},
+			{"run":"hellforge"},
 			{"run":"diablo"},
 			
 			{"run":"shenk", "minLevel":30},
+			{"run":"rescue_barbs"},
 			{"run":"anya"},
+			{"run":"nihlathak"},
 			{"run":"ancients"},
 			{"run":"baal"}
 		],
@@ -136,6 +140,7 @@
 			{"run":"mephisto"},
 			
 			{"run":"izual"},
+			{"run":"hellforge"},
 			{"run":"diablo"},
 			
 			{"run":"shenk"},

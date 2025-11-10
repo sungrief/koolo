@@ -148,6 +148,8 @@ func BuildRun(run string) Run {
 		return NewKhalimsHeart()
 	case string(config.IzualRun):
 		return NewIzual()
+	case string(config.HellforgeRun):
+		return NewHellforge()
 	case string(config.ShenkRun):
 		return NewShenk()
 	case string(config.RescueBarbsRun):

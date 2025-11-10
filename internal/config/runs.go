@@ -51,6 +51,7 @@ const (
 	KhalimsBrainRun          Run = "khalims_brain"
 	KhalimsHeartRun          Run = "khalims_heart"
 	IzualRun                 Run = "izual"
+	HellforgeRun             Run = "hellforge"
 	ShenkRun                 Run = "shenk"
 	RescueBarbsRun           Run = "rescue_barbs"
 	AnyaRun                  Run = "anya"
