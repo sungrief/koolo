@@ -1,7 +1,7 @@
 package action
 
-import (	
-	"strings"
+import (	"strings"
+
 	"errors"
 	"fmt"
 	"log/slog"
@@ -122,7 +122,6 @@ func ItemPickup(maxDistance int) error {
 		itemTooFarRetryCount := 0     // Tracks retries specifically for "item too far"
 		totalAttemptCounter := 0      // New counter for overall attempts
 		var consecutiveMoveErrors int // New variable to track consecutive ErrCastingMoving errors
-		pathBlocks := 0
 
 
 		for totalAttemptCounter < totalMaxAttempts { // Loop until totalMaxAttempts is reached
@@ -178,42 +177,36 @@ func ItemPickup(maxDistance int) error {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moving to coordinates X:%d Y:%d (distance: %d, distToFinish: %d). Attempt %d", pickupPosition.X, pickupPosition.Y, distance, distanceToFinish, attempt))
 				}
 				
-		if err := step.MoveTo(pickupPosition, step.WithDistanceToFinish(distanceToFinish)); err != nil {
-			if debugPickit {
-				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Failed moving to item on attempt %d: %v", attempt, err))
+if err := step.MoveTo(pickupPosition, step.WithDistanceToFinish(distanceToFinish)); err != nil {
+					if debugPickit {
+						ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Failed moving to item on attempt %d: %v", attempt, err))
+					}
+			// Quick lateral sidestep to skirt soft path blocks (monsters near corridor)
+			from := ctx.Data.PlayerUnit.Position
+			dx := pickupPosition.X - from.X
+			dy := pickupPosition.Y - from.Y
+			nx, ny := 0, 0
+			if abs(dx) >= abs(dy) {
+				if dy >= 0 { ny = 1 } else { ny = -1 }
+			} else {
+				if dx >= 0 { nx = -1 } else { nx = 1 }
 			}
-			// Handle repeated 'monsters in path' by forcing a short reposition
-			if isMonstersInPathErr(err) {
-				pathBlocks++
-				if pathBlocks >= 2 {
-					// Try a few nearby tiles relative to the current player to unlock pathing
-					deltas := []data.Position{
-						{X: 2, Y: 0}, {X: -2, Y: 0}, {X: 0, Y: 2}, {X: 0, Y: -2},
-						{X: 3, Y: 0}, {X: -3, Y: 0}, {X: 0, Y: 3}, {X: 0, Y: -3},
+			cands := []data.Position{
+				{X: from.X + nx*2, Y: from.Y + ny*2},
+				{X: from.X - nx*2, Y: from.Y - ny*2},
+			}
+			for _, alt := range cands {
+				if ctx.Data.AreaData.IsWalkable(alt) {
+					if err2 := step.MoveTo(alt, step.WithDistanceToFinish(1)); err2 == nil {
+						// After a sidestep, try next loop iteration to recompute path to item
+						continue
 					}
-					moved := false
-					for _, d := range deltas {
-						alt := data.Position{X: ctx.Data.PlayerUnit.Position.X + d.X, Y: ctx.Data.PlayerUnit.Position.Y + d.Y}
-						if !ctx.Data.AreaData.IsWalkable(alt) { continue }
-						if err2 := step.MoveTo(alt, step.WithDistanceToFinish(1)); err2 == nil {
-							if debugPickit {
-								ctx.Logger.Debug("Item Pickup: forced reposition succeeded; escalating attempt", "altX", alt.X, "altY", alt.Y)
-							}
-							moved = true
-							break
-						}
-					}
-					// Escalate attempt either way to break the 'attempt 1' loop
-					attempt++
-					if moved { pathBlocks = 0 }
-					continue
 				}
 			}
 			lastError = err
-		
+
 			continue // Go to next total attempt
 		}
-
 				if debugPickit {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Move completed in %v. Attempt %d", time.Since(pickupStartTime), attempt))
 				}
@@ -517,3 +510,5 @@ func isPickupClickExhaustedErr(err error) bool {
     if strings.Contains(s, "monsters detected around item") { return true }
     return false
 }
+
+func abs(v int) int { if v < 0 { return -v }; return v }

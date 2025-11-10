@@ -141,10 +141,6 @@ func InteractEntranceMouse(targetArea area.ID) error {
 					)
 					ctx.HID.Click(game.LeftButton, screenX, screenY)
 
-					ping := utils.GetCurrentPing()
-					retryDelay := utils.RetryDelay(retry, 1.0, 800)
-
-
 					// Escalating retry delay: increases with each attempt
 					utils.RetrySleep(retry, float64(ctx.Data.Game.Ping), 800)
 					ctx.RefreshGameData()
@@ -174,8 +170,6 @@ func InteractEntranceMouse(targetArea area.ID) error {
 		interactionAttempts++
 		utils.PingSleep(utils.Light, 100)
 			if ctx.Data.HoverData.UnitType == 5 || ctx.Data.HoverData.UnitType == 2 && ctx.Data.HoverData.IsHovered {
-				ping := utils.GetCurrentPing()
-				delay := utils.PingMultiplier(utils.Light, 200)
 
 				ctx.HID.Click(game.LeftButton, currentMouseCoords.X, currentMouseCoords.Y)
 				waitingForInteraction = true
@@ -197,17 +191,12 @@ func InteractEntranceMouse(targetArea area.ID) error {
 			ctx.HID.MovePointer(lx+x, ly+y)
 			interactionAttempts++
 
-			ping := utils.GetCurrentPing()
-			delay := utils.PingMultiplier(utils.Light, 100)
-
 			utils.PingSleep(utils.Light, 100) // Light operation: Mouse movement delay
 
 			//Add a random movement logic when interaction attempts fail
 			if interactionAttempts > 1 && interactionAttempts%3 == 0 {
 				ctx.Logger.Debug("Failed to interact with entrance, performing random movement to reset position.")
 				ctx.PathFinder.RandomMovement()
-
-				repositionDelay := utils.RetryDelay(interactionAttempts/3, 1.0, 1000)
 
 				// Escalating delay for repositioning attempts
 				utils.RetrySleep(interactionAttempts/3, float64(ctx.Data.Game.Ping), 1000)
