@@ -1,6 +1,7 @@
 package action
 
-import (
+import (	
+	"strings"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -121,6 +122,8 @@ func ItemPickup(maxDistance int) error {
 		itemTooFarRetryCount := 0     // Tracks retries specifically for "item too far"
 		totalAttemptCounter := 0      // New counter for overall attempts
 		var consecutiveMoveErrors int // New variable to track consecutive ErrCastingMoving errors
+		pathBlocks := 0
+
 
 		for totalAttemptCounter < totalMaxAttempts { // Loop until totalMaxAttempts is reached
 			totalAttemptCounter++
@@ -174,14 +177,43 @@ func ItemPickup(maxDistance int) error {
 				if debugPickit {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moving to coordinates X:%d Y:%d (distance: %d, distToFinish: %d). Attempt %d", pickupPosition.X, pickupPosition.Y, distance, distanceToFinish, attempt))
 				}
-				if err := step.MoveTo(pickupPosition, step.WithDistanceToFinish(distanceToFinish)); err != nil {
-					if debugPickit {
-						ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Failed moving to item on attempt %d: %v", attempt, err))
+				
+		if err := step.MoveTo(pickupPosition, step.WithDistanceToFinish(distanceToFinish)); err != nil {
+			if debugPickit {
+				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Failed moving to item on attempt %d: %v", attempt, err))
+			}
+			// Handle repeated 'monsters in path' by forcing a short reposition
+			if isMonstersInPathErr(err) {
+				pathBlocks++
+				if pathBlocks >= 2 {
+					// Try a few nearby tiles relative to the current player to unlock pathing
+					deltas := []data.Position{
+						{X: 2, Y: 0}, {X: -2, Y: 0}, {X: 0, Y: 2}, {X: 0, Y: -2},
+						{X: 3, Y: 0}, {X: -3, Y: 0}, {X: 0, Y: 3}, {X: 0, Y: -3},
 					}
-					lastError = err
-
-					continue // Go to next total attempt
+					moved := false
+					for _, d := range deltas {
+						alt := data.Position{X: ctx.Data.PlayerUnit.Position.X + d.X, Y: ctx.Data.PlayerUnit.Position.Y + d.Y}
+						if !ctx.Data.AreaData.IsWalkable(alt) { continue }
+						if err2 := step.MoveTo(alt, step.WithDistanceToFinish(1)); err2 == nil {
+							if debugPickit {
+								ctx.Logger.Debug("Item Pickup: forced reposition succeeded; escalating attempt", "altX", alt.X, "altY", alt.Y)
+							}
+							moved = true
+							break
+						}
+					}
+					// Escalate attempt either way to break the 'attempt 1' loop
+					attempt++
+					if moved { pathBlocks = 0 }
+					continue
 				}
+			}
+			lastError = err
+		
+			continue // Go to next total attempt
+		}
+
 				if debugPickit {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Move completed in %v. Attempt %d", time.Since(pickupStartTime), attempt))
 				}
@@ -464,4 +496,24 @@ func IsBlacklisted(itm data.Item) bool {
 		}
 	}
 	return false
+}
+
+
+// isMonstersInPathErr treats both sentinel and string-form errors as "monsters in path".
+func isMonstersInPathErr(err error) bool {
+    if err == nil { return false }
+    if errors.Is(err, step.ErrMonstersInPath) { return true }
+    s := strings.ToLower(err.Error())
+    return strings.Contains(s, "monsters in path") || strings.Contains(s, "monsters detected in movement path")
+}
+
+
+// isPickupClickExhaustedErr returns true for transient pickup failures we should defer rather than blacklist.
+func isPickupClickExhaustedErr(err error) bool {
+    if err == nil { return false }
+    s := strings.ToLower(err.Error())
+    if strings.Contains(s, "failed to pick up") { return true }
+    if strings.Contains(s, "item is too far") { return true }
+    if strings.Contains(s, "monsters detected around item") { return true }
+    return false
 }

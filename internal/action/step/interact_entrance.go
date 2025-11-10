@@ -2,6 +2,7 @@ package step
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -139,6 +140,18 @@ func InteractEntranceMouse(targetArea area.ID) error {
 						l.Position.Y-2,
 					)
 					ctx.HID.Click(game.LeftButton, screenX, screenY)
+
+					ping := utils.GetCurrentPing()
+					retryDelay := utils.RetryDelay(retry, 1.0, 800)
+					ctx.Logger.Debug("Entrance interaction retry - adaptive sleep",
+						slog.String("target_area", targetArea.Area().Name),
+						slog.Int("retry_attempt", retry),
+						slog.Int("ping_ms", ping),
+						slog.Int("base_delay_ms", 800),
+						slog.Int("actual_delay_ms", retryDelay),
+						slog.String("formula", fmt.Sprintf("%d + (%.1f * %d * %d) = %d", 800, 1.0, ping, retry, retryDelay)),
+					)
+
 					// Escalating retry delay: increases with each attempt
 					utils.RetrySleep(retry, float64(ctx.Data.Game.Ping), 800)
 					ctx.RefreshGameData()
@@ -158,18 +171,56 @@ func InteractEntranceMouse(targetArea area.ID) error {
 
 		if l.IsEntrance {
 			lx, ly := ctx.PathFinder.GameCoordsToScreenCords(l.Position.X-1, l.Position.Y-1)
+		var x, y int
+		// Compute spiral offset and move pointer before hover check
+		x, y = utils.Spiral(interactionAttempts)
+		x = x / 3
+		y = y / 3
+		currentMouseCoords = data.Position{X: lx + x, Y: ly + y}
+		ctx.HID.MovePointer(currentMouseCoords.X, currentMouseCoords.Y)
+		interactionAttempts++
+		utils.PingSleep(utils.Light, 100)
 			if ctx.Data.HoverData.UnitType == 5 || ctx.Data.HoverData.UnitType == 2 && ctx.Data.HoverData.IsHovered {
+				ping := utils.GetCurrentPing()
+				delay := utils.PingMultiplier(utils.Light, 200)
+				ctx.Logger.Debug("Entrance click registered - adaptive sleep",
+					slog.String("target_area", targetArea.Area().Name),
+					slog.Int("ping_ms", ping),
+					slog.Int("min_delay_ms", 200),
+					slog.Int("actual_delay_ms", delay),
+					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 200, float64(utils.Light), ping, delay)),
+				)
+
 				ctx.HID.Click(game.LeftButton, currentMouseCoords.X, currentMouseCoords.Y)
 				waitingForInteraction = true
-				utils.PingSleep(utils.Light, 200) // Light operation: Wait for click registration
+				utils.PingSleep(utils.Light, 200) 
+			// Verify the area transitioned to the target before returning success
+			if err := EnsureAreaAfterEntrance(targetArea); err == nil {
+				ctx.Logger.Debug("Entrance transition confirmed", slog.String("target_area", targetArea.Area().Name))
+				return nil
+			} else {
+				ctx.Logger.Debug("Entrance transition not observed yet; continuing to retry", slog.String("err", err.Error()))
+			}
+// Light operation: Wait for click registration
 			}
 
-			x, y := utils.Spiral(interactionAttempts)
+			x, y = utils.Spiral(interactionAttempts)
 			x = x / 3
 			y = y / 3
 			currentMouseCoords = data.Position{X: lx + x, Y: ly + y}
 			ctx.HID.MovePointer(lx+x, ly+y)
 			interactionAttempts++
+
+			ping := utils.GetCurrentPing()
+			delay := utils.PingMultiplier(utils.Light, 100)
+			ctx.Logger.Debug("Entrance mouse movement - adaptive sleep",
+				slog.String("target_area", targetArea.Area().Name),
+				slog.Int("attempt", interactionAttempts),
+				slog.Int("ping_ms", ping),
+				slog.Int("min_delay_ms", 100),
+				slog.Int("actual_delay_ms", delay),
+				slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 100, float64(utils.Light), ping, delay)),
+			)
 
 			utils.PingSleep(utils.Light, 100) // Light operation: Mouse movement delay
 
@@ -177,6 +228,17 @@ func InteractEntranceMouse(targetArea area.ID) error {
 			if interactionAttempts > 1 && interactionAttempts%3 == 0 {
 				ctx.Logger.Debug("Failed to interact with entrance, performing random movement to reset position.")
 				ctx.PathFinder.RandomMovement()
+
+				repositionDelay := utils.RetryDelay(interactionAttempts/3, 1.0, 1000)
+				ctx.Logger.Debug("Entrance reposition - adaptive sleep",
+					slog.String("target_area", targetArea.Area().Name),
+					slog.Int("reposition_attempt", interactionAttempts/3),
+					slog.Int("ping_ms", ping),
+					slog.Int("base_delay_ms", 1000),
+					slog.Int("actual_delay_ms", repositionDelay),
+					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d * %d) = %d", 1000, 1.0, ping, interactionAttempts/3, repositionDelay)),
+				)
+
 				// Escalating delay for repositioning attempts
 				utils.RetrySleep(interactionAttempts/3, float64(ctx.Data.Game.Ping), 1000)
 			}
@@ -188,4 +250,23 @@ func InteractEntranceMouse(targetArea area.ID) error {
 
 		return fmt.Errorf("area %s [%d] is not an entrance", targetArea.Area().Name, targetArea)
 	}
+}
+
+
+// EnsureAreaAfterEntrance verifies the player transitioned to the expected area
+// shortly after interacting with an entrance. Call it right after a successful interact.
+func EnsureAreaAfterEntrance(expected area.ID) error {
+    ctx := context.Get()
+    if ctx.Data.PlayerUnit.Area == expected {
+        return nil
+    }
+    deadline := time.Now().Add(2 * time.Second)
+    for time.Now().Before(deadline) {
+        utils.PingSleep(utils.Light, 100)
+        if ctx.Data.PlayerUnit.Area == expected {
+            return nil
+        }
+    }
+    return fmt.Errorf("entrance interaction did not transition to %s [%d] in time",
+        expected.Area().Name, expected)
 }
