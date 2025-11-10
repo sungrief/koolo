@@ -90,7 +90,8 @@ func (s BlizzardSorceress) KillMonsterSequence(
 		}
 
 		// First check if we need to reposition due to nearby monsters
-		needsRepos, dangerousMonster := s.needsRepositioning()
+		//needsRepos, dangerousMonster := s.needsRepositioning()
+		needsRepos, _ := s.needsRepositioning()
 		if needsRepos && time.Since(lastReposition) > time.Second*1 {
 			lastReposition = time.Now()
 
@@ -107,8 +108,8 @@ func (s BlizzardSorceress) KillMonsterSequence(
 				return nil
 			}
 
-			s.Logger.Info(fmt.Sprintf("Dangerous monster detected at distance %d, repositioning...",
-				pather.DistanceFromPoint(s.Data.PlayerUnit.Position, dangerousMonster.Position)))
+			/*s.Logger.Info(fmt.Sprintf("Dangerous monster detected at distance %d, repositioning...",
+			pather.DistanceFromPoint(s.Data.PlayerUnit.Position, dangerousMonster.Position)))*/
 
 			// Find a safe position
 			safePos, found := s.findSafePosition(targetMonster)
@@ -647,8 +648,8 @@ func (s BlizzardSorceress) findSafePosition(targetMonster data.Monster) (data.Po
 
 	// Return the best position if we found any
 	if len(scoredPositions) > 0 {
-		s.Logger.Info(fmt.Sprintf("Found safe position with score %.2f at distance %.2f from nearest monster",
-			scoredPositions[0].score, minMonsterDistance(scoredPositions[0].pos, s.Data.Monsters)))
+		/*s.Logger.Info(fmt.Sprintf("Found safe position with score %.2f at distance %.2f from nearest monster",
+		scoredPositions[0].score, minMonsterDistance(scoredPositions[0].pos, s.Data.Monsters)))*/
 		return scoredPositions[0].pos, true
 	}
 
