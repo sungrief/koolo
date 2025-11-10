@@ -117,7 +117,7 @@ func (a Leveling) act5() error {
 	_, anyaInTown := a.ctx.Data.Monsters.FindOne(npc.Drehya, data.MonsterTypeNone)
 
 	if !anyaQuest.Completed() {
-		_, hasPotion := a.ctx.Data.Inventory.Find("Malah's Potion")
+		_, hasPotion := a.ctx.Data.Inventory.Find("MalahsPotion")
 
 		if !anyaInTown {
 			if !anyaQuest.Completed() {
