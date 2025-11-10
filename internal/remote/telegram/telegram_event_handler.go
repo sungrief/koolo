@@ -12,23 +12,15 @@ import (
 func (b *Bot) Handle(_ context.Context, e event.Event) error {
 	if e.Image() != nil {
 		buf := new(bytes.Buffer)
-		err := jpeg.Encode(buf, e.Image(), nil)
-		if err != nil {
+		if err := jpeg.Encode(buf, e.Image(), &jpeg.Options{Quality: 90}); err != nil {
+			_, _ = b.bot.Send(tgbotapi.NewMessage(b.chatID, e.Message()+" (screenshot encode failed)"))
 			return err
 		}
-
-		photo := tgbotapi.NewPhoto(b.chatID, tgbotapi.FileBytes{
-			Name:  e.Message(),
-			Bytes: buf.Bytes(),
-		})
+		photo := tgbotapi.NewPhoto(b.chatID, tgbotapi.FileBytes{Name: "screenshot.jpg", Bytes: buf.Bytes()})
 		photo.Caption = e.Message()
-
-		_, err = b.bot.Send(photo)
-
+		_, err := b.bot.Send(photo)
 		return err
 	}
-
 	_, err := b.bot.Send(tgbotapi.NewMessage(b.chatID, e.Message()))
-
 	return err
 }
