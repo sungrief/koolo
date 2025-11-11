@@ -90,7 +90,7 @@ func RunShopping(cfg ShoppingConfig) error {
 func shopVendorSinglePass(vendorID npc.ID, cfg ShoppingConfig) (goldSpent int, itemsBought int, err error) {
     ctx := context.Get()
 
-    // Move near vendor; suppress warn unless we actually fail to interact
+    // Let step.MoveTo handle its own stuck/unstuck internally; no custom nudging here.
     _ = moveToVendor(vendorID)
     utils.Sleep(60)
     ctx.RefreshGameData()
@@ -162,20 +162,19 @@ func scanAndPurchaseItems(_ npc.ID, cfg ShoppingConfig) (itemsPurchased int, gol
     rules := ctx.Data.CharacterCfg.Runtime.Rules
     if len(rules) == 0 { rules = cfg.Rules }
 
-    // Discovery without tab cycling: read all vendor items (across tabs) and group by Page
-    // Page in memory is 0-based; UI tabs are 1..4
+    // Primary discovery: group by vendor page from a single snapshot
     perTab := map[int][]data.UnitID{}
     itemsAll := ctx.Data.Inventory.ByLocation(item.LocationVendor)
     for _, it := range itemsAll {
         if !typeMatch(it, cfg.Types) { continue }
         if _, res := rules.EvaluateAll(it); res != nip.RuleResultFullMatch { continue }
-        tab := it.Location.Page + 1
+        tab := it.Location.Page + 1 // 0-based -> 1-based
         if tab < 1 || tab > 4 { continue }
         perTab[tab] = append(perTab[tab], it.UnitID)
     }
-    
+
+    // Fallback: if snapshot was empty (lazy loading), scan per tab
     if len(perTab) == 0 {
-        // Fallback: vendor items might be lazily loaded per tab in some builds.
         for tab := 1; tab <= 4; tab++ {
             switchVendorTabFast(tab)
             itemsTab := ctx.Data.Inventory.ByLocation(item.LocationVendor)
@@ -195,16 +194,17 @@ func scanAndPurchaseItems(_ npc.ID, cfg ShoppingConfig) (itemsPurchased int, gol
     for t := range perTab { tabs = append(tabs, t) }
     sort.Ints(tabs)
 
-    // Purchase: switch ONLY to tabs that have candidates; match by UnitID before clicking
+    // Purchase: switch ONLY to tabs that have candidates; match by UnitID + tab
     for _, tab := range tabs {
         if isInventoryAlmostFull(2) { break }
         switchVendorTabFast(tab)
+
         for _, want := range perTab[tab] {
             if isInventoryAlmostFull(2) {
                 ctx.Logger.Debug("Inventory almost full during vendor buy; stopping on this vendor")
                 break
             }
-            // Re-find by UnitID on the current tab snapshot
+            // Re-read current vendor list and match exactly
             itemsNow := ctx.Data.Inventory.ByLocation(item.LocationVendor)
             var target *data.Item
             for _, it := range itemsNow {
@@ -247,10 +247,11 @@ func openVendorTrade(vendorID npc.ID) {
     ctx.RefreshGameData()
 }
 
+// --- Simple movement to vendor; rely on step.MoveTo internal unstuck ---
 func moveToVendor(vendorID npc.ID) error {
     ctx := context.Get()
 
-    // Anchors for A5 NPCs that can be "lazy-loaded"
+    // Anchors for A5 NPCs (help memory load)
     switch vendorID {
     case npc.Drehya:
         _ = MoveToCoords(data.Position{X: 5107, Y: 5119})
@@ -260,30 +261,19 @@ func moveToVendor(vendorID npc.ID) error {
         utils.Sleep(60); ctx.RefreshGameData()
     }
 
+    // Resolve positions
     n, ok := ctx.Data.NPCs.FindOne(vendorID)
     if !ok || len(n.Positions) == 0 {
         if vendorID == npc.Drehya {
-            anchor := data.Position{X: 5107, Y: 5119}
+            // small coax loop to trigger loading
             for i := 0; i < 5 && (!ok || len(n.Positions) == 0); i++ {
                 utils.Sleep(80); ctx.RefreshGameData()
                 if nn, ok2 := ctx.Data.NPCs.FindOne(vendorID); ok2 && len(nn.Positions) > 0 { n, ok = nn, true; break }
-            }
-            if !ok || len(n.Positions) == 0 {
-                for _, off := range []data.Position{{1,0},{-1,0},{0,1},{0,-1},{2,0},{-2,0},{0,2},{0,-2}} {
-                    _ = MoveToCoords(data.Position{X: anchor.X + off.X, Y: anchor.Y + off.Y})
-                    utils.Sleep(60); ctx.RefreshGameData()
-                    if nn, ok2 := ctx.Data.NPCs.FindOne(vendorID); ok2 && len(nn.Positions) > 0 { n, ok = nn, true; break }
-                }
             }
         }
         if (!ok || len(n.Positions) == 0) && vendorID == npc.Malah {
             if m, found := ctx.Data.Monsters.FindOne(npc.Malah, data.MonsterTypeNone); found {
                 _ = MoveToCoords(m.Position); utils.Sleep(80); ctx.RefreshGameData()
-                if nn, ok2 := ctx.Data.NPCs.FindOne(vendorID); ok2 && len(nn.Positions) > 0 { n, ok = nn, true }
-            } else {
-                p := ctx.Data.PlayerUnit.Position
-                _ = MoveToCoords(data.Position{X: p.X, Y: p.Y - 6})
-                utils.Sleep(60); ctx.RefreshGameData()
                 if nn, ok2 := ctx.Data.NPCs.FindOne(vendorID); ok2 && len(nn.Positions) > 0 { n, ok = nn, true }
             }
         }
@@ -292,18 +282,21 @@ func moveToVendor(vendorID npc.ID) error {
         }
     }
 
+    // Choose nearest position
+    cur := ctx.Data.PlayerUnit.Position
     target := n.Positions[0]
-    if len(n.Positions) > 1 {
-        cur := ctx.Data.PlayerUnit.Position
-        best := target
-        bestd := (best.X-cur.X)*(best.X-cur.X) + (best.Y-cur.Y)*(best.Y-cur.Y)
-        for _, p := range n.Positions[1:] {
-            d := (p.X-cur.X)*(p.X-cur.X) + (p.Y-cur.Y)*(p.Y-cur.Y)
-            if d < bestd { best, bestd = p, d }
-        }
-        target = best
+    bestd := (target.X-cur.X)*(target.X-cur.X) + (target.Y-cur.Y)*(target.Y-cur.Y)
+    for _, p := range n.Positions[1:] {
+        d := (p.X-cur.X)*(p.X-cur.X) + (p.Y-cur.Y)*(p.Y-cur.Y)
+        if d < bestd { target, bestd = p, d }
     }
-    return step.MoveTo(target)
+
+    // Single MoveTo with gentle options; let step.MoveTo handle repath/unstuck internally
+    return step.MoveTo(target,
+        step.WithDistanceToFinish(3),
+        step.WithIgnoreItems(),
+        step.WithIgnoreMonsters(),
+    )
 }
 
 // --- Refresh helpers ---
@@ -344,7 +337,7 @@ func returnToTownViaAnyaRedPortalFromTemple() error {
         }
     }
     if !found { return fmt.Errorf("temple red portal not found") }
-    utils.Sleep(2000) // cooldown before reuse
+    utils.Sleep(1000) // cooldown before reuse (1s)
     if err := InteractObject(redPortal, func() bool {
         return ctx.Data.AreaData.Area == area.Harrogath && ctx.Data.AreaData.IsInside(ctx.Data.PlayerUnit.Position)
     }); err != nil { return err }
