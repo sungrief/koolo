@@ -270,7 +270,7 @@ func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
         ctx.Logger.Debug("Refreshing town via Anya red portal (preferred)")
 
         // Move near the portal (same anchor as Pindle run)
-        _ = MoveToCoords(data.Position{X: 5130, Y: 5120})
+        _ = MoveToCoords(data.Position{X: 5116, Y: 5121})
         utils.Sleep(150)
         ctx.RefreshGameData()
 
@@ -333,7 +333,10 @@ func returnToTownViaAnyaRedPortalFromTemple() error {
         return fmt.Errorf("temple red portal not found")
     }
 
-    // Interact until we are back in Harrogath
+    // Cooldown before reusing red portal
+        utils.Sleep(2000)
+
+        // Interact until we are back in Harrogath
     if err := InteractObject(redPortal, func() bool {
         return ctx.Data.AreaData.Area == area.Harrogath && ctx.Data.AreaData.IsInside(ctx.Data.PlayerUnit.Position)
     }); err != nil {
