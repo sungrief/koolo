@@ -16,7 +16,11 @@ import (
 )
 
 func checkPlayerDeathForTP(ctx *context.Status) error {
-	if ctx.Data.PlayerUnit.HPPercent() <= 0 {
+	if ctx.Data.PlayerUnit.Area.IsTown() {
+		return nil
+	}
+
+	if ctx.Data.PlayerUnit.IsDead() {
 		return health.ErrDied
 	}
 	// Player chicken check

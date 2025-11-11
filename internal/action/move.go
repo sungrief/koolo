@@ -63,7 +63,11 @@ var curseBreakingShrines = []object.ShrineType{
 
 // checkPlayerDeath checks if the player is dead and returns ErrDied if so.
 func checkPlayerDeath(ctx *context.Status) error {
-	if ctx.Data.PlayerUnit.HPPercent() <= 0 {
+	if ctx.Data.PlayerUnit.Area.IsTown() {
+		return nil
+	}
+
+	if ctx.Data.PlayerUnit.IsDead() {
 		return health.ErrDied
 	}
 	return nil
@@ -643,7 +647,7 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 	ctx := context.Get()
 
 	// Check if the bot is dead or chickened before proceeding.
-	if ctx.Data.PlayerUnit.HPPercent() <= 0 || ctx.Data.PlayerUnit.HPPercent() <= ctx.Data.CharacterCfg.Health.ChickenAt || ctx.Data.AreaData.Area.IsTown() {
+	if ctx.Data.PlayerUnit.IsDead() || ctx.Data.PlayerUnit.HPPercent() <= ctx.Data.CharacterCfg.Health.ChickenAt || ctx.Data.AreaData.Area.IsTown() {
 		ctx.Logger.Debug("Bot is dead or chickened, skipping shrine search.")
 		return nil
 	}
