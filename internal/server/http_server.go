@@ -10,7 +10,6 @@ import (
 	"html/template"
 	"io/fs"
 	"log/slog"
-	"math"
 	"net/http"
 	"reflect"
 	"slices"
@@ -48,7 +47,6 @@ type HttpServer struct {
 	manager   *bot.SupervisorManager
 	templates *template.Template
 	wsServer  *WebSocketServer
-	pickitAPI *PickitAPI
 }
 
 var (
@@ -220,17 +218,10 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager) (*HttpServer, erro
 		return nil, err
 	}
 
-	// Debug: List all loaded templates
-	logger.Info("Loaded templates:")
-	for _, t := range templates.Templates() {
-		logger.Info("  - " + t.Name())
-	}
-
 	return &HttpServer{
 		logger:    logger,
 		manager:   manager,
 		templates: templates,
-		pickitAPI: NewPickitAPI(),
 	}, nil
 }
 
@@ -409,8 +400,8 @@ func (s *HttpServer) getStatusData() IndexData {
 		// Enrich with lightweight live character overview for UI
 		if data := s.manager.GetData(supervisorName); data != nil {
 			// Defaults
-			var lvl, life, maxLife, mana, maxMana, mf, gold, gf int
-			var exp, lastExp, nextExp uint64
+			var lvl, exp, life, maxLife, mana, maxMana, mf, gold, gf int
+			var lastExp, nextExp int
 			var fr, cr, lr, pr int
 			var mfr, mcr, mlr, mpr int
 
@@ -418,16 +409,13 @@ func (s *HttpServer) getStatusData() IndexData {
 				lvl = v.Value
 			}
 			if v, ok := data.PlayerUnit.FindStat(stat.Experience, 0); ok {
-				// Treat as unsigned to handle values > 2^31-1
-				exp = uint64(uint32(v.Value))
+				exp = v.Value
 			}
 			if v, ok := data.PlayerUnit.FindStat(stat.LastExp, 0); ok {
-				// Treat as unsigned to handle values > 2^31-1
-				lastExp = uint64(uint32(v.Value))
+				lastExp = v.Value
 			}
 			if v, ok := data.PlayerUnit.FindStat(stat.NextExp, 0); ok {
-				// Treat as unsigned to handle values > 2^31-1
-				nextExp = uint64(uint32(v.Value))
+				nextExp = v.Value
 			}
 			if v, ok := data.PlayerUnit.FindStat(stat.Life, 0); ok {
 				life = v.Value
@@ -444,12 +432,11 @@ func (s *HttpServer) getStatusData() IndexData {
 			if v, ok := data.PlayerUnit.FindStat(stat.MagicFind, 0); ok {
 				mf = v.Value
 			}
+			// Total gold from inventory and private stash
+			gold = data.PlayerUnit.TotalPlayerGold()
 			if v, ok := data.PlayerUnit.FindStat(stat.GoldFind, 0); ok {
 				gf = v.Value
 			}
-
-			gold = data.PlayerUnit.TotalPlayerGold()
-
 			if v, ok := data.PlayerUnit.FindStat(stat.FireResist, 0); ok {
 				fr = v.Value
 			}
@@ -522,12 +509,11 @@ func (s *HttpServer) getStatusData() IndexData {
 			stats.UI = bot.CharacterOverview{
 				Class:           data.CharacterCfg.Character.Class,
 				Level:           lvl,
-				Experience:      exp,
-				LastExp:         lastExp,
-				NextExp:         nextExp,
+				Experience:      uint64(exp),
+				LastExp:         uint64(lastExp),
+				NextExp:         uint64(nextExp),
 				Difficulty:      diffStr,
 				Area:            areaStr,
-				Ping:            data.Game.Ping,
 				Life:            life,
 				MaxLife:         maxLife,
 				Mana:            mana,
@@ -594,29 +580,6 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/reload-config", s.reloadConfig)   // New handler
 	http.HandleFunc("/api/companion-join", s.companionJoin) // Companion join handler
 	http.HandleFunc("/reset-muling", s.resetMuling)
-
-	// Pickit Editor routes
-	http.HandleFunc("/pickit-editor", s.pickitEditorPage)
-	http.HandleFunc("/api/pickit/items", s.pickitAPI.handleGetItems)
-	http.HandleFunc("/api/pickit/items/search", s.pickitAPI.handleSearchItems)
-	http.HandleFunc("/api/pickit/items/categories", s.pickitAPI.handleGetCategories)
-	http.HandleFunc("/api/pickit/stats", s.pickitAPI.handleGetStats)
-	http.HandleFunc("/api/pickit/templates", s.pickitAPI.handleGetTemplates)
-	http.HandleFunc("/api/pickit/presets", s.pickitAPI.handleGetPresets)
-	http.HandleFunc("/api/pickit/rules", s.pickitAPI.handleGetRules)
-	http.HandleFunc("/api/pickit/rules/create", s.pickitAPI.handleCreateRule)
-	http.HandleFunc("/api/pickit/rules/update", s.pickitAPI.handleUpdateRule)
-	http.HandleFunc("/api/pickit/rules/delete", s.pickitAPI.handleDeleteRule)
-	http.HandleFunc("/api/pickit/rules/validate", s.pickitAPI.handleValidateRule)
-	http.HandleFunc("/api/pickit/rules/validate-nip", s.pickitAPI.handleValidateNIPLine)
-	http.HandleFunc("/api/pickit/files", s.pickitAPI.handleGetFiles)
-	http.HandleFunc("/api/pickit/files/import", s.pickitAPI.handleImportFile)
-	http.HandleFunc("/api/pickit/files/export", s.pickitAPI.handleExportFile)
-	http.HandleFunc("/api/pickit/files/rules/delete", s.pickitAPI.handleDeleteFileRule)
-	http.HandleFunc("/api/pickit/files/rules/update", s.pickitAPI.handleUpdateFileRule)
-	http.HandleFunc("/api/pickit/files/rules/append", s.pickitAPI.handleAppendNIPLine)
-	http.HandleFunc("/api/pickit/browse-folder", s.pickitAPI.handleBrowseFolder)
-	http.HandleFunc("/api/pickit/simulate", s.pickitAPI.handleSimulate)
 
 	assets, _ := fs.Sub(assetsFS, "assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
@@ -694,23 +657,6 @@ func (s *HttpServer) debugData(w http.ResponseWriter, r *http.Request) {
 
 func (s *HttpServer) debugHandler(w http.ResponseWriter, r *http.Request) {
 	s.templates.ExecuteTemplate(w, "debug.gohtml", nil)
-}
-
-func (s *HttpServer) pickitEditorPage(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	// Try without templates/ prefix first (like debug.gohtml)
-	err := s.templates.ExecuteTemplate(w, "pickit_editor.gohtml", nil)
-	if err != nil {
-		// If that fails, log what templates we have
-		s.logger.Error("Failed to execute pickit_editor template", "error", err)
-		s.logger.Info("Available templates:")
-		for _, t := range s.templates.Templates() {
-			s.logger.Info("  - " + t.Name())
-		}
-		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
-		return
-	}
 }
 
 func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
@@ -998,8 +944,6 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Discord.EnableRunFinishMessages = r.Form.Has("enable_run_finish_messages")
 		newConfig.Discord.EnableDiscordChickenMessages = r.Form.Has("enable_discord_chicken_messages")
 		newConfig.Discord.EnableDiscordErrorMessages = r.Form.Has("enable_discord_error_messages")
-		newConfig.Discord.Token = r.Form.Get("discord_token")
-		newConfig.Discord.ChannelID = r.Form.Get("discord_channel_id")
 
 		// Discord admins who can use bot commands
 		discordAdmins := r.Form.Get("discord_admins")
@@ -1021,20 +965,6 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		newConfig.Telegram.ChatID = telegramChatId
-
-		// Ping Monitor
-		newConfig.PingMonitor.Enabled = r.Form.Get("ping_monitor_enabled") == "true"
-		pingThreshold, err := strconv.Atoi(r.Form.Get("ping_monitor_threshold"))
-		if err != nil || pingThreshold < 100 {
-			pingThreshold = 500 // Default to 500ms
-		}
-		newConfig.PingMonitor.HighPingThreshold = pingThreshold
-
-		pingDuration, err := strconv.Atoi(r.Form.Get("ping_monitor_duration"))
-		if err != nil || pingDuration < 5 {
-			pingDuration = 30 // Default to 30 seconds
-		}
-		newConfig.PingMonitor.SustainedDuration = pingDuration
 
 		err = config.ValidateAndSaveConfig(newConfig)
 		if err != nil {
@@ -1074,7 +1004,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-
+	
 		cfg.MaxGameLength, _ = strconv.Atoi(r.Form.Get("maxGameLength"))
 		cfg.CharacterName = r.Form.Get("characterName")
 		cfg.CommandLineArgs = r.Form.Get("commandLineArgs")
@@ -1082,13 +1012,51 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.ClassicMode = r.Form.Has("classic_mode")
 		cfg.CloseMiniPanel = r.Form.Has("close_mini_panel")
 		cfg.HidePortraits = r.Form.Has("hide_portraits")
-
+		
 		// Bnet config
 		cfg.Username = r.Form.Get("username")
 		cfg.Password = r.Form.Get("password")
 		cfg.Realm = r.Form.Get("realm")
 		cfg.AuthMethod = r.Form.Get("authmethod")
 		cfg.AuthToken = r.Form.Get("AuthToken")
+		// --- Shopping (GUI -> CharacterCfg.Shopping) ---
+		cfg.Shopping.Enabled = r.Form.Has("shoppingEnabled")
+		
+		if v, err := strconv.Atoi(r.Form.Get("shoppingMaxGoldToSpend")); err == nil {
+			cfg.Shopping.MaxGoldToSpend = v
+		}
+		if v, err := strconv.Atoi(r.Form.Get("shoppingMinGoldReserve")); err == nil {
+			cfg.Shopping.MinGoldReserve = v
+		}
+		if v, err := strconv.Atoi(r.Form.Get("shoppingRefreshesPerRun")); err == nil {
+			cfg.Shopping.RefreshesPerRun = v
+		}
+		
+		cfg.Shopping.ShoppingRulesFile = r.Form.Get("shoppingRulesFile")
+		
+		// Item types: comma-separated -> []string (trim blanks)
+		{
+			raw := r.Form.Get("shoppingItemTypes")
+			items := make([]string, 0)
+			for _, p := range strings.Split(raw, ",") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					items = append(items, p)
+				}
+			}
+			cfg.Shopping.ItemTypes = items
+		}
+		
+		// Vendor checkboxes
+		cfg.Shopping.VendorAkara   = r.Form.Has("shoppingVendorAkara")
+		cfg.Shopping.VendorCharsi  = r.Form.Has("shoppingVendorCharsi")
+		cfg.Shopping.VendorGheed   = r.Form.Has("shoppingVendorGheed")
+		cfg.Shopping.VendorFara    = r.Form.Has("shoppingVendorFara")
+		cfg.Shopping.VendorDrognan = r.Form.Has("shoppingVendorDrognan")
+		cfg.Shopping.VendorElzix   = r.Form.Has("shoppingVendorElzix")
+		cfg.Shopping.VendorOrmus   = r.Form.Has("shoppingVendorOrmus")
+		cfg.Shopping.VendorMalah   = r.Form.Has("shoppingVendorMalah")
+		cfg.Shopping.VendorAnya    = r.Form.Has("shoppingVendorAnya")
 
 		// Scheduler config
 		cfg.Scheduler.Enabled = r.Form.Has("schedulerEnabled")
@@ -1154,9 +1122,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Character.Class = r.Form.Get("characterClass")
 		cfg.Character.StashToShared = r.Form.Has("characterStashToShared")
 		cfg.Character.UseTeleport = r.Form.Has("characterUseTeleport")
-		cfg.Character.UseExtraBuffs = r.Form.Has("characterUseExtraBuffs")
-		cfg.Character.BuffOnNewArea = r.Form.Has("characterBuffOnNewArea")
-		cfg.Character.BuffAfterWP = r.Form.Has("characterBuffAfterWP")
 
 		// Process ClearPathDist - only relevant when teleport is disabled
 		if !cfg.Character.UseTeleport {
@@ -1178,7 +1143,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		if cfg.Character.Class == "berserker" {
 			cfg.Character.BerserkerBarb.SkipPotionPickupInTravincal = r.Form.Has("barbSkipPotionPickupInTravincal")
 			cfg.Character.BerserkerBarb.FindItemSwitch = r.Form.Has("characterFindItemSwitch")
-			cfg.Character.BerserkerBarb.UseHowl = r.Form.Has("barbUseHowl")
 		}
 
 		// Nova Sorceress specific options
@@ -1217,7 +1181,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.MosaicSin.UseFistsOfFire = r.Form.Has("mosaicUseFistsOfFire")
 		}
 
-		// Blizzard Sorc specific options
 		if cfg.Character.Class == "sorceress" {
 			cfg.Character.BlizzardSorceress.UseMoatTrick = r.Form.Has("useMoatTrick")
 			cfg.Character.BlizzardSorceress.UseStaticOnMephisto = r.Form.Has("useStaticOnMephisto")
@@ -1228,7 +1191,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.SorceressLeveling.UseMoatTrick = r.Form.Has("useMoatTrick")
 			cfg.Character.SorceressLeveling.UseStaticOnMephisto = r.Form.Has("useStaticOnMephisto")
 		}
-
 		for y, row := range cfg.Inventory.InventoryLock {
 			for x := range row {
 				if r.Form.Has(fmt.Sprintf("inventoryLock[%d][%d]", y, x)) {
@@ -1253,7 +1215,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.UseCentralizedPickit = r.Form.Has("useCentralizedPickit")
 		cfg.Game.UseCainIdentify = r.Form.Has("useCainIdentify")
 		cfg.Game.InteractWithShrines = r.Form.Has("interactWithShrines")
-		cfg.Game.InteractWithChests = r.Form.Has("interactWithChests")
 		cfg.Game.StopLevelingAt, _ = strconv.Atoi(r.Form.Get("stopLevelingAt"))
 		cfg.Game.IsNonLadderChar = r.Form.Has("isNonLadderChar")
 
@@ -1290,34 +1251,23 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 		cfg.Game.StonyTomb.OpenChests = r.Form.Has("gameStonytombOpenChests")
 		cfg.Game.StonyTomb.FocusOnElitePacks = r.Form.Has("gameStonytombFocusOnElitePacks")
-
 		cfg.Game.AncientTunnels.OpenChests = r.Form.Has("gameAncientTunnelsOpenChests")
 		cfg.Game.AncientTunnels.FocusOnElitePacks = r.Form.Has("gameAncientTunnelsFocusOnElitePacks")
-
 		cfg.Game.Duriel.UseThawing = r.Form.Has("gameDurielUseThawing")
-
 		cfg.Game.Mausoleum.OpenChests = r.Form.Has("gameMausoleumOpenChests")
 		cfg.Game.Mausoleum.FocusOnElitePacks = r.Form.Has("gameMausoleumFocusOnElitePacks")
-
 		cfg.Game.DrifterCavern.OpenChests = r.Form.Has("gameDrifterCavernOpenChests")
 		cfg.Game.DrifterCavern.FocusOnElitePacks = r.Form.Has("gameDrifterCavernFocusOnElitePacks")
-
 		cfg.Game.SpiderCavern.OpenChests = r.Form.Has("gameSpiderCavernOpenChests")
 		cfg.Game.SpiderCavern.FocusOnElitePacks = r.Form.Has("gameSpiderCavernFocusOnElitePacks")
-
 		cfg.Game.ArachnidLair.OpenChests = r.Form.Has("gameArachnidLairOpenChests")
 		cfg.Game.ArachnidLair.FocusOnElitePacks = r.Form.Has("gameArachnidLairFocusOnElitePacks")
-
 		cfg.Game.Mephisto.KillCouncilMembers = r.Form.Has("gameMephistoKillCouncilMembers")
 		cfg.Game.Mephisto.OpenChests = r.Form.Has("gameMephistoOpenChests")
 		cfg.Game.Mephisto.ExitToA4 = r.Form.Has("gameMephistoExitToA4")
-
 		cfg.Game.Tristram.ClearPortal = r.Form.Has("gameTristramClearPortal")
 		cfg.Game.Tristram.FocusOnElitePacks = r.Form.Has("gameTristramFocusOnElitePacks")
-		cfg.Game.Tristram.OnlyFarmRejuvs = r.Form.Has("gameTristramOnlyFarmRejuvs")
-
 		cfg.Game.Nihlathak.ClearArea = r.Form.Has("gameNihlathakClearArea")
-		cfg.Game.Summoner.KillFireEye = r.Form.Has("gameSummonerKillFireEye")
 
 		cfg.Game.Baal.KillBaal = r.Form.Has("gameBaalKillBaal")
 		cfg.Game.Baal.DollQuit = r.Form.Has("gameBaalDollQuit")
@@ -1326,23 +1276,27 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Baal.OnlyElites = r.Form.Has("gameBaalOnlyElites")
 
 		cfg.Game.Eldritch.KillShenk = r.Form.Has("gameEldritchKillShenk")
-
 		cfg.Game.LowerKurastChest.OpenRacks = r.Form.Has("gameLowerKurastChestOpenRacks")
-
 		cfg.Game.Diablo.StartFromStar = r.Form.Has("gameDiabloStartFromStar")
 		cfg.Game.Diablo.KillDiablo = r.Form.Has("gameDiabloKillDiablo")
 		cfg.Game.Diablo.FocusOnElitePacks = r.Form.Has("gameDiabloFocusOnElitePacks")
 		cfg.Game.Diablo.DisableItemPickupDuringBosses = r.Form.Has("gameDiabloDisableItemPickupDuringBosses")
-		cfg.Game.Diablo.AttackFromDistance = s.getIntFromForm(r, "gameLevelingHellRequiredFireRes", 0, 25, 0)
+		attackFromDistance, err := strconv.Atoi(r.Form.Get("gameDiabloAttackFromDistance"))
+		if err != nil {
+			s.logger.Warn("Invalid Attack From Distance value, setting to default",
+				slog.String("error", err.Error()),
+				slog.Int("default", 0))
+			cfg.Game.Diablo.AttackFromDistance = 0 // 0 will not reposition
+		} else {
+			if attackFromDistance > 25 {
+				attackFromDistance = 25
+			}
+			cfg.Game.Diablo.AttackFromDistance = attackFromDistance
+		}
 		cfg.Game.Leveling.EnsurePointsAllocation = r.Form.Has("gameLevelingEnsurePointsAllocation")
 		cfg.Game.Leveling.EnsureKeyBinding = r.Form.Has("gameLevelingEnsureKeyBinding")
 		cfg.Game.Leveling.AutoEquip = r.Form.Has("gameLevelingAutoEquip")
 		cfg.Game.Leveling.AutoEquipFromSharedStash = r.Form.Has("gameLevelingAutoEquipFromSharedStash")
-		cfg.Game.Leveling.NightmareRequiredLevel = s.getIntFromForm(r, "gameLevelingNightmareRequiredLevel", 1, 99, 41)
-		cfg.Game.Leveling.HellRequiredLevel = s.getIntFromForm(r, "gameLevelingHellRequiredLevel", 1, 99, 70)
-		cfg.Game.Leveling.HellRequiredFireRes = s.getIntFromForm(r, "gameLevelingHellRequiredFireRes", -100, 75, 15)
-		cfg.Game.Leveling.HellRequiredLightRes = s.getIntFromForm(r, "gameLevelingHellRequiredLightRes", -100, 75, -10)
-
 		// Socket Recipes
 		cfg.Game.Leveling.EnableRunewordMaker = r.Form.Has("gameLevelingEnableRunewordMaker")
 		enabledRunewordRecipes := r.Form["gameLevelingEnabledRunewordRecipes"]
@@ -1380,13 +1334,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		cfg.Game.TerrorZone.Areas = tzAreas
 
-		// Utility
-		if parkingActStr := r.Form.Get("gameUtilityParkingAct"); parkingActStr != "" {
-			if parkingAct, err := strconv.Atoi(parkingActStr); err == nil {
-				cfg.Game.Utility.ParkingAct = parkingAct
-			}
-		}
-
 		// Gambling
 		cfg.Gambling.Enabled = r.Form.Has("gamblingEnabled")
 
@@ -1412,18 +1359,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 		// Muling
 		cfg.Muling.Enabled = r.FormValue("mulingEnabled") == "on"
-
-		// Validate mule profiles - filter out any deleted mule profiles
-		requestedMuleProfiles := r.Form["mulingMuleProfiles[]"]
-		validMuleProfiles := []string{}
-		allCharacters := config.GetCharacters()
-		for _, muleName := range requestedMuleProfiles {
-			if muleCfg, exists := allCharacters[muleName]; exists && strings.ToLower(muleCfg.Character.Class) == "mule" {
-				validMuleProfiles = append(validMuleProfiles, muleName)
-			}
-		}
-		cfg.Muling.MuleProfiles = validMuleProfiles
-
+		cfg.Muling.MuleProfiles = r.Form["mulingMuleProfiles[]"]
 		cfg.Muling.ReturnTo = r.FormValue("mulingReturnTo")
 
 		config.SaveSupervisorConfig(supervisorName, cfg)
@@ -1480,16 +1416,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(muleProfiles)
 	sort.Strings(farmerProfiles)
-
-	// Filter out any invalid mule profiles from the config before rendering
-	// This prevents form validation errors when deleted mules are still referenced
-	validConfigMuleProfiles := []string{}
-	for _, muleName := range cfg.Muling.MuleProfiles {
-		if muleCfg, exists := allCharacters[muleName]; exists && strings.ToLower(muleCfg.Character.Class) == "mule" {
-			validConfigMuleProfiles = append(validConfigMuleProfiles, muleName)
-		}
-	}
-	cfg.Muling.MuleProfiles = validConfigMuleProfiles
 
 	s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
 		Supervisor:         supervisor,
@@ -1635,16 +1561,3 @@ func (s *HttpServer) resetDroplogs(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"status": "ok", "dir": dir, "removed": removed})
 }
 
-func (s *HttpServer) getIntFromForm(r *http.Request, param string, min int, max int, defaultValue int) int {
-	result := defaultValue
-	paramValue, err := strconv.Atoi(r.Form.Get(param))
-	if err != nil {
-		s.logger.Warn("Invalid form value, setting to default",
-			slog.String("parameter", param),
-			slog.String("error", err.Error()),
-			slog.Int("default", 0))
-	} else {
-		result = int(math.Max(math.Min(float64(paramValue), float64(max)), float64(min)))
-	}
-	return result
-}
