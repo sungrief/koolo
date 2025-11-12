@@ -383,16 +383,20 @@ func (ls LevelingSequence) AdjustDifficulty() (bool, error) {
 	difficultyChanged := false
 	if difficultySettings.StayDifficultyConditions != nil {
 		if !ls.CheckDifficultyConditions(difficultySettings.StayDifficultyConditions, ls.ctx.CharacterCfg.Game.Difficulty) {
-			ls.ctx.CharacterCfg.Game.Difficulty = ls.GetPreviousDifficulty()
-			difficultyChanged = true
+			targetDifficulty := ls.GetPreviousDifficulty()
+			if targetDifficulty != ls.ctx.CharacterCfg.Game.Difficulty {
+				difficultyChanged = true
+			}
 		}
 	}
 
 	if !difficultyChanged && difficultySettings.NextDifficultyConditions != nil && ls.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {
 		nextDifficulty := ls.GetNextDifficulty()
-		if ls.CheckDifficultyConditions(difficultySettings.NextDifficultyConditions, nextDifficulty) {
-			ls.ctx.CharacterCfg.Game.Difficulty = nextDifficulty
-			difficultyChanged = true
+		if nextDifficulty != ls.ctx.CharacterCfg.Game.Difficulty {
+			if ls.CheckDifficultyConditions(difficultySettings.NextDifficultyConditions, nextDifficulty) {
+				ls.ctx.CharacterCfg.Game.Difficulty = nextDifficulty
+				difficultyChanged = true
+			}
 		}
 	}
 
