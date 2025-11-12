@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
+	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	packet "github.com/hectorgimenez/koolo/internal/packet"
 )
 
@@ -56,6 +57,38 @@ func (ps *PacketSender) Teleport(position data.Position) error {
 
 	if err := ps.SendPacket(payload); err != nil {
 		return fmt.Errorf("failed to send teleport packet: %w", err)
+	}
+	return nil
+}
+
+// TelekinesisInteraction sends packet 0x0D for object interaction using telekinesis
+// Use cases: waypoints, chests, shrines from distance (Sorceress only)
+// Requires character to have Telekinesis skill and be within interaction range
+func (ps *PacketSender) TelekinesisInteraction(objectGID data.UnitID) error {
+	if err := ps.SendPacket(packet.NewTelekinesisInteraction(objectGID).GetPayload()); err != nil {
+		return fmt.Errorf("failed to send telekinesis interaction packet: %w", err)
+	}
+	return nil
+}
+
+// CastSkillAtLocation sends packet 0x0C to cast a skill at a specific location
+// Use cases: Blizzard, Meteor, Frozen Orb, or any location-targeted skill
+// Useful for faster/more precise casting than HID mouse clicks
+func (ps *PacketSender) CastSkillAtLocation(position data.Position) error {
+	payload := packet.NewCastSkillLocation(position).GetPayload()
+
+	if err := ps.SendPacket(payload); err != nil {
+		return fmt.Errorf("failed to send cast skill at location packet: %w", err)
+	}
+	return nil
+}
+
+// SelectRightSkill sends packet 0x3C to change the active right-click skill
+// Use cases: Switch skills via packet instead of clicking UI (F1-F9 functionality)
+// Useful for quick skill switching during combat or automation
+func (ps *PacketSender) SelectRightSkill(skillID skill.ID) error {
+	if err := ps.SendPacket(packet.NewSkillSelection(skillID).GetPayload()); err != nil {
+		return fmt.Errorf("failed to send skill selection packet: %w", err)
 	}
 	return nil
 }

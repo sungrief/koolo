@@ -94,6 +94,14 @@
                             Boss Static HP (%)
                             <input type="number" id="novaBossStaticThreshold" name="novaBossStaticThreshold" min="1" max="100" step="1" value="{{ .Config.Character.NovaSorceress.BossStaticThreshold }}">
                         </label>
+                        <label>
+                            <input type="checkbox" id="novaUseTelekinesis" name="useTelekinesis" {{ if .Config.Character.NovaSorceress.UseTelekinesis }}checked{{ end }}/>
+                            Use Telekinesis (Waypoints/Chests)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="novaUseTelekinesisPackets" name="useTelekinesisPackets" {{ if .Config.Character.NovaSorceress.UseTelekinesisPackets }}checked{{ end }}/>
+                            Use Telekinesis Packets (faster)
+                        </label>
                     </fieldset>
                 </div>
                 <div class="blizzard-sorceress-options" style="display: none;">
@@ -106,6 +114,18 @@
                             Use static on Mephisto
                             <input type="checkbox" id="blizzardUseStaticOnMephisto" name="useStaticOnMephisto" {{ if .Config.Character.BlizzardSorceress.UseStaticOnMephisto }}checked{{ end }}/>
                         </label>
+                        <label>
+                            <input type="checkbox" id="blizzardUseTelekinesis" name="useTelekinesis" {{ if .Config.Character.BlizzardSorceress.UseTelekinesis }}checked{{ end }}/>
+                            Use Telekinesis (Waypoints/Chests)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="blizzardUseTelekinesisPackets" name="useTelekinesisPackets" {{ if .Config.Character.BlizzardSorceress.UseTelekinesisPackets }}checked{{ end }}/>
+                            Use Telekinesis Packets (faster)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="blizzardUseBlizzardPackets" name="useBlizzardPackets" {{ if .Config.Character.BlizzardSorceress.UseBlizzardPackets }}checked{{ end }}/>
+                            Use Blizzard Packets (faster casting)
+                        </label>
                     </fieldset>
                 </div>
                 <div class="sorceress_leveling-options" style="display: none;">
@@ -117,6 +137,54 @@
                         <label>
                             Use static on Mephisto
                             <input type="checkbox" id="levelingUseStaticOnMephisto" name="useStaticOnMephisto" {{ if .Config.Character.SorceressLeveling.UseStaticOnMephisto }}checked{{ end }}/>
+                        </label>
+                        <label>
+                            <input type="checkbox" id="levelingUseTelekinesis" name="useTelekinesis" {{ if .Config.Character.SorceressLeveling.UseTelekinesis }}checked{{ end }}/>
+                            Use Telekinesis (Waypoints/Chests)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="levelingUseTelekinesisPackets" name="useTelekinesisPackets" {{ if .Config.Character.SorceressLeveling.UseTelekinesisPackets }}checked{{ end }}/>
+                            Use Telekinesis Packets (faster)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="levelingUseBlizzardPackets" name="useBlizzardPackets" {{ if .Config.Character.SorceressLeveling.UseBlizzardPackets }}checked{{ end }}/>
+                            Use Blizzard Packets (faster casting)
+                        </label>
+                    </fieldset>
+                </div>
+                <div class="lightsorc-options" style="display: none;">
+                    <fieldset class="grid">
+                        <label>
+                            <input type="checkbox" id="lightningUseTelekinesis" name="useTelekinesis" {{ if .Config.Character.LightningSorceress.UseTelekinesis }}checked{{ end }}/>
+                            Use Telekinesis (Waypoints/Chests)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="lightningUseTelekinesisPackets" name="useTelekinesisPackets" {{ if .Config.Character.LightningSorceress.UseTelekinesisPackets }}checked{{ end }}/>
+                            Use Telekinesis Packets (faster)
+                        </label>
+                    </fieldset>
+                </div>
+                <div class="hydraorb-options" style="display: none;">
+                    <fieldset class="grid">
+                        <label>
+                            <input type="checkbox" id="hydraorbUseTelekinesis" name="useTelekinesis" {{ if .Config.Character.HydraOrbSorceress.UseTelekinesis }}checked{{ end }}/>
+                            Use Telekinesis (Waypoints/Chests)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="hydraorbUseTelekinesisPackets" name="useTelekinesisPackets" {{ if .Config.Character.HydraOrbSorceress.UseTelekinesisPackets }}checked{{ end }}/>
+                            Use Telekinesis Packets (faster)
+                        </label>
+                    </fieldset>
+                </div>
+                <div class="fireballsorc-options" style="display: none;">
+                    <fieldset class="grid">
+                        <label>
+                            <input type="checkbox" id="fireballUseTelekinesis" name="useTelekinesis" {{ if .Config.Character.FireballSorceress.UseTelekinesis }}checked{{ end }}/>
+                            Use Telekinesis (Waypoints/Chests)
+                        </label>
+                        <label>
+                            <input type="checkbox" id="fireballUseTelekinesisPackets" name="useTelekinesisPackets" {{ if .Config.Character.FireballSorceress.UseTelekinesisPackets }}checked{{ end }}/>
+                            Use Telekinesis Packets (faster)
                         </label>
                     </fieldset>
                 </div>
