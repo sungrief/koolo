@@ -434,17 +434,6 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		if o.IsPortal() || o.IsRedPortal() {
 			// If portal is still being created, wait with escalating delay
 			if o.Mode == mode.ObjectModeOperating {
-				ping := utils.GetCurrentPing()
-				retryDelay := utils.RetryDelay(interactionAttempts, 1.0, 100)
-				ctx.Logger.Debug("Portal creating - adaptive retry sleep",
-					slog.Any("object_id", o.Name),
-					slog.Int("attempt", interactionAttempts),
-					slog.Int("ping_ms", ping),
-					slog.Int("base_delay_ms", 100),
-					slog.Int("actual_delay_ms", retryDelay),
-					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d * %d) = %d", 100, 1.0, ping, interactionAttempts, retryDelay)),
-				)
-
 				// Use retry escalation for portal opening waits
 				utils.RetrySleep(interactionAttempts, float64(ctx.Data.Game.Ping), 100)
 				continue
@@ -452,17 +441,6 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 
 			// Only interact when portal is fully opened
 			if o.Mode != mode.ObjectModeOpened {
-				ping := utils.GetCurrentPing()
-				retryDelay := utils.RetryDelay(interactionAttempts, 1.0, 100)
-				ctx.Logger.Debug("Portal not fully opened - adaptive retry sleep",
-					slog.Any("object_id", o.Name),
-					slog.Int("attempt", interactionAttempts),
-					slog.Int("ping_ms", ping),
-					slog.Int("base_delay_ms", 100),
-					slog.Int("actual_delay_ms", retryDelay),
-					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d * %d) = %d", 100, 1.0, ping, interactionAttempts, retryDelay)),
-				)
-
 				utils.RetrySleep(interactionAttempts, float64(ctx.Data.Game.Ping), 100)
 				continue
 			}
@@ -476,17 +454,6 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 
 			// For portals with expected area, we need to wait for proper area sync
 			if expectedArea != 0 {
-				ping := utils.GetCurrentPing()
-				delay := utils.PingMultiplier(utils.Medium, 500)
-				ctx.Logger.Debug("Portal area transition - adaptive sleep",
-					slog.Any("object_id", o.Name),
-					slog.String("expected_area", expectedArea.Area().Name),
-					slog.Int("ping_ms", ping),
-					slog.Int("min_delay_ms", 500),
-					slog.Int("actual_delay_ms", delay),
-					slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 500, float64(utils.Medium), ping, delay)),
-				)
-
 				utils.PingSleep(utils.Medium, 500)
 
 				maxQuickChecks := 5
@@ -505,17 +472,6 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 							}
 						}
 					}
-
-					delay := utils.PingMultiplier(utils.Light, 100)
-					ctx.Logger.Debug("Portal sync retry - adaptive sleep",
-						slog.String("expected_area", expectedArea.Area().Name),
-						slog.String("current_area", ctx.Data.PlayerUnit.Area.Area().Name),
-						slog.Int("sync_attempt", attempts),
-						slog.Int("ping_ms", ping),
-						slog.Int("min_delay_ms", 100),
-						slog.Int("actual_delay_ms", delay),
-						slog.String("formula", fmt.Sprintf("%d + (%.1f * %d) = %d", 100, float64(utils.Light), ping, delay)),
-					)
 
 					utils.PingSleep(utils.Light, 100)
 				}

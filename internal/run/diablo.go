@@ -7,6 +7,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
@@ -149,7 +150,7 @@ func (d *Diablo) Run() error {
 				}); err != nil {
 					d.ctx.Logger.Error(fmt.Sprintf("Attempt %d to interact with seal %d: %v failed", attempts+1, sealID, err))
 					d.ctx.PathFinder.RandomMovement()
-					utils.Sleep(200)
+					utils.PingSleep(utils.Medium, 200)
 				}
 
 				attempts++
@@ -182,6 +183,9 @@ func (d *Diablo) Run() error {
 
 	if d.ctx.CharacterCfg.Game.Diablo.KillDiablo {
 
+		// Buff BEFORE setting ClearPathDist to 0, so bot can defend itself during buff
+		action.Buff()
+
 		originalClearPathDistCfg := d.ctx.CharacterCfg.Character.ClearPathDist
 		d.ctx.CharacterCfg.Character.ClearPathDist = 0
 
@@ -189,8 +193,6 @@ func (d *Diablo) Run() error {
 			d.ctx.CharacterCfg.Character.ClearPathDist = originalClearPathDistCfg
 
 		}()
-
-		action.Buff()
 
 		if isLevelingChar && d.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
 			action.MoveToCoords(diabloSpawnPosition)
@@ -216,24 +218,49 @@ func (d *Diablo) killSealElite(boss string) error {
 	d.ctx.Logger.Debug(fmt.Sprintf("Starting kill sequence for %s", boss))
 	startTime := time.Now()
 
-	timeout := 15 * time.Second
+	timeout := 20 * time.Second
 
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 	sealElite := data.Monster{}
+	sealEliteAlreadyDead := false
+	sealEliteDetected := false // Track if we ever detected the boss alive
+
+	// Map boss name to NPC ID for corpse checking
+	var bossNPCID npc.ID
+	switch boss {
+	case "Vizier":
+		bossNPCID = npc.StormCaster
+	case "Lord De Seis":
+		bossNPCID = npc.OblivionKnight
+	case "Infector":
+		bossNPCID = npc.VenomLord
+	}
+
 	for time.Since(startTime) < timeout {
 		d.ctx.PauseIfNotPriority()
 		d.ctx.RefreshGameData()
 
+		// Check for living seal elite
 		for _, m := range d.ctx.Data.Monsters.Enemies(d.ctx.Data.MonsterFilterAnyReachable()) {
-			if action.IsMonsterSealElite(m) {
+			if action.IsMonsterSealElite(m) && m.Name == bossNPCID {
 				sealElite = m
-				//d.ctx.Logger.Debug(fmt.Sprintf("Seal elite found: %v at position X: %d, Y: %d", m.Name, m.Position.X, m.Position.Y))
+				sealEliteDetected = true // Mark as detected
 				break
 			}
 		}
 
-		if sealElite.UnitID != 0 {
-			//Seal elite found, stop detection loop
+		// If not found alive, check if already dead in corpses
+		if sealElite.UnitID == 0 {
+			for _, corpse := range d.ctx.Data.Corpses {
+				if action.IsMonsterSealElite(corpse) && corpse.Name == bossNPCID {
+					sealEliteAlreadyDead = true
+					break
+				}
+			}
+		}
+
+		if sealElite.UnitID != 0 || sealEliteAlreadyDead {
+			//Seal elite found (alive or dead), stop detection loop
 			break
 		}
 
@@ -242,10 +269,37 @@ func (d *Diablo) killSealElite(boss string) error {
 			startTime = time.Now()
 		}
 
-		utils.Sleep(250)
+		utils.PingSleep(utils.Light, 250)
 	}
 
-	utils.Sleep(500)
+	// If seal elite was already dead, no need to kill it
+	if sealEliteAlreadyDead {
+		return nil
+	}
+
+	// If we didn't find the boss at all after timeout, it might have spawned far away or died before we could detect it
+	// For Lord De Seis this is acceptable (he can be far), but for others it's suspicious
+	if sealElite.UnitID == 0 {
+		// Try one more time to check corpses after clearing nearby area
+		action.ClearAreaAroundPlayer(40, data.MonsterAnyFilter())
+		d.ctx.RefreshGameData()
+
+		for _, corpse := range d.ctx.Data.Corpses {
+			if action.IsMonsterSealElite(corpse) && corpse.Name == bossNPCID {
+				return nil
+			}
+		}
+
+		// If it's Lord De Seis, this is acceptable (he spawns far sometimes)
+		if boss == "Lord De Seis" {
+			d.ctx.Logger.Debug("Lord De Seis not found but this is acceptable, continuing")
+			return nil
+		}
+
+		return fmt.Errorf("no seal elite found for %s within %v seconds", boss, timeout)
+	}
+
+	utils.PingSleep(utils.Medium, 500)
 
 	killSealEliteAttempts := 0
 	if sealElite.UnitID != 0 {
@@ -256,16 +310,36 @@ func (d *Diablo) killSealElite(boss string) error {
 
 			//If in town, wait until back to battlefield
 			if d.ctx.Data.PlayerUnit.Area.IsTown() {
-				utils.Sleep(100)
+				utils.PingSleep(utils.Light, 100)
 				continue
 			}
 
 			if !found {
-				if _, corpseFound := d.ctx.Data.Corpses.FindByID(sealElite.UnitID); corpseFound {
-					d.ctx.Logger.Debug(fmt.Sprintf("Successfully killed seal elite %s after %d attempts", boss, killSealEliteAttempts))
-					return nil
-				} else {
-					return fmt.Errorf("seal elite %s not found after first detection ", boss)
+				// Boss UnitID lost, try to re-detect by checking all seal elites
+				for _, monster := range d.ctx.Data.Monsters.Enemies(d.ctx.Data.MonsterFilterAnyReachable()) {
+					if action.IsMonsterSealElite(monster) && monster.Name == bossNPCID {
+						sealElite = monster
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					// Check corpses - look for the specific boss by name
+					for _, corpse := range d.ctx.Data.Corpses {
+						if action.IsMonsterSealElite(corpse) && corpse.Name == bossNPCID {
+							d.ctx.Logger.Debug(fmt.Sprintf("Successfully killed seal elite %s (found in corpses)", boss))
+							return nil
+						}
+					}
+
+					// Still not found - only fail after multiple attempts (not first iteration)
+					if killSealEliteAttempts > 2 {
+						return fmt.Errorf("seal elite %s not found after first detection", boss)
+					}
+					// Continue loop to retry
+					utils.PingSleep(utils.Light, 250)
+					continue
 				}
 			}
 
@@ -295,7 +369,35 @@ func (d *Diablo) killSealElite(boss string) error {
 				continue
 			}
 
-			utils.Sleep(250)
+			// After clearing, check if boss was killed
+			d.ctx.RefreshGameData()
+
+			// First check corpses (if not shattered)
+			corpseFound := false
+			for _, corpse := range d.ctx.Data.Corpses {
+				if action.IsMonsterSealElite(corpse) && corpse.Name == bossNPCID {
+					d.ctx.Logger.Debug(fmt.Sprintf("Successfully killed seal elite %s after %d attempts (found in corpses)", boss, killSealEliteAttempts))
+					return nil
+				}
+			}
+
+			// If corpse not found, check if boss is still alive
+			bossStillAlive := false
+			for _, m := range d.ctx.Data.Monsters.Enemies(d.ctx.Data.MonsterFilterAnyReachable()) {
+				if action.IsMonsterSealElite(m) && m.Name == bossNPCID {
+					bossStillAlive = true
+					break
+				}
+			}
+
+			// If we detected the boss earlier but now it's gone (not alive, not in corpses)
+			// Trust the detection flag - boss was killed, corpse likely destroyed/shattered
+			if sealEliteDetected && !bossStillAlive && !corpseFound {
+				d.ctx.Logger.Debug(fmt.Sprintf("Successfully killed seal elite %s after %d attempts (corpse destroyed/shattered)", boss, killSealEliteAttempts))
+				return nil
+			}
+
+			utils.PingSleep(utils.Light, 250)
 		}
 	} else {
 		return fmt.Errorf("no seal elite found for %s within %v seconds", boss, timeout.Seconds())
