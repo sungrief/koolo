@@ -1,9 +1,11 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -377,13 +379,9 @@ func Load() error {
 	defer cfgMux.Unlock()
 	Characters = make(map[string]*CharacterCfg)
 
-	cwd, err := os.Getwd()
+	_, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("error getting current working directory: %w", err)
-	}
-
-	getAbsPath := func(relPath string) string {
-		return filepath.Join(cwd, relPath)
 	}
 
 	kooloPath := getAbsPath("config/koolo.yaml")
@@ -449,50 +447,14 @@ func Load() error {
 
 		// Load the leveling pickit rules
 		if len(charCfg.Game.Runs) > 0 && charCfg.Game.Runs[0] == "leveling" {
-			levelingPickitPath := getAbsPath(filepath.Join("config", entry.Name(), "pickit_leveling"))
-			classPickitFile := filepath.Join(levelingPickitPath, charCfg.Character.Class+".nip")
-			questPickitFile := filepath.Join(levelingPickitPath, "quest.nip")
+			nips := getLevelingNipFiles(&charCfg, entry.Name())
 
-			// Try to load the class-specific nip file first
-			if _, errStat := os.Stat(classPickitFile); errStat == nil {
-				classRules, err := readSinglePickitFile(classPickitFile)
+			for _, nipFile := range nips {
+				classRules, err := readSinglePickitFile(nipFile)
 				if err != nil {
 					return err
 				}
 				rules = append(rules, classRules...)
-			} else {
-				// Fallback: if no class file, load all files EXCEPT quest.nip (to avoid duplicates)
-				if _, err := os.Stat(levelingPickitPath); !os.IsNotExist(err) {
-					allLevelingFiles, err := os.ReadDir(levelingPickitPath)
-					if err != nil {
-						return fmt.Errorf("could not read pickit_leveling dir: %w", err)
-					}
-
-					// Create a temporary directory for all non-class, non-quest files
-					tempDir := filepath.Join(levelingPickitPath, "temp_fallback")
-					if err := os.MkdirAll(tempDir, 0755); err == nil {
-						for _, file := range allLevelingFiles {
-							// Exclude quest.nip since it will be loaded separately
-							if file.Name() != "quest.nip" && strings.HasSuffix(file.Name(), ".nip") {
-								sourceData, _ := os.ReadFile(filepath.Join(levelingPickitPath, file.Name()))
-								os.WriteFile(filepath.Join(tempDir, file.Name()), sourceData, 0644)
-							}
-						}
-
-						fallbackRules, _ := nip.ReadDir(tempDir + "\\")
-						rules = append(rules, fallbackRules...)
-						os.RemoveAll(tempDir)
-					}
-				}
-			}
-
-			// Separately, try to load quest.nip and append its rules
-			if _, errStat := os.Stat(questPickitFile); errStat == nil {
-				questRules, err := readSinglePickitFile(questPickitFile)
-				if err != nil {
-					return err
-				}
-				rules = append(rules, questRules...)
 			}
 		}
 
@@ -611,4 +573,63 @@ func (c *CharacterCfg) Validate() {
 			c.Character.NovaSorceress.BossStaticThreshold = minThreshold
 		}
 	}
+}
+
+func getAbsPath(relPath string) string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		//Error should be checked in the Load function before any calls
+		return relPath
+	}
+	return filepath.Join(cwd, relPath)
+}
+
+func getLevelingNipFiles(charCfg *CharacterCfg, entryName string) []string {
+	var nips []string
+	levelingPickitPath := getAbsPath(filepath.Join("config", entryName, "pickit_leveling"))
+	levelingBuildPath := getAbsPath(filepath.Join("config", "template", "builds_leveling"))
+	levelingPickitTemplatePath := getAbsPath(filepath.Join("config", "template", "pickit_leveling"))
+	classBuildFile := filepath.Join(levelingBuildPath, charCfg.Character.Class+".json")
+
+	if jsonData, err := utils.GetJsonData(classBuildFile); err == nil {
+		var buildConfig LevelingBuildConfig
+		err = json.Unmarshal(jsonData, &buildConfig)
+		if err == nil {
+			for _, nip := range buildConfig.Nips {
+				nipPath, err := getNipFilePath(levelingPickitPath, levelingPickitTemplatePath, nip)
+				if err == nil {
+					nips = append(nips, nipPath)
+				}
+			}
+		}
+	}
+
+	//No build found, fallback to class pickit
+	if len(nips) == 0 {
+		nipPath, err := getNipFilePath(levelingPickitPath, levelingPickitTemplatePath, charCfg.Character.Class+".nip")
+		if err == nil {
+			nips = append(nips, nipPath)
+		}
+	}
+
+	//Quests nip
+	questNipPath, err := getNipFilePath(levelingPickitPath, levelingPickitTemplatePath, "quest.nip")
+	if err == nil {
+		if !slices.Contains(nips, questNipPath) {
+			nips = append(nips, questNipPath)
+		}
+	}
+
+	return nips
+}
+
+func getNipFilePath(charPath, templatePath, nipFile string) (string, error) {
+	charNipFile := filepath.Join(charPath, nipFile)
+	templateNipFile := filepath.Join(templatePath, nipFile)
+	if _, err := os.Stat(charNipFile); err == nil {
+		return charNipFile, nil
+	} else if _, err := os.Stat(templateNipFile); err == nil {
+		return templateNipFile, nil
+	}
+	return nipFile, errors.New("pickit not found")
 }
