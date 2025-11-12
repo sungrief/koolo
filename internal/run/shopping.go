@@ -1,7 +1,9 @@
+
 package run
 
 import (
 	"log/slog"
+
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -15,22 +17,15 @@ func (r Shopping) Name() string { return string(config.ShoppingRun) }
 
 func (r Shopping) Run() error {
 	ctx := context.Get()
-	shop := ctx.CharacterCfg.Shopping
-	if !shop.Enabled {
-		ctx.Logger.Debug("Shopping run disabled")
-		return nil
-	}
-	cfg := action.ShoppingConfig{
-		Enabled:         shop.Enabled,
-		RefreshesPerRun: shop.RefreshesPerRun,
-		MinGoldReserve:  shop.MinGoldReserve,
-		Vendors:         shop.SelectedVendors(),
-		Rules:           ctx.Data.CharacterCfg.Runtime.Rules,
-		Types:           shop.ItemTypes,
-	}
+	shop := ctx.Data.CharacterCfg.Shopping
+
+	// Log what we are about to do for visibility
+	vendors := shop.SelectedVendors()
 	ctx.Logger.Info("Starting Shopping run",
-		slog.Int("vendors", len(cfg.Vendors)),
-		slog.Int("passes", cfg.RefreshesPerRun),
+		slog.Int("vendors", len(vendors)),
+		slog.Int("passes", shop.RefreshesPerRun),
 	)
-	return action.RunShopping(cfg)
+
+	// Delegate to action layer; it adapts the config internally
+	return action.RunShoppingFromConfig(&shop)
 }

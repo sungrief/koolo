@@ -69,6 +69,7 @@ var AvailableRuns = map[Run]interface{}{
 	SpiderCavernRun:     nil,
 	EnduguRun:           nil,
 	UtilityRun:          nil,
-	FireEyeRun:          nil,	ShoppingRun:         nil,
+	FireEyeRun:          nil,
+	ShoppingRun:         nil,
 
 }
