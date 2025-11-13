@@ -98,62 +98,70 @@ func RunShopping(plan ActionShoppingPlan) error {
 		return nil
 	}
 
+	// Ensure we start with enough space
 	if !ensureTwoFreeColumnsStrict() {
 		ctx.Logger.Warn("Not enough adjacent space (two full columns) even after stashing; aborting shopping")
 		return nil
 	}
 
+	// Group vendors by town once; we will iterate towns inside each pass
 	townOrder, vendorsByTown := groupVendorsByTown(plan.Vendors)
+	ctx.Logger.Debug("Shopping towns planned", slog.Int("count", len(townOrder)))
 
-	for _, townID := range townOrder {
-		vendors := vendorsByTown[townID]
-		if len(vendors) == 0 {
-			continue
-		}
+	passes := plan.RefreshesPerRun
+	if passes < 0 {
+		passes = 0
+	}
 
-		if err := ensureInTown(townID); err != nil {
-			ctx.Logger.Warn("Skipping town; cannot reach", slog.String("town", townID.Area().Name), slog.Any("err", err))
-			continue
-		}
-		utils.Sleep(40)
-		ctx.RefreshGameData()
+	for pass := 0; pass <= passes; pass++ {
+		ctx.Logger.Info("Shopping pass", slog.Int("pass", pass))
 
-		if !ensureTwoFreeColumnsStrict() {
-			ctx.Logger.Warn("Insufficient space after stashing; skipping town batch", slog.String("town", townID.Area().Name))
-			continue
-		}
+		for _, townID := range townOrder {
+			vendors := vendorsByTown[townID]
+			if len(vendors) == 0 {
+				continue
+			}
 
-		passes := plan.RefreshesPerRun
-		if passes < 0 {
-			passes = 0
-		}
+			if err := ensureInTown(townID); err != nil {
+				ctx.Logger.Warn("Skipping town; cannot reach", slog.String("town", townID.Area().Name), slog.Any("err", err))
+				continue
+			}
+			utils.Sleep(40)
+			ctx.RefreshGameData()
 
-		for pass := 0; pass <= passes; pass++ {
-			ctx.Logger.Info("Shopping pass", slog.String("town", townID.Area().Name), slog.Int("pass", pass))
+			if !ensureTwoFreeColumnsStrict() {
+				ctx.Logger.Warn("Insufficient space after stashing; skipping town batch", slog.String("town", townID.Area().Name))
+				continue
+			}
 
 			for _, v := range vendors {
 				if !ensureTwoFreeColumnsStrict() {
 					ctx.Logger.Warn("Skipping vendor due to inventory space (need two free columns)", slog.Int("vendor", int(v)))
 					break
 				}
-
 				if _, _, err := shopVendorSinglePass(v, plan); err != nil {
 					ctx.Logger.Warn("Vendor pass failed", slog.Int("vendor", int(v)), slog.Any("err", err))
 				}
-
 				step.CloseAllMenus()
 				ctx.RefreshGameData()
 			}
+		}
 
-			if pass < passes {
+		// Between passes: if only one town is selected, perform an explicit refresh.
+		// For multi-town configs, switching towns next pass effectively refreshes stock.
+		if pass < passes {
+			if len(townOrder) == 1 {
+				firstTown := townOrder[0]
+				vendors := vendorsByTown[firstTown]
 				onlyAnya := len(vendors) == 1 && vendors[0] == npc.Drehya
-				if err := refreshTownPreferAnyaPortal(townID, onlyAnya); err != nil {
-					ctx.Logger.Warn("Town refresh failed; stopping further passes", slog.String("town", townID.Area().Name), slog.Any("err", err))
+				if err := refreshTownPreferAnyaPortal(firstTown, onlyAnya); err != nil {
+					ctx.Logger.Warn("Town refresh failed; stopping further passes", slog.String("town", firstTown.Area().Name), slog.Any("err", err))
 					break
 				}
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -621,11 +629,34 @@ func ensureInTown(target area.ID) error {
 	return ReturnTown()
 }
 
+func lookupVendorTown(v npc.ID) (area.ID, bool) {
+	// Prefer project-defined map if present
+	if townID, ok := VendorLocationMap[v]; ok {
+		return townID, true
+	}
+	// Fallback mapping to ensure multi-town selections always work
+	switch v {
+	case npc.Akara, npc.Charsi, npc.Gheed:
+		return area.RogueEncampment, true
+	case npc.Fara, npc.Drognan, npc.Elzix:
+		return area.LutGholein, true
+	case npc.Ormus:
+		return area.KurastDocks, true
+	case npc.Halbu:
+		return area.ThePandemoniumFortress, true
+	case npc.Malah, npc.Drehya:
+		return area.Harrogath, true
+	default:
+		return 0, false
+	}
+}
+
 func groupVendorsByTown(list []npc.ID) (townOrder []area.ID, byTown map[area.ID][]npc.ID) {
 	byTown = map[area.ID][]npc.ID{}
 	seen := map[area.ID]bool{}
+
 	for _, v := range list {
-		townID, ok := VendorLocationMap[v]
+		townID, ok := lookupVendorTown(v)
 		if !ok {
 			continue
 		}
