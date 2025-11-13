@@ -21,9 +21,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
-// NOTE: keep names to minimize diffs with your current "space_checks" version.
-
-// ActionShoppingPlan is the action-layer struct used by the shopping routine.
+// ActionShoppingPlan mirrors your previous space_checks struct to minimize diffs.
 type ActionShoppingPlan struct {
 	Enabled         bool
 	RefreshesPerRun int
@@ -33,24 +31,21 @@ type ActionShoppingPlan struct {
 	Types           []string  // optional allow-list of item types (string of item.Desc().Type)
 }
 
-// NewActionShoppingPlanFromConfig adapts config.ShoppingConfig into an ActionShoppingPlan.
 func NewActionShoppingPlanFromConfig(cfg config.ShoppingConfig) ActionShoppingPlan {
 	return ActionShoppingPlan{
 		Enabled:         cfg.Enabled,
 		RefreshesPerRun: cfg.RefreshesPerRun,
 		MinGoldReserve:  cfg.MinGoldReserve,
 		Vendors:         vendorListFromConfig(cfg),
-		Rules:           nil, // prefer runtime rules via shouldBePickedUp()
+		Rules:           nil,
 		Types:           nil,
 	}
 }
 
-// vendorListFromConfig reflects common vendor configurations without coupling to exact field names.
 func vendorListFromConfig(cfg config.ShoppingConfig) []npc.ID {
 	out := make([]npc.ID, 0, 10)
 	rv := reflect.ValueOf(cfg)
 
-	// 1) Method GetVendorList() []npc.ID
 	if m := rv.MethodByName("GetVendorList"); m.IsValid() {
 		if m.Type().NumIn() == 0 && m.Type().NumOut() == 1 {
 			res := m.Call(nil)
@@ -61,15 +56,12 @@ func vendorListFromConfig(cfg config.ShoppingConfig) []npc.ID {
 			}
 		}
 	}
-
-	// 2) Field VendorsToShop []npc.ID
 	if f := rv.FieldByName("VendorsToShop"); f.IsValid() {
 		if slice, ok := f.Interface().([]npc.ID); ok && len(slice) > 0 {
 			return slice
 		}
 	}
 
-	// 3) Individual bool flags (best-effort; ignore if missing)
 	addIfTrue := func(field string, id npc.ID) {
 		if f := rv.FieldByName(field); f.IsValid() && f.Kind() == reflect.Bool && f.Bool() {
 			out = append(out, id)
@@ -83,13 +75,11 @@ func vendorListFromConfig(cfg config.ShoppingConfig) []npc.ID {
 	addIfTrue("VendorElzix", npc.Elzix)
 	addIfTrue("VendorOrmus", npc.Ormus)
 	addIfTrue("VendorMalah", npc.Malah)
-	// Anya uses Drehya ID
 	addIfTrue("VendorAnya", npc.Drehya)
 
 	return out
 }
 
-// RunShoppingFromConfig is a convenience entrypoint that adapts the config struct.
 func RunShoppingFromConfig(cfg *config.ShoppingConfig) error {
 	if cfg == nil {
 		return fmt.Errorf("nil shopping config")
@@ -97,7 +87,6 @@ func RunShoppingFromConfig(cfg *config.ShoppingConfig) error {
 	return RunShopping(NewActionShoppingPlanFromConfig(*cfg))
 }
 
-// RunShopping executes the shopping routine using an ActionShoppingPlan.
 func RunShopping(plan ActionShoppingPlan) error {
 	ctx := context.Get()
 	if !plan.Enabled {
@@ -109,7 +98,6 @@ func RunShopping(plan ActionShoppingPlan) error {
 		return nil
 	}
 
-	// Pre-flight: ensure capacity before starting the loop
 	if !ensureTwoFreeColumnsStrict() {
 		ctx.Logger.Warn("Not enough adjacent space (two full columns) even after stashing; aborting shopping")
 		return nil
@@ -130,7 +118,6 @@ func RunShopping(plan ActionShoppingPlan) error {
 		utils.Sleep(40)
 		ctx.RefreshGameData()
 
-		// Pre-batch space check
 		if !ensureTwoFreeColumnsStrict() {
 			ctx.Logger.Warn("Insufficient space after stashing; skipping town batch", slog.String("town", townID.Area().Name))
 			continue
@@ -145,7 +132,6 @@ func RunShopping(plan ActionShoppingPlan) error {
 			ctx.Logger.Info("Shopping pass", slog.String("town", townID.Area().Name), slog.Int("pass", pass))
 
 			for _, v := range vendors {
-				// Check before approaching the vendor
 				if !ensureTwoFreeColumnsStrict() {
 					ctx.Logger.Warn("Skipping vendor due to inventory space (need two free columns)", slog.Int("vendor", int(v)))
 					break
@@ -174,7 +160,6 @@ func RunShopping(plan ActionShoppingPlan) error {
 func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (goldSpent int, itemsBought int, err error) {
 	ctx := context.Get()
 
-	// Movement
 	if err := moveToVendor(vendorID); err != nil {
 		ctx.Logger.Debug("moveToVendor reported", slog.Int("vendor", int(vendorID)), slog.Any("err", err))
 	}
@@ -196,8 +181,6 @@ func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (goldSpent i
 
 // --- Space helpers ---
 
-// Strict: require two adjacent free columns across full inventory height.
-// If missing, stash once; re-check; return success/failure.
 func ensureTwoFreeColumnsStrict() bool {
 	if hasTwoFreeColumns() {
 		return true
@@ -215,16 +198,12 @@ func ensureTwoFreeColumnsStrict() bool {
 	return hasTwoFreeColumns()
 }
 
-// hasFreeRect scans the inventory matrix for a free WxH rectangle.
-func hasFreeRect(w, h int) bool {
-	ctx := context.Get()
-	inv := ctx.Data.Inventory.Matrix()
-
-	H := len(inv)
+func hasFreeRect(grid [4][10]bool, w, h int) bool {
+	H := len(grid)
 	if H == 0 {
 		return false
 	}
-	W := len(inv[0])
+	W := len(grid[0])
 	if W == 0 {
 		return false
 	}
@@ -234,7 +213,7 @@ func hasFreeRect(w, h int) bool {
 			free := true
 			for dy := 0; dy < h && free; dy++ {
 				for dx := 0; dx < w; dx++ {
-					if inv[y+dy][x+dx] {
+					if grid[y+dy][x+dx] {
 						free = false
 						break
 					}
@@ -248,15 +227,14 @@ func hasFreeRect(w, h int) bool {
 	return false
 }
 
-// hasTwoFreeColumns returns true if there are two adjacent full-height free columns.
 func hasTwoFreeColumns() bool {
 	ctx := context.Get()
-	inv := ctx.Data.Inventory.Matrix()
-	h := len(inv)
+	grid := ctx.Data.Inventory.Matrix()
+	h := len(grid)
 	if h == 0 {
 		return false
 	}
-	return hasFreeRect(2, h) // width=2, height=inventory height (typically 4)
+	return hasFreeRect(grid, 2, h)
 }
 
 // --- Fast vendor tab switch using stash tab coords (no sleeps) ---
@@ -277,7 +255,8 @@ func switchVendorTabFast(tab int) {
 	ctx.RefreshGameData()
 }
 
-// --- Scan & buy using exact vendor tab (Location.Page) + shouldBePickedUp() ---
+// --- Scan & buy with smart stash-and-return ---
+
 func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurchased int, goldSpent int) {
 	ctx := context.Get()
 
@@ -286,7 +265,6 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 		return 0, 0
 	}
 
-	// 1) Build planned purchases per tab (initial snapshot)
 	perTab := map[IntTab][]data.UnitID{}
 	itemsAll := ctx.Data.Inventory.ByLocation(item.LocationVendor)
 	for _, it := range itemsAll {
@@ -296,14 +274,13 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 		if !shouldBePickedUp(it) {
 			continue
 		}
-		tab := it.Location.Page + 1 // 0-based -> 1-based
+		tab := it.Location.Page + 1
 		if tab < 1 || tab > 4 {
 			continue
 		}
 		perTab[IntTab{Tab: tab}] = append(perTab[IntTab{Tab: tab}], it.UnitID)
 	}
 
-	// If nothing planned, try lazy per-tab scan
 	if len(perTab) == 0 {
 		for tab := 1; tab <= 4; tab++ {
 			switchVendorTabFast(tab)
@@ -320,20 +297,16 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 		}
 	}
 
-	// Deterministic order
 	tabs := make([]int, 0, len(perTab))
 	for t := range perTab {
 		tabs = append(tabs, t.Tab)
 	}
 	sort.Ints(tabs)
 
-	// 2) Tab-by-tab buying with "stash-and-return" mid-tab if space runs out.
 	for _, tab := range tabs {
 		switchVendorTabFast(tab)
 
-		// Closed-loop: keep purchasing from this tab until no more candidates.
 		for {
-			// (re)collect current candidates from THIS tab (UnitIDs are volatile after stash)
 			cands := collectTabCandidates(tab, plan)
 			if len(cands) == 0 {
 				break
@@ -341,7 +314,6 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 
 			progress := false
 			for _, want := range cands {
-				// Find the exact item by UnitID on this tab
 				var target *data.Item
 				itemsNow := ctx.Data.Inventory.ByLocation(item.LocationVendor)
 				for _, it := range itemsNow {
@@ -354,18 +326,15 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 					continue
 				}
 
-				// Ensure this one fits; if not, stash and return to this vendor/tab and retry.
 				if !itemFitsInventory(*target) {
 					if !stashAndReturnToVendor(vendorID, tab) {
 						ctx.Logger.Warn("Stash+return failed; aborting tab purchases", slog.Int("tab", tab))
 						return itemsPurchased, goldSpent
 					}
-					// after stash, restart the inner loop to re-collect candidates
 					progress = true
 					break
 				}
 
-				// Buy it
 				sp := ui.GetScreenCoordsForItem(*target)
 				ctx.HID.MovePointer(sp.X, sp.Y)
 				utils.Sleep(15 + rand.Intn(25))
@@ -375,18 +344,15 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 				itemsPurchased++
 				progress = true
 
-				// After purchase, if inventory is tight, stash and return to keep buying remaining items on this tab.
 				if !hasTwoFreeColumns() {
 					if !stashAndReturnToVendor(vendorID, tab) {
 						ctx.Logger.Warn("Post-purchase stash+return failed", slog.Int("tab", tab))
 						return itemsPurchased, goldSpent
 					}
-					// restart loop to refresh candidate list
 					break
 				}
 			}
 
-			// If we didn't buy anything and didn't stash, exit the tab loop.
 			if !progress {
 				break
 			}
@@ -396,7 +362,6 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 	return itemsPurchased, goldSpent
 }
 
-// IntTab is a tiny key to avoid map[int] shadowing warnings in some IDEs.
 type IntTab struct{ Tab int }
 
 func collectTabCandidates(tab int, plan ActionShoppingPlan) []data.UnitID {
@@ -405,7 +370,7 @@ func collectTabCandidates(tab int, plan ActionShoppingPlan) []data.UnitID {
 	list := make([]data.UnitID, 0, 8)
 	itemsNow := ctx.Data.Inventory.ByLocation(item.LocationVendor)
 	for _, it := range itemsNow {
-		if (it.Location.Page+1) != tab {
+		if (it.Location.Page + 1) != tab {
 			continue
 		}
 		if !typeMatch(it, plan.Types) || !shouldBePickedUp(it) {
@@ -416,11 +381,9 @@ func collectTabCandidates(tab int, plan ActionShoppingPlan) []data.UnitID {
 	return list
 }
 
-// stashAndReturnToVendor stashes once, re-opens the same vendor trade window and tab.
 func stashAndReturnToVendor(vendorID npc.ID, tab int) bool {
 	ctx := context.Get()
 
-	// Close menus and stash once
 	step.CloseAllMenus()
 	if err := Stash(false); err != nil {
 		ctx.Logger.Warn("Stash failed", slog.Any("err", err))
@@ -429,7 +392,6 @@ func stashAndReturnToVendor(vendorID npc.ID, tab int) bool {
 	utils.Sleep(60)
 	ctx.RefreshGameData()
 
-	// Go back to vendor and reopen trade
 	if err := moveToVendor(vendorID); err != nil {
 		ctx.Logger.Warn("Return to vendor failed", slog.Int("vendor", int(vendorID)), slog.Any("err", err))
 		return false
@@ -473,32 +435,41 @@ func openVendorTrade(vendorID npc.ID) {
 	ctx.RefreshGameData()
 }
 
-// moveToVendor goes to the closest exposed NPC position. Uses action.MoveTo provider signature.
+// moveToVendor goes to the closest exposed NPC position.
 func moveToVendor(vendorID npc.ID) error {
 	ctx := context.Get()
 
-	// Harrogath anchors
 	switch vendorID {
 	case npc.Drehya:
 		_ = MoveToCoords(data.Position{X: 5107, Y: 5119})
-		utils.Sleep(30); ctx.RefreshGameData()
+		utils.Sleep(30)
+		ctx.RefreshGameData()
 	case npc.Malah:
 		_ = MoveToCoords(data.Position{X: 5082, Y: 5030})
-		utils.Sleep(30); ctx.RefreshGameData()
+		utils.Sleep(30)
+		ctx.RefreshGameData()
 	}
 
 	n, ok := ctx.Data.NPCs.FindOne(vendorID)
 	if !ok || len(n.Positions) == 0 {
 		if vendorID == npc.Drehya {
 			for i := 0; i < 5 && (!ok || len(n.Positions) == 0); i++ {
-				utils.Sleep(40); ctx.RefreshGameData()
-				if nn, ok2 := ctx.Data.NPCs.FindOne(vendorID); ok2 && len(nn.Positions) > 0 { n, ok = nn, true; break }
+				utils.Sleep(40)
+				ctx.RefreshGameData()
+				if nn, ok2 := ctx.Data.NPCs.FindOne(vendorID); ok2 && len(nn.Positions) > 0 {
+					n, ok = nn, true
+					break
+				}
 			}
 		}
 		if (!ok || len(n.Positions) == 0) && vendorID == npc.Malah {
 			if m, found := ctx.Data.Monsters.FindOne(npc.Malah, data.MonsterTypeNone); found {
-				_ = MoveToCoords(m.Position); utils.Sleep(40); ctx.RefreshGameData()
-				if nn, ok2 := ctx.Data.NPCs.FindOne(vendorID); ok2 && len(nn.Positions) > 0 { n, ok = nn, true }
+				_ = MoveToCoords(m.Position)
+				utils.Sleep(40)
+				ctx.RefreshGameData()
+				if nn, ok2 := ctx.Data.NPCs.FindOne(vendorID); ok2 && len(nn.Positions) > 0 {
+					n, ok = nn, true
+				}
 			}
 		}
 		if !ok || len(n.Positions) == 0 {
@@ -511,10 +482,11 @@ func moveToVendor(vendorID npc.ID) error {
 	bestd := (target.X-cur.X)*(target.X-cur.X) + (target.Y-cur.Y)*(target.Y-cur.Y)
 	for _, p := range n.Positions[1:] {
 		d := (p.X-cur.X)*(p.X-cur.X) + (p.Y-cur.Y)*(p.Y-cur.Y)
-		if d < bestd { target, bestd = p, d }
+		if d < bestd {
+			target, bestd = p, d
+		}
 	}
 
-	// Provide position via function as expected by your MoveTo signature
 	return MoveTo(func() (data.Position, bool) {
 		return target, true
 	})
@@ -527,14 +499,18 @@ func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 	if town == area.Harrogath && onlyAnya {
 		ctx.Logger.Debug("Refreshing town via Anya red portal (preferred)")
 		_ = MoveToCoords(data.Position{X: 5116, Y: 5121})
-		utils.Sleep(600); ctx.RefreshGameData()
+		utils.Sleep(600)
+		ctx.RefreshGameData()
 
 		if redPortal, found := ctx.Data.Objects.FindOne(object.PermanentTownPortal); found {
 			if err := InteractObject(redPortal, func() bool {
 				return ctx.Data.AreaData.Area == area.NihlathaksTemple && ctx.Data.AreaData.IsInside(ctx.Data.PlayerUnit.Position)
 			}); err == nil {
-				utils.Sleep(120); ctx.RefreshGameData()
-				if err2 := returnToTownViaAnyaRedPortalFromTemple(); err2 == nil { return nil }
+				utils.Sleep(120)
+				ctx.RefreshGameData()
+				if err2 := returnToTownViaAnyaRedPortalFromTemple(); err2 == nil {
+					return nil
+				}
 				ctx.Logger.Debug("Temple->Town red-portal failed; falling back to waypoint")
 			}
 		}
@@ -543,64 +519,104 @@ func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 }
 
 func refreshTownViaWaypoint(town area.ID) error {
-	ctx := context.Get()
-	var candidates []area.ID
-	if town == area.RogueEncampment {
-		candidates = []area.ID{area.ColdPlains, area.StonyField, area.DarkWood, area.BlackMarsh, area.OuterCloister}
-	} else if town == area.LutGholein {
-		candidates = []area.ID{area.DryHills, area.FarOasis, area.LostCity, area.CanyonOfTheMagi, area.ArcaneSanctuary}
-	} else if town == area.KurastDocks {
-		candidates = []area.ID{area.SpiderForest, area.GreatMarsh, area.FlayerJungle, area.LowerKurast}
-	} else if town == area.ThePandemoniumFortress {
-		candidates = []area.ID{area.CityOfTheDamned, area.RiverOfFlame}
-	} else if town == area.Harrogath {
-		candidates = []area.ID{area.FrigidHighlands, area.ArreatPlateau, area.CrystallinePassage}
+	// prefer a tagged switch (satisfies QF1003), silence exhaustive with nolint
+	//nolint:exhaustive
+	switch town {
+	case area.RogueEncampment:
+		return hopOutAndBack(town, []area.ID{
+			area.ColdPlains, area.StonyField, area.DarkWood, area.BlackMarsh, area.OuterCloister,
+		})
+	case area.LutGholein:
+		return hopOutAndBack(town, []area.ID{
+			area.DryHills, area.FarOasis, area.LostCity, area.CanyonOfTheMagi, area.ArcaneSanctuary,
+		})
+	case area.KurastDocks:
+		return hopOutAndBack(town, []area.ID{
+			area.SpiderForest, area.GreatMarsh, area.FlayerJungle, area.LowerKurast,
+		})
+	case area.ThePandemoniumFortress:
+		return hopOutAndBack(town, []area.ID{
+			area.CityOfTheDamned, area.RiverOfFlame,
+		})
+	case area.Harrogath:
+		return hopOutAndBack(town, []area.ID{
+			area.FrigidHighlands, area.ArreatPlateau, area.CrystallinePassage,
+		})
+	default:
+		return fmt.Errorf("no viable waypoint refresh for %s", town.Area().Name)
 	}
+}
 
+func hopOutAndBack(town area.ID, candidates []area.ID) error {
+	ctx := context.Get()
 	for _, a := range candidates {
 		if a == town {
 			continue
 		}
 		if err := WayPoint(a); err == nil {
-			utils.Sleep(70); ctx.RefreshGameData()
+			utils.Sleep(70)
+			ctx.RefreshGameData()
 			if err := WayPoint(town); err == nil {
-				utils.Sleep(70); ctx.RefreshGameData()
+				utils.Sleep(70)
+				ctx.RefreshGameData()
 				return nil
 			}
 		}
 	}
-	return fmt.Errorf("no viable waypoint refresh for %s", town.Area().Name)
+	return fmt.Errorf("no candidate waypoint worked for %s", town.Area().Name)
 }
 
 func returnToTownViaAnyaRedPortalFromTemple() error {
 	ctx := context.Get()
-	if ctx.Data.AreaData.Area != area.NihlathaksTemple { return fmt.Errorf("not in Nihlathak's Temple") }
+	if ctx.Data.AreaData.Area != area.NihlathaksTemple {
+		return fmt.Errorf("not in Nihlathak's Temple")
+	}
 	anchor := data.Position{X: 10073, Y: 13311}
 	_ = MoveToCoords(anchor)
-	utils.Sleep(70); ctx.RefreshGameData()
+	utils.Sleep(70)
+	ctx.RefreshGameData()
 
 	redPortal, found := ctx.Data.Objects.FindOne(object.PermanentTownPortal)
 	if !found {
-		for _, off := range []data.Position{{2,0},{-2,0},{0,2},{0,-2}} {
+		probes := []data.Position{
+			{X: 2, Y: 0},
+			{X: -2, Y: 0},
+			{X: 0, Y: 2},
+			{X: 0, Y: -2},
+		}
+		for _, off := range probes {
 			_ = MoveToCoords(data.Position{X: anchor.X + off.X, Y: anchor.Y + off.Y})
-			utils.Sleep(50); ctx.RefreshGameData()
-			if rp, ok := ctx.Data.Objects.FindOne(object.PermanentTownPortal); ok { redPortal, found = rp, true; break }
+			utils.Sleep(50)
+			ctx.RefreshGameData()
+			if rp, ok := ctx.Data.Objects.FindOne(object.PermanentTownPortal); ok {
+				redPortal, found = rp, true
+				break
+			}
 		}
 	}
-	if !found { return fmt.Errorf("temple red portal not found") }
+	if !found {
+		return fmt.Errorf("temple red portal not found")
+	}
 	utils.Sleep(800) // cooldown
 	if err := InteractObject(redPortal, func() bool {
 		return ctx.Data.AreaData.Area == area.Harrogath && ctx.Data.AreaData.IsInside(ctx.Data.PlayerUnit.Position)
-	}); err != nil { return err }
-	utils.Sleep(80); ctx.RefreshGameData()
+	}); err != nil {
+		return err
+	}
+	utils.Sleep(80)
+	ctx.RefreshGameData()
 	return nil
 }
 
 func ensureInTown(target area.ID) error {
 	ctx := context.Get()
-	if ctx.Data.PlayerUnit.Area == target { return nil }
+	if ctx.Data.PlayerUnit.Area == target {
+		return nil
+	}
 	if err := WayPoint(target); err == nil {
-		utils.Sleep(50); ctx.RefreshGameData(); return nil
+		utils.Sleep(50)
+		ctx.RefreshGameData()
+		return nil
 	}
 	return ReturnTown()
 }
@@ -610,8 +626,13 @@ func groupVendorsByTown(list []npc.ID) (townOrder []area.ID, byTown map[area.ID]
 	seen := map[area.ID]bool{}
 	for _, v := range list {
 		townID, ok := VendorLocationMap[v]
-		if !ok { continue }
-		if !seen[townID] { seen[townID] = true; townOrder = append(townOrder, townID) }
+		if !ok {
+			continue
+		}
+		if !seen[townID] {
+			seen[townID] = true
+			townOrder = append(townOrder, townID)
+		}
 		byTown[townID] = append(byTown[townID], v)
 	}
 	return
