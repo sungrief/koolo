@@ -1652,87 +1652,56 @@ func (s *HttpServer) getIntFromForm(r *http.Request, param string, min int, max 
 	return result
 }
 
-
 // --- Shopping wiring (reflection-safe) ---
 // We only *add* code; no changes to existing structs are required.
 // This will set cfg.Shopping fields if they exist in your config struct.
-// Expected field names (if present): 
-//   Enabled (bool), RefreshesPerRun (int), MinGoldReserve (int),
-//   VendorAkara, VendorCharsi, VendorGheed, VendorFara, VendorDrognan, VendorElzix, VendorOrmus, VendorMalah, VendorAnya (bool),
-//   Types ([]string)
+// Expected field names (if present):
+//
+//	Enabled (bool), RefreshesPerRun (int), MinGoldReserve (int),
+//	VendorAkara, VendorCharsi, VendorGheed, VendorFara, VendorDrognan, VendorElzix, VendorOrmus, VendorMalah, VendorAnya (bool),
+//	Types ([]string)
+//
+// Wire Shopping: parse shopping-specific fields (explicit field setting)
 func (s *HttpServer) applyShoppingFromForm(r *http.Request, cfg *config.CharacterCfg) {
-    v := reflect.ValueOf(cfg).Elem()
-    shopping := v.FieldByName("Shopping")
-    if !shopping.IsValid() || !shopping.CanSet() {
-        // No Shopping section on this config; nothing to wire.
-        return
-    }
-    // Handle pointer-to-struct or struct
-    if shopping.Kind() == reflect.Pointer {
-        if shopping.IsNil() {
-            // allocate new if possible
-            shopping.Set(reflect.New(shopping.Type().Elem()))
-        }
-        shopping = shopping.Elem()
-    }
-    if shopping.Kind() != reflect.Struct {
-        return
-    }
+	// Enable/disable
+	cfg.Shopping.Enabled = r.Form.Has("shoppingEnabled")
 
-    // Basic toggles and numbers
-    setBoolField(shopping, "Enabled", r.Form.Has("shoppingEnabled"))
-    setIntFieldFromForm(shopping, "RefreshesPerRun", r, "shoppingRefreshesPerRun", 0)
-    setIntFieldFromForm(shopping, "MinGoldReserve", r, "shoppingMinGoldReserve", 0)
+	// Numeric fields
+	if v, err := strconv.Atoi(r.Form.Get("shoppingMaxGoldToSpend")); err == nil {
+		cfg.Shopping.MaxGoldToSpend = v
+	}
+	if v, err := strconv.Atoi(r.Form.Get("shoppingMinGoldReserve")); err == nil {
+		cfg.Shopping.MinGoldReserve = v
+	}
+	if v, err := strconv.Atoi(r.Form.Get("shoppingRefreshesPerRun")); err == nil {
+		cfg.Shopping.RefreshesPerRun = v
+	}
 
-    // Vendor toggles: expect checkbox names like shoppingVendorAkara, etc.
-    vendorFields := []string{
-        "VendorAkara", "VendorCharsi", "VendorGheed",
-        "VendorFara", "VendorDrognan", "VendorElzix",
-        "VendorOrmus", "VendorMalah", "VendorAnya",
-    }
-    for _, name := range vendorFields {
-        formKey := "shopping" + name
-        setBoolField(shopping, name, r.Form.Has(formKey))
-    }
+	// Rules file
+	cfg.Shopping.ShoppingRulesFile = r.Form.Get("shoppingRulesFile")
 
-    // Types multi-select (optional)
-    if vals, ok := r.Form["shoppingTypes[]"]; ok && len(vals) > 0 {
-        setStringSliceField(shopping, "Types", vals)
-    }
-}
+	// Item types (comma-separated string to slice)
+	if raw := strings.TrimSpace(r.Form.Get("shoppingItemTypes")); raw != "" {
+		parts := strings.Split(raw, ",")
+		items := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if p = strings.TrimSpace(p); p != "" {
+				items = append(items, p)
+			}
+		}
+		cfg.Shopping.ItemTypes = items
+	} else {
+		cfg.Shopping.ItemTypes = []string{}
+	}
 
-// Helpers using reflection so we don't take compile-time deps on config struct layout.
-func setBoolField(parent reflect.Value, field string, val bool) {
-    f := parent.FieldByName(field)
-    if f.IsValid() && f.CanSet() && f.Kind() == reflect.Bool {
-        f.SetBool(val)
-    }
-}
-
-func setIntFieldFromForm(parent reflect.Value, field string, r *http.Request, formKey string, def int) {
-    f := parent.FieldByName(field)
-    if !f.IsValid() || !f.CanSet() || (f.Kind() != reflect.Int && f.Kind() != reflect.Int64 && f.Kind() != reflect.Int32) {
-        return
-    }
-    raw := strings.TrimSpace(r.Form.Get(formKey))
-    if raw == "" {
-        f.SetInt(int64(def))
-        return
-    }
-    if n, err := strconv.Atoi(raw); err == nil {
-        f.SetInt(int64(n))
-    } else {
-        f.SetInt(int64(def))
-    }
-}
-
-func setStringSliceField(parent reflect.Value, field string, vals []string) {
-    f := parent.FieldByName(field)
-    if f.IsValid() && f.CanSet() && f.Kind() == reflect.Slice && f.Type().Elem().Kind() == reflect.String {
-        s := reflect.MakeSlice(f.Type(), len(vals), len(vals))
-        for i, v := range vals {
-            s.Index(i).Set(reflect.ValueOf(v))
-        }
-        f.Set(s)
-    }
+	// Vendor checkboxes
+	cfg.Shopping.VendorAkara = r.Form.Has("shoppingVendorAkara")
+	cfg.Shopping.VendorCharsi = r.Form.Has("shoppingVendorCharsi")
+	cfg.Shopping.VendorGheed = r.Form.Has("shoppingVendorGheed")
+	cfg.Shopping.VendorFara = r.Form.Has("shoppingVendorFara")
+	cfg.Shopping.VendorDrognan = r.Form.Has("shoppingVendorDrognan")
+	cfg.Shopping.VendorElzix = r.Form.Has("shoppingVendorElzix")
+	cfg.Shopping.VendorOrmus = r.Form.Has("shoppingVendorOrmus")
+	cfg.Shopping.VendorMalah = r.Form.Has("shoppingVendorMalah")
+	cfg.Shopping.VendorAnya = r.Form.Has("shoppingVendorAnya")
 }

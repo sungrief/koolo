@@ -98,31 +98,34 @@ func RunShopping(plan ActionShoppingPlan) error {
 		return nil
 	}
 
-	// Ensure we start with enough space
+	// Ensure enough adjacent space (two columns) before starting
 	if !ensureTwoFreeColumnsStrict() {
 		ctx.Logger.Warn("Not enough adjacent space (two full columns) even after stashing; aborting shopping")
 		return nil
 	}
 
-	// Group vendors by town once; we will iterate towns inside each pass
+	// Group vendors by town; iterate towns within each pass
 	townOrder, vendorsByTown := groupVendorsByTown(plan.Vendors)
 	ctx.Logger.Debug("Shopping towns planned", slog.Int("count", len(townOrder)))
 
 	passes := plan.RefreshesPerRun
-	if passes < 0 { passes = 0 }
+	if passes < 0 {
+		passes = 0
+	}
 
 	for pass := 0; pass <= passes; pass++ {
 		ctx.Logger.Info("Shopping pass", slog.Int("pass", pass))
 
 		for _, townID := range townOrder {
 			vendors := vendorsByTown[townID]
-			if len(vendors) == 0 { continue }
+			if len(vendors) == 0 {
+				continue
+			}
 
 			if err := ensureInTown(townID); err != nil {
 				ctx.Logger.Warn("Skipping town; cannot reach", slog.String("town", townID.Area().Name), slog.Any("err", err))
 				continue
 			}
-			utils.Sleep(40)
 			ctx.RefreshGameData()
 
 			if !ensureTwoFreeColumnsStrict() {
@@ -143,45 +146,19 @@ func RunShopping(plan ActionShoppingPlan) error {
 			}
 		}
 
-		// Between passes: if only one town is selected, perform an explicit refresh.
-		// For multi-town configs, switching towns next pass effectively refreshes stock.
+		// Refresh town after visiting all selected vendors in this pass (if more passes remain)
 		if pass < passes {
-			if len(townOrder) == 1 {
-				firstTown := townOrder[0]
-				vendors := vendorsByTown[firstTown]
-				onlyAnya := len(vendors) == 1 && vendors[0] == npc.Drehya
-				if err := refreshTownPreferAnyaPortal(firstTown, onlyAnya); err != nil {
-					ctx.Logger.Warn("Town refresh failed; stopping further passes", slog.String("town", firstTown.Area().Name), slog.Any("err", err))
-					break
-				}
+			lastTown := townOrder[len(townOrder)-1]
+			vendorsLast := vendorsByTown[lastTown]
+			onlyAnya := len(vendorsLast) == 1 && vendorsLast[0] == npc.Drehya
+			if err := refreshTownPreferAnyaPortal(lastTown, onlyAnya); err != nil {
+				ctx.Logger.Warn("Town refresh failed; falling back to waypoint", slog.Any("err", err))
+				_ = refreshTownViaWaypoint(lastTown)
 			}
 		}
 	}
 
 	return nil
-}
-
-
-func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (goldSpent int, itemsBought int, err error) {
-	ctx := context.Get()
-
-	if err := moveToVendor(vendorID); err != nil {
-		ctx.Logger.Debug("moveToVendor reported", slog.Int("vendor", int(vendorID)), slog.Any("err", err))
-	}
-	utils.Sleep(30)
-	ctx.RefreshGameData()
-
-	if err = InteractNPC(vendorID); err != nil {
-		return 0, 0, fmt.Errorf("interact with vendor %d: %w", int(vendorID), err)
-	}
-
-	openVendorTrade(vendorID)
-	if !ctx.Data.OpenMenus.NPCShop {
-		return 0, 0, fmt.Errorf("vendor trade window did not open for ID=%d", int(vendorID))
-	}
-
-	itemsBought, goldSpent = scanAndPurchaseItems(vendorID, plan)
-	return goldSpent, itemsBought, nil
 }
 
 // --- Space helpers ---
@@ -626,35 +603,11 @@ func ensureInTown(target area.ID) error {
 	return ReturnTown()
 }
 
-
-func lookupVendorTown(v npc.ID) (area.ID, bool) {
-	// Prefer project-defined map if present
-	if townID, ok := VendorLocationMap[v]; ok {
-		return townID, true
-	}
-	// Fallback mapping to ensure multi-town selections always work
-	switch v {
-	case npc.Akara, npc.Charsi, npc.Gheed:
-		return area.RogueEncampment, true
-	case npc.Fara, npc.Drognan, npc.Elzix:
-		return area.LutGholein, true
-	case npc.Ormus:
-		return area.KurastDocks, true
-	case npc.Halbu:
-		return area.ThePandemoniumFortress, true
-	case npc.Malah, npc.Drehya:
-		return area.Harrogath, true
-	default:
-		return 0, false
-	}
-}
-
 func groupVendorsByTown(list []npc.ID) (townOrder []area.ID, byTown map[area.ID][]npc.ID) {
 	byTown = map[area.ID][]npc.ID{}
 	seen := map[area.ID]bool{}
-
 	for _, v := range list {
-		townID, ok := lookupVendorTown(v)
+		townID, ok := VendorLocationMap[v]
 		if !ok {
 			continue
 		}
@@ -667,3 +620,50 @@ func groupVendorsByTown(list []npc.ID) (townOrder []area.ID, byTown map[area.ID]
 	return
 }
 
+func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (int, int, error) {
+	ctx := context.Get()
+	ctx.SetLastAction("shopVendorSinglePass")
+
+	goldSpent := 0
+	itemsPurchased := 0
+
+	// Approach and open trade
+	if err := moveToVendor(vendorID); err != nil {
+		ctx.Logger.Warn("MoveTo vendor reported error", slog.Int("vendor", int(vendorID)), slog.Any("err", err))
+	}
+	utils.Sleep(60)
+	ctx.RefreshGameData()
+
+	if err := InteractNPC(vendorID); err != nil {
+		return 0, 0, fmt.Errorf("failed to interact with vendor %d: %w", int(vendorID), err)
+	}
+	openVendorTrade(vendorID)
+	if !ctx.Data.OpenMenus.NPCShop {
+		return 0, 0, fmt.Errorf("failed to open trade window for vendor %d", int(vendorID))
+	}
+
+	// Let vendor items populate
+	for i := 0; i < 5; i++ {
+		if len(ctx.Data.Inventory.ByLocation(item.LocationVendor)) > 0 {
+			break
+		}
+		utils.Sleep(60)
+		ctx.RefreshGameData()
+	}
+
+	if ctx.Data.PlayerUnit.TotalPlayerGold() < plan.MinGoldReserve {
+		ctx.Logger.Info("Not enough gold to shop", slog.Int("currentGold", ctx.Data.PlayerUnit.TotalPlayerGold()))
+		return 0, 0, nil
+	}
+
+	purchased, spent := scanAndPurchaseItems(vendorID, plan)
+	itemsPurchased += purchased
+	goldSpent += spent
+
+	// Close inventory/shop to clean state
+	step.CloseAllMenus()
+	utils.Sleep(40)
+	ctx.RefreshGameData()
+
+	return goldSpent, itemsPurchased, nil
+}
