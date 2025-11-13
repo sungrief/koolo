@@ -56,7 +56,8 @@ func (rc RescueCain) Run(parameters *RunParameters) error {
 	}
 
 	needToGoToTristram := (rc.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress2) ||
-		rc.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress3))
+		rc.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusInProgress3) ||
+		rc.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusEnterArea))
 
 	infusInInventory := false
 	for _, itm := range rc.ctx.Data.Inventory.ByLocation(item.LocationInventory) {

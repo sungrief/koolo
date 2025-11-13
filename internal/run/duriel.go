@@ -3,6 +3,7 @@ package run
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -51,7 +52,18 @@ func (d Duriel) CheckConditions(parameters *RunParameters) SequencerResult {
 		}
 		return SequencerSkip
 	} else if d.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
-		return SequencerSkip
+		if slices.Contains(d.ctx.Data.PlayerUnit.AvailableWaypoints, area.KurastDocks) ||
+			slices.Contains(d.ctx.Data.PlayerUnit.AvailableWaypoints, area.ThePandemoniumFortress) ||
+			slices.Contains(d.ctx.Data.PlayerUnit.AvailableWaypoints, area.Harrogath) {
+			return SequencerSkip
+		}
+
+		//Workaround AvailableWaypoints only filled when wp menu has been opened on act page
+		//Check if any act 3 quests has started or is completed
+		if action.HasAnyQuestStartedOrCompleted(quest.Act3TheGoldenBird, quest.Act3TheGuardian) || d.ctx.Data.PlayerUnit.Area.Act() >= 3 {
+			return SequencerSkip
+		}
+		return SequencerOk
 	}
 
 	horadricStaffQuestCompleted := d.ctx.Data.Quests[quest.Act2TheHoradricStaff].Completed()
@@ -76,6 +88,10 @@ func (d Duriel) CheckConditions(parameters *RunParameters) SequencerResult {
 func (d Duriel) Run(parameters *RunParameters) error {
 
 	if IsQuestRun(parameters) {
+		err := action.WayPoint(area.LutGholein)
+		if err != nil {
+			return err
+		}
 		//Try completing quest and early exit if possible
 		d.tryTalkToJerhyn()
 		if d.tryTalkToMeshif() {
@@ -401,7 +417,8 @@ func (d Duriel) tryTalkToJerhyn() bool {
 }
 
 func (d Duriel) tryTalkToMeshif() bool {
-	if d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusStarted + quest.StatusEnterArea + quest.StatusInProgress1) {
+	if d.ctx.Data.Quests[quest.Act2TheSevenTombs].HasStatus(quest.StatusStarted+quest.StatusEnterArea+quest.StatusInProgress1) ||
+		d.ctx.Data.Quests[quest.Act2TheSevenTombs].Completed() {
 		d.ctx.Logger.Info("Act 2, The Seven Tombs quest completed. Moving to Act 3.")
 		action.MoveToCoords(data.Position{
 			X: 5195,
