@@ -109,18 +109,14 @@ func RunShopping(plan ActionShoppingPlan) error {
 	ctx.Logger.Debug("Shopping towns planned", slog.Int("count", len(townOrder)))
 
 	passes := plan.RefreshesPerRun
-	if passes < 0 {
-		passes = 0
-	}
+	if passes < 0 { passes = 0 }
 
 	for pass := 0; pass <= passes; pass++ {
 		ctx.Logger.Info("Shopping pass", slog.Int("pass", pass))
 
 		for _, townID := range townOrder {
 			vendors := vendorsByTown[townID]
-			if len(vendors) == 0 {
-				continue
-			}
+			if len(vendors) == 0 { continue }
 
 			if err := ensureInTown(townID); err != nil {
 				ctx.Logger.Warn("Skipping town; cannot reach", slog.String("town", townID.Area().Name), slog.Any("err", err))
@@ -164,6 +160,7 @@ func RunShopping(plan ActionShoppingPlan) error {
 
 	return nil
 }
+
 
 func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (goldSpent int, itemsBought int, err error) {
 	ctx := context.Get()
@@ -629,6 +626,7 @@ func ensureInTown(target area.ID) error {
 	return ReturnTown()
 }
 
+
 func lookupVendorTown(v npc.ID) (area.ID, bool) {
 	// Prefer project-defined map if present
 	if townID, ok := VendorLocationMap[v]; ok {
@@ -668,3 +666,4 @@ func groupVendorsByTown(list []npc.ID) (townOrder []area.ID, byTown map[area.ID]
 	}
 	return
 }
+
