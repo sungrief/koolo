@@ -3,7 +3,6 @@ package action
 import (
 	"fmt"
 	"log/slog"
-	"math/rand"
 	"reflect"
 	"sort"
 
@@ -242,114 +241,77 @@ func switchVendorTabFast(tab int) {
 func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurchased int, goldSpent int) {
 	ctx := context.Get()
 
-	if ctx.Data.PlayerUnit.TotalPlayerGold() < plan.MinGoldReserve {
-		ctx.Logger.Info("Not enough gold to shop", slog.Int("currentGold", ctx.Data.PlayerUnit.TotalPlayerGold()))
+	currentGold := ctx.Data.PlayerUnit.TotalPlayerGold()
+	if currentGold < plan.MinGoldReserve {
+		ctx.Logger.Info("Not enough gold to shop", slog.Int("currentGold", currentGold))
 		return 0, 0
 	}
 
-	perTab := map[IntTab][]data.UnitID{}
-	itemsAll := ctx.Data.Inventory.ByLocation(item.LocationVendor)
-	for _, it := range itemsAll {
-		if !typeMatch(it, plan.Types) {
-			continue
+	perTab := make(map[int][]data.UnitID, 4)
+	perTabItems := make(map[int]map[data.UnitID]data.Item, 4)
+
+	for tab := 1; tab <= 4; tab++ {
+		switchVendorTabFast(tab)
+		itemsTab := ctx.Data.Inventory.ByLocation(item.LocationVendor)
+		if len(itemsTab) == 0 { continue }
+		if perTabItems[tab] == nil { perTabItems[tab] = make(map[data.UnitID]data.Item, len(itemsTab)) }
+		for _, it := range itemsTab {
+			if (it.Location.Page+1) != tab { continue }
+			if !typeMatch(it, plan.Types) || !shouldBePickedUp(it) { continue }
+			perTab[tab] = append(perTab[tab], it.UnitID)
+			perTabItems[tab][it.UnitID] = it
 		}
-		if !shouldBePickedUp(it) {
-			continue
-		}
-		tab := it.Location.Page + 1
-		if tab < 1 || tab > 4 {
-			continue
-		}
-		perTab[IntTab{Tab: tab}] = append(perTab[IntTab{Tab: tab}], it.UnitID)
 	}
 
-	if len(perTab) == 0 {
-		for tab := 1; tab <= 4; tab++ {
-			switchVendorTabFast(tab)
-			itemsTab := ctx.Data.Inventory.ByLocation(item.LocationVendor)
-			for _, it := range itemsTab {
-				if !typeMatch(it, plan.Types) || !shouldBePickedUp(it) {
-					continue
-				}
-				perTab[IntTab{Tab: tab}] = append(perTab[IntTab{Tab: tab}], it.UnitID)
-			}
-		}
-		if len(perTab) == 0 {
-			return 0, 0
-		}
-	}
+	if len(perTab) == 0 { return 0, 0 }
 
 	tabs := make([]int, 0, len(perTab))
-	for t := range perTab {
-		tabs = append(tabs, t.Tab)
-	}
+	for t := range perTab { tabs = append(tabs, t) }
 	sort.Ints(tabs)
 
 	for _, tab := range tabs {
 		switchVendorTabFast(tab)
+		ctx.RefreshGameData()
+		for _, uid := range perTab[tab] {
+			if ctx.Data.PlayerUnit.TotalPlayerGold() < plan.MinGoldReserve { return itemsPurchased, goldSpent }
+			it, ok := perTabItems[tab][uid]; if !ok { continue }
 
-		for {
-			cands := collectTabCandidates(tab, plan)
-			if len(cands) == 0 {
-				break
-			}
-
-			progress := false
-			for _, want := range cands {
-				var target *data.Item
-				itemsNow := ctx.Data.Inventory.ByLocation(item.LocationVendor)
-				for _, it := range itemsNow {
-					if (it.Location.Page+1) == tab && it.UnitID == want {
-						target = &it
-						break
-					}
-				}
-				if target == nil {
-					continue
-				}
-
-				if !itemFitsInventory(*target) {
-					if !stashAndReturnToVendor(vendorID, tab) {
-						ctx.Logger.Warn("Stash+return failed; aborting tab purchases", slog.Int("tab", tab))
-						return itemsPurchased, goldSpent
-					}
-					progress = true
-					break
-				}
-
-				sp := ui.GetScreenCoordsForItem(*target)
-				ctx.HID.MovePointer(sp.X, sp.Y)
-				utils.Sleep(15 + rand.Intn(25))
-				ctx.HID.Click(game.RightButton, sp.X, sp.Y)
-				utils.Sleep(50)
-				ctx.RefreshGameData()
-				itemsPurchased++
-				progress = true
-
-				if !hasTwoFreeColumns() {
-					if !stashAndReturnToVendor(vendorID, tab) {
-						ctx.Logger.Warn("Post-purchase stash+return failed", slog.Int("tab", tab))
-						return itemsPurchased, goldSpent
-					}
-					break
+			if !ensureTwoFreeColumnsStrict() {
+				if !stashAndReturnToVendor(vendorID, tab) {
+					ctx.Logger.Warn("Stash+return failed; aborting tab purchases", slog.Int("tab", tab))
+					return itemsPurchased, goldSpent
 				}
 			}
 
-			if !progress {
-				break
+			prevGold := ctx.Data.PlayerUnit.TotalPlayerGold()
+			sp := ui.GetScreenCoordsForItem(it)
+			ctx.HID.MovePointer(sp.X, sp.Y)
+			utils.Sleep(20)
+			ctx.HID.Click(game.RightButton, sp.X, sp.Y)
+			utils.Sleep(40)
+			ctx.RefreshGameData()
+			itemsPurchased++
+			goldSpent += prevGold - ctx.Data.PlayerUnit.TotalPlayerGold()
+
+			if !hasTwoFreeColumns() {
+				if !stashAndReturnToVendor(vendorID, tab) {
+					ctx.Logger.Warn("Post-purchase stash+return failed", slog.Int("tab", tab))
+					return itemsPurchased, goldSpent
+				}
 			}
+
 		}
 	}
 
 	return itemsPurchased, goldSpent
 }
 
+
 type IntTab struct{ Tab int }
 
 func collectTabCandidates(tab int, plan ActionShoppingPlan) []data.UnitID {
 	ctx := context.Get()
-	switchVendorTabFast(tab)
-	list := make([]data.UnitID, 0, 8)
+		list := make([]data.UnitID, 0, 8)
 	itemsNow := ctx.Data.Inventory.ByLocation(item.LocationVendor)
 	for _, it := range itemsNow {
 		if (it.Location.Page + 1) != tab {
@@ -371,7 +333,7 @@ func stashAndReturnToVendor(vendorID npc.ID, tab int) bool {
 		ctx.Logger.Warn("Stash failed", slog.Any("err", err))
 		return false
 	}
-	utils.Sleep(60)
+	utils.Sleep(40)
 	ctx.RefreshGameData()
 
 	if err := moveToVendor(vendorID); err != nil {
@@ -481,14 +443,14 @@ func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 	if town == area.Harrogath && onlyAnya {
 		ctx.Logger.Debug("Refreshing town via Anya red portal (preferred)")
 		_ = MoveToCoords(data.Position{X: 5116, Y: 5121})
-		utils.Sleep(600)
+		utils.Sleep(300)
 		ctx.RefreshGameData()
 
 		if redPortal, found := ctx.Data.Objects.FindOne(object.PermanentTownPortal); found {
 			if err := InteractObject(redPortal, func() bool {
 				return ctx.Data.AreaData.Area == area.NihlathaksTemple && ctx.Data.AreaData.IsInside(ctx.Data.PlayerUnit.Position)
 			}); err == nil {
-				utils.Sleep(120)
+				utils.Sleep(50)
 				ctx.RefreshGameData()
 				if err2 := returnToTownViaAnyaRedPortalFromTemple(); err2 == nil {
 					return nil
@@ -536,10 +498,10 @@ func hopOutAndBack(town area.ID, candidates []area.ID) error {
 			continue
 		}
 		if err := WayPoint(a); err == nil {
-			utils.Sleep(70)
+			utils.Sleep(50)
 			ctx.RefreshGameData()
 			if err := WayPoint(town); err == nil {
-				utils.Sleep(70)
+				utils.Sleep(50)
 				ctx.RefreshGameData()
 				return nil
 			}
@@ -555,7 +517,7 @@ func returnToTownViaAnyaRedPortalFromTemple() error {
 	}
 	anchor := data.Position{X: 10073, Y: 13311}
 	_ = MoveToCoords(anchor)
-	utils.Sleep(70)
+	utils.Sleep(50)
 	ctx.RefreshGameData()
 
 	redPortal, found := ctx.Data.Objects.FindOne(object.PermanentTownPortal)
@@ -579,13 +541,13 @@ func returnToTownViaAnyaRedPortalFromTemple() error {
 	if !found {
 		return fmt.Errorf("temple red portal not found")
 	}
-	utils.Sleep(800) // cooldown
+	utils.Sleep(400) // cooldown
 	if err := InteractObject(redPortal, func() bool {
 		return ctx.Data.AreaData.Area == area.Harrogath && ctx.Data.AreaData.IsInside(ctx.Data.PlayerUnit.Position)
 	}); err != nil {
 		return err
 	}
-	utils.Sleep(80)
+	utils.Sleep(50)
 	ctx.RefreshGameData()
 	return nil
 }
@@ -604,8 +566,8 @@ func ensureInTown(target area.ID) error {
 }
 
 func groupVendorsByTown(list []npc.ID) (townOrder []area.ID, byTown map[area.ID][]npc.ID) {
-	byTown = map[area.ID][]npc.ID{}
-	seen := map[area.ID]bool{}
+	byTown = make(map[area.ID][]npc.ID, 5)
+	seen := make(map[area.ID]bool, 5)
 	for _, v := range list {
 		townID, ok := VendorLocationMap[v]
 		if !ok {
@@ -627,11 +589,10 @@ func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (int, int, e
 	goldSpent := 0
 	itemsPurchased := 0
 
-	// Approach and open trade
 	if err := moveToVendor(vendorID); err != nil {
 		ctx.Logger.Warn("MoveTo vendor reported error", slog.Int("vendor", int(vendorID)), slog.Any("err", err))
 	}
-	utils.Sleep(60)
+	utils.Sleep(30)
 	ctx.RefreshGameData()
 
 	if err := InteractNPC(vendorID); err != nil {
@@ -642,17 +603,15 @@ func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (int, int, e
 		return 0, 0, fmt.Errorf("failed to open trade window for vendor %d", int(vendorID))
 	}
 
-	// Let vendor items populate
-	for i := 0; i < 5; i++ {
-		if len(ctx.Data.Inventory.ByLocation(item.LocationVendor)) > 0 {
-			break
-		}
-		utils.Sleep(60)
+	for i := 0; i < 8; i++ {
+		if len(ctx.Data.Inventory.ByLocation(item.LocationVendor)) > 0 { break }
+		utils.Sleep(25)
 		ctx.RefreshGameData()
 	}
 
-	if ctx.Data.PlayerUnit.TotalPlayerGold() < plan.MinGoldReserve {
-		ctx.Logger.Info("Not enough gold to shop", slog.Int("currentGold", ctx.Data.PlayerUnit.TotalPlayerGold()))
+	currentGold := ctx.Data.PlayerUnit.TotalPlayerGold()
+	if currentGold < plan.MinGoldReserve {
+		ctx.Logger.Info("Not enough gold to shop", slog.Int("currentGold", currentGold))
 		return 0, 0, nil
 	}
 
@@ -660,10 +619,10 @@ func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (int, int, e
 	itemsPurchased += purchased
 	goldSpent += spent
 
-	// Close inventory/shop to clean state
 	step.CloseAllMenus()
-	utils.Sleep(40)
+	utils.Sleep(20)
 	ctx.RefreshGameData()
 
 	return goldSpent, itemsPurchased, nil
 }
+
