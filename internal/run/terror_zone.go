@@ -29,7 +29,11 @@ func (tz TerrorZone) Name() string {
 	return fmt.Sprintf("TerrorZone Run: %v", tzNames)
 }
 
-func (tz TerrorZone) Run() error {
+func (tz TerrorZone) CheckConditions(parameters *RunParameters) SequencerResult {
+	return SequencerError
+}
+
+func (tz TerrorZone) Run(parameters *RunParameters) error {
 
 	availableTzs := tz.AvailableTZs()
 	if len(availableTzs) == 0 {
@@ -38,27 +42,27 @@ func (tz TerrorZone) Run() error {
 
 	switch availableTzs[0] {
 	case area.PitLevel1:
-		return NewPit().Run()
+		return NewPit().Run(parameters)
 	case area.Tristram:
-		return NewTristram().Run()
+		return NewTristram().Run(parameters)
 	case area.MooMooFarm:
-		return NewCows().Run()
+		return NewCows().Run(parameters)
 	case area.TalRashasTomb1:
-		return NewTalRashaTombs().Run()
+		return NewTalRashaTombs().Run(parameters)
 	case area.AncientTunnels:
-		return NewAncientTunnels().Run()
+		return NewAncientTunnels().Run(parameters)
 	case area.RockyWaste:
-		return NewStonyTomb().Run()
+		return NewStonyTomb().Run(parameters)
 	case area.Travincal:
-		return NewTravincal().Run()
+		return NewTravincal().Run(parameters)
 	case area.DuranceOfHateLevel1:
-		return NewMephisto(tz.customTZEnemyFilter()).Run()
+		return NewMephisto(tz.customTZEnemyFilter()).Run(parameters)
 	case area.ChaosSanctuary:
-		return NewDiablo().Run()
+		return NewDiablo().Run(parameters)
 	case area.NihlathaksTemple:
-		return NewNihlathak().Run()
+		return NewNihlathak().Run(parameters)
 	case area.TheWorldStoneKeepLevel1:
-		return NewBaal(tz.customTZEnemyFilter()).Run()
+		return NewBaal(tz.customTZEnemyFilter()).Run(parameters)
 	}
 
 	tzAreaGroups := tz.tzAreaGroups(tz.ctx.Data.TerrorZones[0])

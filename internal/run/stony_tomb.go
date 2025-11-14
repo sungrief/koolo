@@ -3,6 +3,7 @@ package run
 import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -22,7 +23,17 @@ func (s StonyTomb) Name() string {
 	return string(config.StonyTombRun)
 }
 
-func (s StonyTomb) Run() error {
+func (s StonyTomb) CheckConditions(parameters *RunParameters) SequencerResult {
+	if IsQuestRun(parameters) {
+		return SequencerError
+	}
+	if !s.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (s StonyTomb) Run(parameters *RunParameters) error {
 
 	// Setup default filter
 	monsterFilter := data.MonsterAnyFilter()

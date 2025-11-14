@@ -32,7 +32,7 @@ func (a Leveling) act5() error {
 	// Gold Farming Logic (and immediate return if farming is needed)
 	if action.IsLowGold() {
 		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
-			NewLowerKurastChest().Run()
+			NewLowerKurastChest().Run(nil)
 
 			err := action.WayPoint(area.Harrogath)
 			if err != nil {
@@ -53,7 +53,7 @@ func (a Leveling) act5() error {
 			}()
 
 			a.ctx.Logger.Info("Low on gold. Initiating gold farm.")
-			if err := NewEldritch().Run(); err != nil {
+			if err := NewEldritch().Run(nil); err != nil {
 				a.ctx.Logger.Error("Error during gold farm: %v", err)
 				return err // Propagate error if farming fails
 			}
@@ -69,7 +69,7 @@ func (a Leveling) act5() error {
 	if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && lvl.Value < 60 || a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && lvl.Value < 30 {
 
 		diabloRun := NewDiablo()
-		err := diabloRun.Run()
+		err := diabloRun.Run(nil)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func (a Leveling) act5() error {
 
 		//Still in Nightmare lvl 70, might need more runes
 		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && lvl.Value >= 70 {
-			if err := NewCountess().Run(); err != nil {
+			if err := NewCountess().Run(nil); err != nil {
 				return err
 			}
 			if err := action.ReturnTown(); err != nil {
@@ -92,14 +92,14 @@ func (a Leveling) act5() error {
 			a.ctx.CharacterCfg.Game.Baal.SoulQuit = true
 		}
 		a.ctx.Logger.Info("Starting Baal run...")
-		if err := NewBaal(nil).Run(); err != nil {
+		if err := NewBaal(nil).Run(nil); err != nil {
 			return err
 		}
 
 		//Still in Nightmare lvl 70, might need more base, doing cows last cause it's a bit buggy :(
 		if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && lvl.Value >= 70 {
 			if a.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {
-				if err := NewCows().Run(); err != nil {
+				if err := NewCows().Run(nil); err != nil {
 					return err
 				}
 				if err := action.ReturnTown(); err != nil {
@@ -239,11 +239,11 @@ func (a Leveling) act5() error {
 			}
 		}
 
-		NewLowerKurastChest().Run()
-		NewMephisto(nil).Run()
-		NewMausoleum().Run()
+		NewLowerKurastChest().Run(nil)
+		NewMephisto(nil).Run(nil)
+		NewMausoleum().Run(nil)
 		diabloRun := NewDiablo()
-		err := diabloRun.Run()
+		err := diabloRun.Run(nil)
 		if err != nil {
 			return err
 		}

@@ -50,7 +50,7 @@ window.onload = function () {
         if (!enabledRunListElement) return;
 
         const enabledRuns = Array.from(enabledRunListElement.querySelectorAll('li')).map(li => li.getAttribute('value'));
-        const isLevelingRunEnabled = enabledRuns.includes('leveling');
+        const isLevelingRunEnabled = enabledRuns.includes('leveling') || enabledRuns.includes('leveling_sequence');
         const hasOtherRunsEnabled = enabledRuns.length > 1;
 
         if (levelingBuilds.includes(selectedBuild) && (!isLevelingRunEnabled || hasOtherRunsEnabled)) {

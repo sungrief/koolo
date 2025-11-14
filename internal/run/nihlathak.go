@@ -6,12 +6,15 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/pather"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 type Nihlathak struct {
@@ -28,11 +31,31 @@ func (n Nihlathak) Name() string {
 	return string(config.NihlathakRun)
 }
 
-func (n Nihlathak) Run() error {
+func (n Nihlathak) CheckConditions(parameters *RunParameters) SequencerResult {
+	if IsFarmingRun(parameters) {
+		if !n.ctx.Data.Quests[quest.Act5BetrayalOfHarrogath].Completed() {
+			return SequencerSkip
+		}
+		return SequencerOk
+	}
+	if n.ctx.Data.Quests[quest.Act5BetrayalOfHarrogath].Completed() {
+		return SequencerSkip
+	}
+	if !n.ctx.Data.Quests[quest.Act5PrisonOfIce].Completed() {
+		return SequencerStop
+	}
+	return SequencerOk
+}
+
+func (n Nihlathak) Run(parameters *RunParameters) error {
 	// Use the waypoint to HallsOfPain
 	err := action.WayPoint(area.HallsOfPain)
 	if err != nil {
-		return err
+		//WP not found, try get it
+		err = n.getHallOfPainWp()
+		if err != nil {
+			return err
+		}
 	}
 
 	// Move to Halls Of Vaught
@@ -81,6 +104,23 @@ func (n Nihlathak) Run() error {
 		}, nil)
 	}
 
+	if IsQuestRun(parameters) {
+		err = action.ReturnTown()
+		if err != nil {
+			return err
+		}
+
+		err = n.goToAnyaInTown()
+		if err != nil {
+			return err
+		}
+
+		err = action.InteractNPC(npc.Drehya)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -121,4 +161,62 @@ func (n Nihlathak) findBestCorner(nihlathakPosition data.Position) data.Position
 	}
 
 	return corners[bestCorner]
+}
+
+func (n Nihlathak) goToAnyaInTown() error {
+	anyaTownPos, found := n.ctx.Data.Objects.FindOne(object.DrehyaTownStartPosition)
+	if !found {
+		return errors.New("couldn't find anya pos in town")
+	}
+	err := action.MoveToCoords(anyaTownPos.Position)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (n Nihlathak) getHallOfPainWp() error {
+	err := n.goToAnyaInTown()
+	if err != nil {
+		return err
+	}
+
+	templeTp, found := n.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
+	if !found {
+		//Try to talk to anya to open portal
+		err = action.InteractNPC(npc.Drehya)
+		if err != nil {
+			return err
+		}
+		utils.Sleep(1000)
+		n.ctx.RefreshGameData()
+		utils.Sleep(200)
+
+		templeTp, found = n.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
+		if !found {
+			return errors.New("couldn't find anya pos in town")
+		}
+	}
+	err = action.InteractObject(templeTp, func() bool {
+		return n.ctx.Data.PlayerUnit.Area == area.NihlathaksTemple
+	})
+	if err != nil {
+		return err
+	}
+
+	err = action.MoveToArea(area.HallsOfAnguish)
+	if err != nil {
+		return err
+	}
+
+	err = action.MoveToArea(area.HallsOfPain)
+	if err != nil {
+		return err
+	}
+
+	err = action.DiscoverWaypoint()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -23,7 +23,11 @@ func (u *Utility) Name() string {
 	return string(config.UtilityRun)
 }
 
-func (u *Utility) Run() error {
+func (u *Utility) CheckConditions(parameters *RunParameters) SequencerResult {
+	return SequencerError
+}
+
+func (u *Utility) Run(parameters *RunParameters) error {
 	targetAct := u.ctx.CharacterCfg.Game.Utility.ParkingAct
 
 	u.ctx.Logger.Info(fmt.Sprintf("Park it like it's hot in Act %d", targetAct))

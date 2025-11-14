@@ -26,6 +26,7 @@ const (
 	DiabloRun           Run = "diablo"
 	CowsRun             Run = "cows"
 	LevelingRun         Run = "leveling"
+	LevelingSequenceRun Run = "leveling_sequence"
 	QuestsRun           Run = "quests"
 	TerrorZoneRun       Run = "terror_zone"
 	ThreshsocketRun     Run = "threshsocket"
@@ -35,7 +36,29 @@ const (
 	UtilityRun          Run = "utility"
 	FireEyeRun          Run = "fire_eye"
 	ShoppingRun         Run = "shopping"
-
+	//Leveling Sequence
+	DenRun                   Run = "den"
+	BloodravenRun            Run = "bloodraven"
+	RescueCainRun            Run = "rescue_cain"
+	RetrieveHammerRun        Run = "retrieve_hammer"
+	RadamentRun              Run = "radament"
+	CubeRun                  Run = "cube"
+	StaffRun                 Run = "staff"
+	AmuletRun                Run = "amulet"
+	JadeFigurineRun          Run = "jade_figurine"
+	GidbinnRun               Run = "gidbinn"
+	LamEsenRun               Run = "lam_esen"
+	KhalimsEyeRun            Run = "khalims_eye"
+	KhalimsBrainRun          Run = "khalims_brain"
+	KhalimsHeartRun          Run = "khalims_heart"
+	IzualRun                 Run = "izual"
+	HellforgeRun             Run = "hellforge"
+	ShenkRun                 Run = "shenk"
+	RescueBarbsRun           Run = "rescue_barbs"
+	AnyaRun                  Run = "anya"
+	AncientsRun              Run = "ancients"
+	FrozenAuraMercRun        Run = "frozen_aura_merc"
+	TristramEarlyGoldfarmRun Run = "tristram_early_gold_farm"
 )
 
 var AvailableRuns = map[Run]interface{}{
@@ -62,6 +85,7 @@ var AvailableRuns = map[Run]interface{}{
 	DiabloRun:           nil,
 	CowsRun:             nil,
 	LevelingRun:         nil,
+	LevelingSequenceRun: nil,
 	QuestsRun:           nil,
 	TerrorZoneRun:       nil,
 	ThreshsocketRun:     nil,
@@ -71,5 +95,4 @@ var AvailableRuns = map[Run]interface{}{
 	UtilityRun:          nil,
 	FireEyeRun:          nil,
 	ShoppingRun:         nil,
-
 }

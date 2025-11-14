@@ -33,6 +33,10 @@ func (m Mule) Name() string {
 	return string(config.MuleRun)
 }
 
+func (m Mule) CheckConditions(parameters *RunParameters) SequencerResult {
+	return SequencerError
+}
+
 // initialSetup ensures the bot is in a valid state to start muling.
 func (m Mule) initialSetup(ctx *context.Status) error {
 	ctx.WaitForGameToLoad()
@@ -49,7 +53,7 @@ func (m Mule) initialSetup(ctx *context.Status) error {
 	return nil
 }
 
-func (m Mule) Run() error {
+func (m Mule) Run(parameters *RunParameters) error {
 	ctx := context.Get()
 
 	returnToChar := ctx.CharacterCfg.Muling.ReturnTo
