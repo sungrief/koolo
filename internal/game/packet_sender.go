@@ -5,6 +5,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
+	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	packet "github.com/hectorgimenez/koolo/internal/packet"
 )
 
@@ -89,6 +90,26 @@ func (ps *PacketSender) CastSkillAtLocation(position data.Position) error {
 func (ps *PacketSender) SelectRightSkill(skillID skill.ID) error {
 	if err := ps.SendPacket(packet.NewSkillSelection(skillID).GetPayload()); err != nil {
 		return fmt.Errorf("failed to send skill selection packet: %w", err)
+	}
+	return nil
+}
+
+// LearnSkill sends packet 0x3B to allocate a skill point
+// Use cases: Faster skill point allocation during leveling (Sorceress leveling)
+// Bypasses UI interaction for instant skill learning
+func (ps *PacketSender) LearnSkill(skillID skill.ID) error {
+	if err := ps.SendPacket(packet.NewLearnSkill(skillID).GetPayload()); err != nil {
+		return fmt.Errorf("failed to send learn skill packet: %w", err)
+	}
+	return nil
+}
+
+// AllocateStatPoint sends packet 0x3A to allocate a stat point
+// Use cases: Faster stat point allocation during leveling (Sorceress leveling)
+// Bypasses UI interaction for instant stat allocation
+func (ps *PacketSender) AllocateStatPoint(statID stat.ID) error {
+	if err := ps.SendPacket(packet.NewAllocateStat(statID).GetPayload()); err != nil {
+		return fmt.Errorf("failed to send allocate stat packet: %w", err)
 	}
 	return nil
 }

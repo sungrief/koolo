@@ -153,6 +153,7 @@ type CharacterCfg struct {
 			UseTelekinesis        bool `yaml:"use_telekinesis"`
 			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
 			UseBlizzardPackets    bool `yaml:"use_blizzard_packets"`
+			UsePacketLearning     bool `yaml:"use_packet_learning"`
 		} `yaml:"sorceress_leveling"`
 		NovaSorceress struct {
 			BossStaticThreshold   int  `yaml:"boss_static_threshold"`
@@ -178,6 +179,21 @@ type CharacterCfg struct {
 			UseBladesOfIce    bool `yaml:"useBladesOfIce"`
 			UseFistsOfFire    bool `yaml:"useFistsOfFire"`
 		} `yaml:"mosaic_sin"`
+		AssassinLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"assassin_leveling"`
+		AmazonLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"amazon_leveling"`
+		DruidLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"druid_leveling"`
+		NecromancerLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"necromancer_leveling"`
+		PaladinLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"paladin_leveling"`
 	} `yaml:"character"`
 
 	Game struct {
