@@ -104,47 +104,13 @@ func (s *Baal) Run() error {
 
 	lastWave := false
 	waveTimeout := time.Now().Add(7 * time.Minute)
-	noMonstersCount := 0                           
 
 	for !lastWave && time.Now().Before(waveTimeout) {
-		if _, found := s.ctx.Data.Monsters.FindOne(npc.BaalsMinion, data.MonsterTypeMinion); found {
+		s.ctx.PauseIfNotPriority()
+		s.ctx.RefreshGameData()
+
+		if s.lastWaveCheck() {
 			lastWave = true
-		}
-
-		if baalPortal, foundPortal := s.ctx.Data.Objects.FindOne(object.BaalsPortal); foundPortal {
-			if baalPortal.Selectable {
-				lastWave = true
-			}
-		}
-
-		
-		monstersNearby := []data.Monster{}
-		for _, m := range s.ctx.Data.Monsters.Enemies(data.MonsterAnyFilter()) {
-			distance := s.ctx.PathFinder.DistanceFromMe(m.Position)
-			if distance <= 40 { // Only check monsters within 40 units
-				monstersNearby = append(monstersNearby, m)
-			}
-		}
-
-		if len(monstersNearby) == 0 {
-			noMonstersCount++
-			// If no monsters detected for 3 consecutive checks, assume wave is complete
-			if noMonstersCount >= 3 {
-				utils.Sleep(2000) // Wait a bit for next wave to spawn
-				// Check one more time for portal or minions
-				if baalPortal, foundPortal := s.ctx.Data.Objects.FindOne(object.BaalsPortal); foundPortal {
-					if baalPortal.Selectable {
-						lastWave = true
-						break
-					}
-				}
-				if _, found := s.ctx.Data.Monsters.FindOne(npc.BaalsMinion, data.MonsterTypeMinion); found {
-					lastWave = true
-					break
-				}
-			}
-		} else {
-			noMonstersCount = 0
 		}
 
 		// Return to throne position between waves
@@ -188,6 +154,18 @@ func (s *Baal) Run() error {
 	}
 
 	return nil
+}
+
+func (s Baal) lastWaveCheck() bool {
+	if _, found := s.ctx.Data.Monsters.FindOne(npc.BaalsMinion, data.MonsterTypeNone); found {
+		return true
+	}
+
+	if _, found := s.ctx.Data.Corpses.FindOne(npc.BaalsMinion, data.MonsterTypeNone); found {
+		return true
+	}
+
+	return false
 }
 
 func (s Baal) checkForSoulsOrDolls() bool {
