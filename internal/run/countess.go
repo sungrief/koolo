@@ -3,6 +3,7 @@ package run
 import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -22,7 +23,16 @@ func (c Countess) Name() string {
 	return string(config.CountessRun)
 }
 
-func (c Countess) Run() error {
+func (a Countess) CheckConditions(parameters *RunParameters) SequencerResult {
+	farmingRun := IsFarmingRun(parameters)
+	questCompleted := a.ctx.Data.Quests[quest.Act1TheForgottenTower].Completed()
+	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (c Countess) Run(parameters *RunParameters) error {
 	// Travel to boss level
 	err := action.WayPoint(area.BlackMarsh)
 	if err != nil {
@@ -59,5 +69,10 @@ func (c Countess) Run() error {
 	}
 
 	// Kill Countess
-	return c.ctx.Char.KillCountess()
+	if err := c.ctx.Char.KillCountess(); err != nil {
+		return err
+	}
+
+	action.ItemPickup(30)
+	return nil
 }

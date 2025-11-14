@@ -4,6 +4,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -24,7 +25,17 @@ func (t Threshsocket) Name() string {
 	return string(config.ThreshsocketRun)
 }
 
-func (t Threshsocket) Run() error {
+func (t Threshsocket) CheckConditions(parameters *RunParameters) SequencerResult {
+	if IsQuestRun(parameters) {
+		return SequencerError
+	}
+	if !t.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (t Threshsocket) Run(parameters *RunParameters) error {
 
 	// Use waypoint to crystalinepassage
 	err := action.WayPoint(area.CrystallinePassage)

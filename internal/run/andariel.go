@@ -5,6 +5,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -12,6 +13,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
+	"github.com/lxn/win"
 )
 
 var andarielClearPos1 = data.Position{
@@ -123,8 +125,28 @@ func (a Andariel) Name() string {
 	return string(config.AndarielRun)
 }
 
-func (a Andariel) Run() error {
+func (a Andariel) CheckConditions(parameters *RunParameters) SequencerResult {
+	farmingRun := IsFarmingRun(parameters)
+	needLeaveTown := (a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusRewardGranted+quest.StatusLeaveTown+quest.StatusEnterArea) &&
+		!action.HasAnyQuestStartedOrCompleted(quest.Act2RadamentsLair, quest.Act2TheSevenTombs) &&
+		a.ctx.Data.PlayerUnit.Area.Act() == 1)
+	questCompleted := a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].Completed()
+	if (farmingRun && !questCompleted) || (!farmingRun && (questCompleted && !needLeaveTown)) {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (a Andariel) Run(parameters *RunParameters) error {
 	_, isLevelingChar := a.ctx.Char.(context.LevelingCharacter)
+
+	if IsQuestRun(parameters) {
+		needLeaveTown := a.ctx.Data.Quests[quest.Act1SistersToTheSlaughter].HasStatus(quest.StatusRewardGranted + quest.StatusLeaveTown + quest.StatusEnterArea)
+		if needLeaveTown {
+			a.goToAct2()
+			return nil
+		}
+	}
 
 	a.ctx.Logger.Info("Moving to Catacombs 4")
 	err := action.WayPoint(area.CatacombsLevel2)
@@ -270,5 +292,18 @@ func (a Andariel) Run() error {
 
 	a.ctx.EnableItemPickup()
 
+	if IsQuestRun(parameters) {
+		a.goToAct2()
+	}
+
 	return err
+}
+
+func (a Andariel) goToAct2() {
+	action.ReturnTown()
+	action.InteractNPC(npc.Warriv)
+	a.ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
+	utils.Sleep(1000)
+	action.HoldKey(win.VK_SPACE, 2000)
+	utils.Sleep(1000)
 }

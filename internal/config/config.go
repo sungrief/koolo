@@ -275,6 +275,9 @@ type CharacterCfg struct {
 			HellRequiredLightRes     int      `yaml:"hellRequiredLightRes"`
 			EnabledRunewordRecipes   []string `yaml:"enabledRunewordRecipes"`
 		} `yaml:"leveling"`
+		LevelingSequence struct {
+			SequenceFile string `yaml:"sequenceFile"`
+		} `yaml:"leveling_sequence"`
 		Quests struct {
 			ClearDen       bool `yaml:"clearDen"`
 			RescueCain     bool `yaml:"rescueCain"`
@@ -326,7 +329,7 @@ type CharacterCfg struct {
 		EquipmentBroken bool `yaml:"equipmentBroken"`
 	} `yaml:"backtotown"`
 	Shopping ShoppingConfig `yaml:"shopping"`
-	Runtime struct {
+	Runtime  struct {
 		Rules     nip.Rules   `yaml:"-"`
 		TierRules []int       `yaml:"-"`
 		Drops     []data.Item `yaml:"-"`
@@ -449,7 +452,7 @@ func Load() error {
 		}
 
 		// Load the leveling pickit rules
-		if len(charCfg.Game.Runs) > 0 && charCfg.Game.Runs[0] == "leveling" {
+		if len(charCfg.Game.Runs) > 0 && (charCfg.Game.Runs[0] == "leveling" || charCfg.Game.Runs[0] == "leveling_sequence") {
 			levelingPickitPath := getAbsPath(filepath.Join("config", entry.Name(), "pickit_leveling"))
 			classPickitFile := filepath.Join(levelingPickitPath, charCfg.Character.Class+".nip")
 			questPickitFile := filepath.Join(levelingPickitPath, "quest.nip")

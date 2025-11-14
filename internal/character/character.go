@@ -15,7 +15,7 @@ func BuildCharacter(ctx *context.Context) (context.Character, error) {
 		Context: ctx,
 	}
 
-	if len(ctx.CharacterCfg.Game.Runs) > 0 && ctx.CharacterCfg.Game.Runs[0] == "leveling" {
+	if len(ctx.CharacterCfg.Game.Runs) > 0 && (ctx.CharacterCfg.Game.Runs[0] == "leveling" || ctx.CharacterCfg.Game.Runs[0] == "leveling_sequence") {
 		switch strings.ToLower(ctx.CharacterCfg.Character.Class) {
 		case "sorceress_leveling":
 			return SorceressLeveling{BaseCharacter: bc}, nil
