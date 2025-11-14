@@ -8,6 +8,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
@@ -39,7 +40,22 @@ func (s Baal) Name() string {
 	return string(config.BaalRun)
 }
 
-func (s *Baal) Run() error {
+func (a Baal) CheckConditions(parameters *RunParameters) SequencerResult {
+	farmingRun := IsFarmingRun(parameters)
+	if !a.ctx.Data.Quests[quest.Act5RiteOfPassage].Completed() {
+		if farmingRun {
+			return SequencerSkip
+		}
+		return SequencerStop
+	}
+	questCompleted := a.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed()
+	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (s *Baal) Run(parameters *RunParameters) error {
 	// Set filter
 	filter := data.MonsterAnyFilter()
 	if s.ctx.CharacterCfg.Game.Baal.OnlyElites {
@@ -104,7 +120,7 @@ func (s *Baal) Run() error {
 
 	lastWave := false
 	waveTimeout := time.Now().Add(7 * time.Minute)
-	noMonstersCount := 0                           
+	noMonstersCount := 0
 
 	for !lastWave && time.Now().Before(waveTimeout) {
 		if _, found := s.ctx.Data.Monsters.FindOne(npc.BaalsMinion, data.MonsterTypeMinion); found {
@@ -117,7 +133,6 @@ func (s *Baal) Run() error {
 			}
 		}
 
-		
 		monstersNearby := []data.Monster{}
 		for _, m := range s.ctx.Data.Monsters.Enemies(data.MonsterAnyFilter()) {
 			distance := s.ctx.PathFinder.DistanceFromMe(m.Position)

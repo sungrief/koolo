@@ -1343,6 +1343,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Leveling.HellRequiredFireRes = s.getIntFromForm(r, "gameLevelingHellRequiredFireRes", -100, 75, 15)
 		cfg.Game.Leveling.HellRequiredLightRes = s.getIntFromForm(r, "gameLevelingHellRequiredLightRes", -100, 75, -10)
 
+		cfg.Game.LevelingSequence.SequenceFile = r.Form.Get("gameLevelingSequenceFile")
+
 		// Socket Recipes
 		cfg.Game.Leveling.EnableRunewordMaker = r.Form.Has("gameLevelingEnableRunewordMaker")
 		enabledRunewordRecipes := r.Form["gameLevelingEnabledRunewordRecipes"]
