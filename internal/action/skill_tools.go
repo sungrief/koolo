@@ -47,15 +47,15 @@ func EnsureSkillPoints() error {
 	switch ctx.CharacterCfg.Character.Class {
 	case "sorceress_leveling":
 		usePacketMode = ctx.CharacterCfg.Character.SorceressLeveling.UsePacketLearning
-	case "assassin_leveling":
+	case "assassin":
 		usePacketMode = ctx.CharacterCfg.Character.AssassinLeveling.UsePacketLearning
 	case "amazon_leveling":
 		usePacketMode = ctx.CharacterCfg.Character.AmazonLeveling.UsePacketLearning
 	case "druid_leveling":
 		usePacketMode = ctx.CharacterCfg.Character.DruidLeveling.UsePacketLearning
-	case "necromancer_leveling":
+	case "necromancer":
 		usePacketMode = ctx.CharacterCfg.Character.NecromancerLeveling.UsePacketLearning
-	case "paladin_leveling":
+	case "paladin":
 		usePacketMode = ctx.CharacterCfg.Character.PaladinLeveling.UsePacketLearning
 	}
 

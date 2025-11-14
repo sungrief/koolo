@@ -1237,7 +1237,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Assassin Leveling specific options
-		if cfg.Character.Class == "assassin_leveling" {
+		if cfg.Character.Class == "assassin" {
 			cfg.Character.AssassinLeveling.UsePacketLearning = r.Form.Has("usePacketLearning")
 		}
 
@@ -1252,12 +1252,12 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Necromancer Leveling specific options
-		if cfg.Character.Class == "necromancer_leveling" {
+		if cfg.Character.Class == "necromancer" {
 			cfg.Character.NecromancerLeveling.UsePacketLearning = r.Form.Has("usePacketLearning")
 		}
 
 		// Paladin Leveling specific options
-		if cfg.Character.Class == "paladin_leveling" {
+		if cfg.Character.Class == "paladin" {
 			cfg.Character.PaladinLeveling.UsePacketLearning = r.Form.Has("usePacketLearning")
 		}
 

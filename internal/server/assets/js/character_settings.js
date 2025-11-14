@@ -168,6 +168,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const lightningSorceressOptions = document.querySelector('.lightsorc-options');
         const hydraOrbSorceressOptions = document.querySelector('.hydraorb-options');
         const fireballSorceressOptions = document.querySelector('.fireballsorc-options');
+        const assassinLevelingOptions = document.querySelector('.assassin-options');
+        const amazonLevelingOptions = document.querySelector('.amazon_leveling-options');
+        const druidLevelingOptions = document.querySelector('.druid_leveling-options');
+        const necromancerLevelingOptions = document.querySelector('.necromancer-options');
+        const paladinLevelingOptions = document.querySelector('.paladin-options');
 
         // Hide all options first
         if (berserkerBarbOptions) berserkerBarbOptions.style.display = 'none';
@@ -178,6 +183,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (lightningSorceressOptions) lightningSorceressOptions.style.display = 'none';
         if (hydraOrbSorceressOptions) hydraOrbSorceressOptions.style.display = 'none';
         if (fireballSorceressOptions) fireballSorceressOptions.style.display = 'none';
+        if (assassinLevelingOptions) assassinLevelingOptions.style.display = 'none';
+        if (amazonLevelingOptions) amazonLevelingOptions.style.display = 'none';
+        if (druidLevelingOptions) druidLevelingOptions.style.display = 'none';
+        if (necromancerLevelingOptions) necromancerLevelingOptions.style.display = 'none';
+        if (paladinLevelingOptions) paladinLevelingOptions.style.display = 'none';
         if (noSettingsMessage) noSettingsMessage.style.display = 'none';
 
         // Show relevant options based on class
@@ -198,6 +208,16 @@ document.addEventListener('DOMContentLoaded', function () {
             if (blizzardSorceressOptions) blizzardSorceressOptions.style.display = 'block';
         } else if (selectedClass === 'sorceress_leveling') {
             if (sorceressLevelingOptions) sorceressLevelingOptions.style.display = 'block';
+        } else if (selectedClass === 'assassin') {
+            if (assassinLevelingOptions) assassinLevelingOptions.style.display = 'block';
+        } else if (selectedClass === 'amazon_leveling') {
+            if (amazonLevelingOptions) amazonLevelingOptions.style.display = 'block';
+        } else if (selectedClass === 'druid_leveling') {
+            if (druidLevelingOptions) druidLevelingOptions.style.display = 'block';
+        } else if (selectedClass === 'necromancer') {
+            if (necromancerLevelingOptions) necromancerLevelingOptions.style.display = 'block';
+        } else if (selectedClass === 'paladin') {
+            if (paladinLevelingOptions) paladinLevelingOptions.style.display = 'block';
         } else {
             if (noSettingsMessage) noSettingsMessage.style.display = 'block';
         }
