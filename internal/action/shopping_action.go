@@ -20,7 +20,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
-// ActionShoppingPlan mirrors your previous space_checks struct to minimize diffs.
+// ActionShoppingPlan holds runtime options for shopping: enable flag, refreshes, gold limits, selected vendors, optional rules and item type filters.
 type ActionShoppingPlan struct {
 	Enabled         bool
 	RefreshesPerRun int
@@ -29,6 +29,7 @@ type ActionShoppingPlan struct {
 	Rules           nip.Rules // optional override; if empty, shouldBePickedUp() is used
 	Types           []string  // optional allow-list of item types (string of item.Desc().Type)
 }
+// NewActionShoppingPlanFromConfig builds a runtime plan from the YAML-backed character config.
 
 func NewActionShoppingPlanFromConfig(cfg config.ShoppingConfig) ActionShoppingPlan {
 	return ActionShoppingPlan{
@@ -40,6 +41,7 @@ func NewActionShoppingPlanFromConfig(cfg config.ShoppingConfig) ActionShoppingPl
 		Types:           nil,
 	}
 }
+// vendorListFromConfig returns the vendors selected in the config.
 
 func vendorListFromConfig(cfg config.ShoppingConfig) []npc.ID {
 	// Use the method from the config struct directly
@@ -51,6 +53,7 @@ func vendorListFromConfig(cfg config.ShoppingConfig) []npc.ID {
 	// Fallback (shouldn't happen if config is properly initialized)
 	return []npc.ID{}
 }
+// RunShoppingFromConfig runs the shopping routine using values from config.
 
 func RunShoppingFromConfig(cfg *config.ShoppingConfig) error {
 	if cfg == nil {
@@ -58,6 +61,7 @@ func RunShoppingFromConfig(cfg *config.ShoppingConfig) error {
 	}
 	return RunShopping(NewActionShoppingPlanFromConfig(*cfg))
 }
+// RunShopping iterates towns and vendors, buying items according to the plan and performing optional town refreshes.
 
 func RunShopping(plan ActionShoppingPlan) error {
 	ctx := context.Get()
@@ -133,7 +137,7 @@ func RunShopping(plan ActionShoppingPlan) error {
 	return nil
 }
 
-// --- Space helpers ---
+// ensureTwoFreeColumnsStrict ensures two adjacent inventory columns are free; stashes once if needed.
 
 func ensureTwoFreeColumnsStrict() bool {
 	if hasTwoFreeColumns() {
@@ -151,6 +155,7 @@ func ensureTwoFreeColumnsStrict() bool {
 	ctx.RefreshGameData()
 	return hasTwoFreeColumns()
 }
+// hasFreeRect returns true if a w×h rectangle fits into the inventory grid.
 
 func hasFreeRect(grid [4][10]bool, w, h int) bool {
 	H := len(grid)
@@ -180,6 +185,7 @@ func hasFreeRect(grid [4][10]bool, w, h int) bool {
 	}
 	return false
 }
+// hasTwoFreeColumns returns true if two adjacent inventory columns are free.
 
 func hasTwoFreeColumns() bool {
 	ctx := context.Get()
@@ -191,7 +197,7 @@ func hasTwoFreeColumns() bool {
 	return hasFreeRect(grid, 2, h)
 }
 
-// --- Fast vendor tab switch using stash tab coords (no sleeps) ---
+// switchVendorTabFast clicks the vendor tab using stash-tab coordinates; caller should refresh UI state after switching.
 func switchVendorTabFast(tab int) {
 	if tab < 1 || tab > 4 {
 		return
@@ -209,7 +215,7 @@ func switchVendorTabFast(tab int) {
 	ctx.RefreshGameData()
 }
 
-// --- Scan & buy with smart stash-and-return ---
+// scanAndPurchaseItems scans vendor tabs, buys matching items, and stashes/returns if space is insufficient.
 
 func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurchased int, goldSpent int) {
 	ctx := context.Get()
@@ -325,6 +331,7 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 
 	return itemsPurchased, goldSpent
 }
+// stashAndReturnToVendor stashes items and reopens the vendor on the specified tab; returns whether it succeeded.
 
 func stashAndReturnToVendor(vendorID npc.ID, tab int) bool {
 	ctx := context.Get()
@@ -355,6 +362,7 @@ func stashAndReturnToVendor(vendorID npc.ID, tab int) bool {
 	ctx.RefreshGameData()
 	return true
 }
+// typeMatch applies an optional allow-list by item type string; empty allow-list allows all.
 
 func typeMatch(it data.Item, allow []string) bool {
 	if len(allow) == 0 {
@@ -368,6 +376,7 @@ func typeMatch(it data.Item, allow []string) bool {
 	}
 	return false
 }
+// openVendorTrade opens the vendor trade dialog using keyboard navigation.
 
 func openVendorTrade(vendorID npc.ID) {
 	ctx := context.Get()
@@ -380,14 +389,14 @@ func openVendorTrade(vendorID npc.ID) {
 	ctx.RefreshGameData()
 }
 
-// Helper function for distance calculation
+// distanceSquared computes squared tile distance for cheap range checks.
 func distanceSquared(a, b data.Position) int {
 	dx := int(a.X) - int(b.X)
 	dy := int(a.Y) - int(b.Y)
 	return dx*dx + dy*dy
 }
 
-// moveToVendor goes to the closest exposed NPC position.
+// moveToVendor navigates to the target vendor. For Anya (Drehya), it resolves via the monsters list with a fixed-position fallback.
 func moveToVendor(vendorID npc.ID) error {
 	ctx := context.Get()
 
@@ -443,7 +452,7 @@ func moveToVendor(vendorID npc.ID) error {
 	})
 }
 
-// --- Town refresh helpers ---
+// refreshTownPreferAnyaPortal refreshes Harrogath via Anya's red portal when only Anya is selected; otherwise uses the waypoint method.
 
 func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 	ctx := context.Get()
@@ -468,6 +477,7 @@ func refreshTownPreferAnyaPortal(town area.ID, onlyAnya bool) error {
 	}
 	return refreshTownViaWaypoint(town)
 }
+// refreshTownViaWaypoint refreshes a town by stepping out to a nearby area and returning.
 
 func refreshTownViaWaypoint(town area.ID) error {
 	// prefer a tagged switch (satisfies QF1003), silence exhaustive with nolint
@@ -497,6 +507,7 @@ func refreshTownViaWaypoint(town area.ID) error {
 		return fmt.Errorf("no viable waypoint refresh for %s", town.Area().Name)
 	}
 }
+// hopOutAndBack leaves town to the first reachable target and returns to refresh vendors.
 
 func hopOutAndBack(town area.ID, candidates []area.ID) error {
 	ctx := context.Get()
@@ -516,6 +527,7 @@ func hopOutAndBack(town area.ID, candidates []area.ID) error {
 	}
 	return fmt.Errorf("no candidate waypoint worked for %s", town.Area().Name)
 }
+// returnToTownViaAnyaRedPortalFromTemple returns from Nihlathak's Temple to Harrogath using the red portal.
 
 func returnToTownViaAnyaRedPortalFromTemple() error {
 	ctx := context.Get()
@@ -558,6 +570,7 @@ func returnToTownViaAnyaRedPortalFromTemple() error {
 	ctx.RefreshGameData()
 	return nil
 }
+// ensureInTown moves the player to the specified town using waypoints or return-to-town.
 
 func ensureInTown(target area.ID) error {
 	ctx := context.Get()
@@ -571,6 +584,7 @@ func ensureInTown(target area.ID) error {
 	}
 	return ReturnTown()
 }
+// groupVendorsByTown groups vendors by town and returns visit order with per-town lists.
 
 func groupVendorsByTown(list []npc.ID) (townOrder []area.ID, byTown map[area.ID][]npc.ID) {
 	byTown = make(map[area.ID][]npc.ID, 5)
@@ -590,6 +604,7 @@ func groupVendorsByTown(list []npc.ID) (townOrder []area.ID, byTown map[area.ID]
 	}
 	return
 }
+// shopVendorSinglePass handles a single vendor visit: approach, open trade, scan/buy, close menus.
 
 func shopVendorSinglePass(vendorID npc.ID, plan ActionShoppingPlan) (int, int, error) {
 	ctx := context.Get()
