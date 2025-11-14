@@ -4,9 +4,24 @@ import (
 	"github.com/hectorgimenez/koolo/internal/config"
 )
 
+type SequencerResult int8
+
+const (
+	SequencerSkip SequencerResult = iota
+	SequencerStop
+	SequencerOk
+	SequencerError
+)
+
+type RunParameters struct {
+	FarmingRun       bool
+	SequenceSettings *SequenceSettings
+}
+
 type Run interface {
 	Name() string
-	Run() error
+	Run(parameters *RunParameters) error
+	CheckConditions(parameters *RunParameters) SequencerResult
 }
 
 func BuildRuns(cfg *config.CharacterCfg, runs []string) (builtRuns []Run) {
@@ -30,69 +45,139 @@ func BuildRuns(cfg *config.CharacterCfg, runs []string) (builtRuns []Run) {
 	}
 
 	for _, run := range runs {
-		switch run {
-		case string(config.CountessRun):
-			builtRuns = append(builtRuns, NewCountess())
-		case string(config.AndarielRun):
-			builtRuns = append(builtRuns, NewAndariel())
-		case string(config.SummonerRun):
-			builtRuns = append(builtRuns, NewSummoner())
-		case string(config.DurielRun):
-			builtRuns = append(builtRuns, NewDuriel())
-		case string(config.MuleRun):
-			builtRuns = append(builtRuns, NewMule())
-		case string(config.MephistoRun):
-			builtRuns = append(builtRuns, NewMephisto(nil))
-		case string(config.TravincalRun):
-			builtRuns = append(builtRuns, NewTravincal())
-		case string(config.DiabloRun):
-			builtRuns = append(builtRuns, NewDiablo())
-		case string(config.EldritchRun):
-			builtRuns = append(builtRuns, NewEldritch())
-		case string(config.PindleskinRun):
-			builtRuns = append(builtRuns, NewPindleskin())
-		case string(config.NihlathakRun):
-			builtRuns = append(builtRuns, NewNihlathak())
-		case string(config.AncientTunnelsRun):
-			builtRuns = append(builtRuns, NewAncientTunnels())
-		case string(config.MausoleumRun):
-			builtRuns = append(builtRuns, NewMausoleum())
-		case string(config.PitRun):
-			builtRuns = append(builtRuns, NewPit())
-		case string(config.StonyTombRun):
-			builtRuns = append(builtRuns, NewStonyTomb())
-		case string(config.ArachnidLairRun):
-			builtRuns = append(builtRuns, NewArachnidLair())
-		case string(config.TristramRun):
-			builtRuns = append(builtRuns, NewTristram())
-		case string(config.LowerKurastRun):
-			builtRuns = append(builtRuns, NewLowerKurast())
-		case string(config.LowerKurastChestRun):
-			builtRuns = append(builtRuns, NewLowerKurastChest())
-		case string(config.BaalRun):
-			builtRuns = append(builtRuns, NewBaal(nil))
-		case string(config.TalRashaTombsRun):
-			builtRuns = append(builtRuns, NewTalRashaTombs())
-		case string(config.LevelingRun):
-			builtRuns = append(builtRuns, NewLeveling())
-		case string(config.QuestsRun):
-			builtRuns = append(builtRuns, NewQuests())
-		case string(config.CowsRun):
-			builtRuns = append(builtRuns, NewCows())
-		case string(config.ThreshsocketRun):
-			builtRuns = append(builtRuns, NewThreshsocket())
-		case string(config.SpiderCavernRun):
-			builtRuns = append(builtRuns, NewSpiderCavern())
-		case string(config.DrifterCavernRun):
-			builtRuns = append(builtRuns, NewDriverCavern())
-		case string(config.EnduguRun):
-			builtRuns = append(builtRuns, NewEndugu())
-		case string(config.UtilityRun):
-			builtRuns = append(builtRuns, NewUtility())
-		case string(config.FireEyeRun):
-			builtRuns = append(builtRuns, NewFireEye())
+		if runInterface := BuildRun(run); runInterface != nil {
+			builtRuns = append(builtRuns, runInterface)
 		}
 	}
 
 	return builtRuns
+}
+
+func BuildRun(run string) Run {
+	switch run {
+	case string(config.CountessRun):
+		return NewCountess()
+	case string(config.AndarielRun):
+		return NewAndariel()
+	case string(config.SummonerRun):
+		return NewSummoner()
+	case string(config.DurielRun):
+		return NewDuriel()
+	case string(config.MuleRun):
+		return NewMule()
+	case string(config.MephistoRun):
+		return NewMephisto(nil)
+	case string(config.TravincalRun):
+		return NewTravincal()
+	case string(config.DiabloRun):
+		return NewDiablo()
+	case string(config.EldritchRun):
+		return NewEldritch()
+	case string(config.PindleskinRun):
+		return NewPindleskin()
+	case string(config.NihlathakRun):
+		return NewNihlathak()
+	case string(config.AncientTunnelsRun):
+		return NewAncientTunnels()
+	case string(config.MausoleumRun):
+		return NewMausoleum()
+	case string(config.PitRun):
+		return NewPit()
+	case string(config.StonyTombRun):
+		return NewStonyTomb()
+	case string(config.ArachnidLairRun):
+		return NewArachnidLair()
+	case string(config.TristramRun):
+		return NewTristram()
+	case string(config.LowerKurastRun):
+		return NewLowerKurast()
+	case string(config.LowerKurastChestRun):
+		return NewLowerKurastChest()
+	case string(config.BaalRun):
+		return NewBaal(nil)
+	case string(config.TalRashaTombsRun):
+		return NewTalRashaTombs()
+	case string(config.LevelingRun):
+		return NewLeveling()
+	case string(config.LevelingSequenceRun):
+		return NewLevelingSequence()
+	case string(config.QuestsRun):
+		return NewQuests()
+	case string(config.CowsRun):
+		return NewCows()
+	case string(config.ThreshsocketRun):
+		return NewThreshsocket()
+	case string(config.SpiderCavernRun):
+		return NewSpiderCavern()
+	case string(config.DrifterCavernRun):
+		return NewDriverCavern()
+	case string(config.EnduguRun):
+		return NewEndugu()
+	case string(config.UtilityRun):
+		return NewUtility()
+	case string(config.FireEyeRun):
+		return NewFireEye()
+	//Quests Runs
+	case string(config.DenRun):
+		return NewDen()
+	case string(config.BloodravenRun):
+		return NewBloodraven()
+	case string(config.RescueCainRun):
+		return NewRescueCain()
+	case string(config.RetrieveHammerRun):
+		return NewRetrieveHammer()
+	case string(config.RadamentRun):
+		return NewRadament()
+	case string(config.CubeRun):
+		return NewCube()
+	case string(config.StaffRun):
+		return NewStaff()
+	case string(config.AmuletRun):
+		return NewAmulet()
+	case string(config.JadeFigurineRun):
+		return NewJadeFigurine()
+	case string(config.GidbinnRun):
+		return NewGidbinn()
+	case string(config.LamEsenRun):
+		return NewLamEsen()
+	case string(config.KhalimsEyeRun):
+		return NewKhalimsEye()
+	case string(config.KhalimsBrainRun):
+		return NewKhalimsBrain()
+	case string(config.KhalimsHeartRun):
+		return NewKhalimsHeart()
+	case string(config.IzualRun):
+		return NewIzual()
+	case string(config.HellforgeRun):
+		return NewHellforge()
+	case string(config.ShenkRun):
+		return NewShenk()
+	case string(config.RescueBarbsRun):
+		return NewRescueBarbs()
+	case string(config.AnyaRun):
+		return NewAnya()
+	case string(config.AncientsRun):
+		return NewAncients()
+	case string(config.FrozenAuraMercRun):
+		return NewFrozenAuraMerc()
+	case string(config.TristramEarlyGoldfarmRun):
+		return NewTristramEarlyGoldfarm()
+	}
+
+	return nil
+}
+
+func BuildRunParameters(farmingRun bool, sequenceSettings *SequenceSettings) *RunParameters {
+	var RunParameters RunParameters
+	RunParameters.FarmingRun = farmingRun
+	RunParameters.SequenceSettings = sequenceSettings
+	return &RunParameters
+}
+
+func IsFarmingRun(parameters *RunParameters) bool {
+	return parameters == nil || parameters.FarmingRun
+}
+
+func IsQuestRun(parameters *RunParameters) bool {
+	return parameters != nil && !parameters.FarmingRun
 }
