@@ -26,6 +26,10 @@ var interactableShrines = []object.ShrineType{
 }
 
 func ClearCurrentLevel(openChests bool, filter data.MonsterFilter) error {
+	return ClearCurrentLevelEx(openChests, filter, nil)
+}
+
+func ClearCurrentLevelEx(openChests bool, filter data.MonsterFilter, shouldInterrupt func() bool) error {
 	ctx := context.Get()
 	ctx.SetLastAction("ClearCurrentLevel")
 
@@ -36,6 +40,11 @@ func ClearCurrentLevel(openChests bool, filter data.MonsterFilter) error {
 		if errDeath := checkPlayerDeath(ctx); errDeath != nil {
 			return errDeath
 		}
+
+		if shouldInterrupt != nil && shouldInterrupt() {
+			return nil
+		}
+
 		// First, clear the room of monsters
 		err := clearRoom(r, filter)
 		if err != nil {
@@ -104,6 +113,8 @@ func clearRoom(room data.Room, filter data.MonsterFilter) error {
 		if len(monsters) == 0 {
 			return nil
 		}
+
+		SortEnemiesByPriority(&monsters)
 
 		// Check if there are monsters that can summon new monsters, and kill them first
 		targetMonster := data.Monster{}

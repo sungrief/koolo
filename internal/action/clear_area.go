@@ -37,6 +37,30 @@ func IsPriorityMonster(m data.Monster) bool {
 	return false
 }
 
+func SortEnemiesByPriority(enemies *[]data.Monster) {
+	ctx := context.Get()
+	sort.Slice(*enemies, func(i, j int) bool {
+		monsterI := (*enemies)[i]
+		monsterJ := (*enemies)[j]
+
+		isPriorityI := IsPriorityMonster(monsterI)
+		isPriorityJ := IsPriorityMonster(monsterJ)
+
+		distanceI := ctx.PathFinder.DistanceFromMe(monsterI.Position)
+		distanceJ := ctx.PathFinder.DistanceFromMe(monsterJ.Position)
+
+		if distanceI > 2 && distanceJ > 2 {
+			if isPriorityI && !isPriorityJ {
+				return true
+			} else if !isPriorityI && isPriorityJ {
+				return false
+			}
+		}
+
+		return distanceI < distanceJ
+	})
+}
+
 func ClearAreaAroundPosition(pos data.Position, radius int, filters ...data.MonsterFilter) error {
 	ctx := context.Get()
 	ctx.SetLastAction("ClearAreaAroundPosition")
@@ -50,24 +74,7 @@ func ClearAreaAroundPosition(pos data.Position, radius int, filters ...data.Mons
 	return ctx.Char.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
 		enemies := d.Monsters.Enemies(filters...)
 
-		sort.Slice(enemies, func(i, j int) bool {
-			monsterI := enemies[i]
-			monsterJ := enemies[j]
-
-			isPriorityI := IsPriorityMonster(monsterI)
-			isPriorityJ := IsPriorityMonster(monsterJ)
-
-			distanceI := ctx.PathFinder.DistanceFromMe(monsterI.Position)
-			distanceJ := ctx.PathFinder.DistanceFromMe(monsterJ.Position)
-
-			if isPriorityI && !isPriorityJ {
-				return true
-			} else if !isPriorityI && isPriorityJ {
-				return false
-			}
-
-			return distanceI < distanceJ
-		})
+		SortEnemiesByPriority(&enemies)
 
 		for _, m := range enemies {
 			distanceToTarget := pather.DistanceFromPoint(pos, m.Position)

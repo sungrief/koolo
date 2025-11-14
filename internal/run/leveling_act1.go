@@ -67,13 +67,13 @@ func (a Leveling) act1() error {
 
 			}
 
-			return NewMausoleum().Run()
+			return NewMausoleum().Run(nil)
 		}
 	}
 
 	if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell && lvl.Value <= 75 {
 
-		return NewMausoleum().Run()
+		return NewMausoleum().Run(nil)
 	}
 
 	if !a.ctx.Data.Quests[quest.Act1DenOfEvil].Completed() && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
@@ -83,7 +83,7 @@ func (a Leveling) act1() error {
 
 	// Farming for normal difficulty below 300 gold
 	if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && a.ctx.Data.PlayerUnit.TotalPlayerGold() < 300 && !a.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() {
-		return NewTristramEarlyGoldfarm().Run()
+		return NewTristramEarlyGoldfarm().Run(nil)
 	}
 
 	// Blood Raven quest
@@ -136,7 +136,7 @@ func (a Leveling) act1() error {
 	if ((a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusStarted+quest.StatusLeaveTown) && !a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed()) ||
 		found525InInv || a.ctx.Data.Quests[quest.Act1TheSearchForCain].HasStatus(quest.StatusLeaveTown+quest.StatusEnterArea)) &&
 		!a.ctx.Data.Quests[quest.Act1TheSearchForCain].Completed() && a.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
-		return NewTristram().Run()
+		return NewTristram().Run(nil)
 	}
 
 	// Cain quest: talking to Akara
@@ -151,7 +151,7 @@ func (a Leveling) act1() error {
 			a.ctx.CharacterCfg.Character.ClearPathDist = 4
 		}
 
-		NewTristram().Run()
+		NewTristram().Run(nil)
 
 	}
 
@@ -161,12 +161,12 @@ func (a Leveling) act1() error {
 		if a.ctx.CharacterCfg.Character.Class == "sorceress_leveling" {
 			a.ctx.CharacterCfg.Character.ClearPathDist = 15
 		}
-		return NewCountess().Run()
+		return NewCountess().Run(nil)
 	}
 
 	if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Nightmare && lvl.Value < 50 && a.ctx.Data.Quests[quest.Act1DenOfEvil].Completed() && a.shouldFarmCountessForRunes() {
 		a.ctx.Logger.Info("Farming Countess for required runes.")
-		return NewCountess().Run()
+		return NewCountess().Run(nil)
 	}
 
 	// Andariel or Act 2 transition
@@ -186,7 +186,7 @@ func (a Leveling) act1() error {
 
 			}
 		}
-		return NewAndariel().Run()
+		return NewAndariel().Run(nil)
 	}
 }
 

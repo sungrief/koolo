@@ -75,6 +75,65 @@ func WayPoint(dest area.ID) error {
 
 	return nil
 }
+
+func FieldWayPoint(dest area.ID) error {
+	ctx := context.Get()
+	ctx.SetLastAction("WayPoint")
+
+	if ctx.Data.PlayerUnit.Area == dest {
+		ctx.WaitForGameToLoad()
+		return nil
+	}
+
+	wpCoords, found := area.WPAddresses[dest]
+	if !found {
+		return fmt.Errorf("area destination %s is not mapped to a WayPoint (waypoint.go)", area.Areas[dest].Name)
+	}
+
+	for _, o := range ctx.Data.Objects {
+		if o.IsWaypoint() {
+
+			err := InteractObject(o, func() bool {
+				return ctx.Data.OpenMenus.Waypoint
+			})
+			if err != nil {
+				return err
+			}
+			if ctx.Data.LegacyGraphics {
+				actTabX := ui.WpTabStartXClassic + (wpCoords.Tab-1)*ui.WpTabSizeXClassic + (ui.WpTabSizeXClassic / 2)
+				ctx.HID.Click(game.LeftButton, actTabX, ui.WpTabStartYClassic)
+			} else {
+				actTabX := ui.WpTabStartX + (wpCoords.Tab-1)*ui.WpTabSizeX + (ui.WpTabSizeX / 2)
+				ctx.HID.Click(game.LeftButton, actTabX, ui.WpTabStartY)
+			}
+			utils.Sleep(200)
+			// Just to make sure no message like TZ change or public game spam prevent bot from clicking on waypoint
+			ClearMessages()
+		}
+	}
+
+	err := useWP(dest)
+	if err != nil {
+		return err
+	}
+
+	// Wait for the game to load after using the waypoint
+	ctx.WaitForGameToLoad()
+
+	// Verify that we've reached the destination
+	ctx.RefreshGameData()
+	if ctx.Data.PlayerUnit.Area != dest {
+		return fmt.Errorf("failed to reach destination area %s using waypoint", area.Areas[dest].Name)
+	}
+
+	// apply buffs after exiting a waypoint if configured
+	if ctx.CharacterCfg.Character.BuffAfterWP {
+		Buff()
+	}
+
+	return nil
+}
+
 func useWP(dest area.ID) error {
 	ctx := context.Get()
 	ctx.SetLastAction("useWP")

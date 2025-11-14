@@ -6,6 +6,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -27,7 +28,17 @@ func (e Eldritch) Name() string {
 	return string(config.EldritchRun)
 }
 
-func (e Eldritch) Run() error {
+func (a Eldritch) CheckConditions(parameters *RunParameters) SequencerResult {
+	if IsQuestRun(parameters) {
+		return SequencerError
+	}
+	if !a.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (e Eldritch) Run(parameters *RunParameters) error {
 	// Travel to FrigidHighlands
 	err := action.WayPoint(area.FrigidHighlands)
 	if err != nil {
