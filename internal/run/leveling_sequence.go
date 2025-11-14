@@ -381,8 +381,26 @@ func (ls LevelingSequence) AdjustDifficulty() (bool, error) {
 	}
 
 	difficultyChanged := false
-	if difficultySettings.StayDifficultyConditions != nil {
-		if !ls.CheckDifficultyConditions(difficultySettings.StayDifficultyConditions, ls.ctx.CharacterCfg.Game.Difficulty) {
+
+	//Check if we reached the level for current difficulty setting
+	difficulties := []difficulty.Difficulty{difficulty.Normal, difficulty.Nightmare}
+	for _, difficulty := range difficulties {
+		diffSettings := ls.GetDifficultySettings(difficulty)
+		nextDiff := ls.GetNextDifficulty(difficulty)
+		//We don't meet level requirements, revert to this difficulty
+		if !ls.CheckDifficultyConditions(diffSettings.NextDifficultyConditions, nextDiff, true) {
+			if difficulty != ls.ctx.CharacterCfg.Game.Difficulty {
+				ls.ctx.CharacterCfg.Game.Difficulty = difficulty
+				difficultyChanged = true
+			}
+			//We break here to not evaluate next difficutlies
+			break
+		}
+	}
+
+	//Check if we should stay in current difficulty
+	if !difficultyChanged && difficultySettings.StayDifficultyConditions != nil {
+		if !ls.CheckDifficultyConditions(difficultySettings.StayDifficultyConditions, ls.ctx.CharacterCfg.Game.Difficulty, false) {
 			targetDifficulty := ls.GetPreviousDifficulty()
 			if targetDifficulty != ls.ctx.CharacterCfg.Game.Difficulty {
 				difficultyChanged = true
@@ -390,10 +408,11 @@ func (ls LevelingSequence) AdjustDifficulty() (bool, error) {
 		}
 	}
 
+	//Check if we reached fully requirements for next difficulty
 	if !difficultyChanged && difficultySettings.NextDifficultyConditions != nil && ls.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {
-		nextDifficulty := ls.GetNextDifficulty()
+		nextDifficulty := ls.GetCurrentNextDifficulty()
 		if nextDifficulty != ls.ctx.CharacterCfg.Game.Difficulty {
-			if ls.CheckDifficultyConditions(difficultySettings.NextDifficultyConditions, nextDifficulty) {
+			if ls.CheckDifficultyConditions(difficultySettings.NextDifficultyConditions, nextDifficulty, false) {
 				ls.ctx.CharacterCfg.Game.Difficulty = nextDifficulty
 				difficultyChanged = true
 			}
@@ -418,8 +437,12 @@ func (ls LevelingSequence) GetPreviousDifficulty() difficulty.Difficulty {
 	return difficulty.Normal
 }
 
-func (ls LevelingSequence) GetNextDifficulty() difficulty.Difficulty {
-	if ls.ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
+func (ls LevelingSequence) GetCurrentNextDifficulty() difficulty.Difficulty {
+	return ls.GetNextDifficulty(ls.ctx.CharacterCfg.Game.Difficulty)
+}
+
+func (ls LevelingSequence) GetNextDifficulty(diff difficulty.Difficulty) difficulty.Difficulty {
+	if diff == difficulty.Normal {
 		return difficulty.Nightmare
 	}
 
@@ -427,12 +450,16 @@ func (ls LevelingSequence) GetNextDifficulty() difficulty.Difficulty {
 }
 
 func (ls LevelingSequence) GetCurrentDifficultySettings() *DifficultyLevelingSettings {
+	return ls.GetDifficultySettings(ls.ctx.CharacterCfg.Game.Difficulty)
+}
+
+func (ls LevelingSequence) GetDifficultySettings(diff difficulty.Difficulty) *DifficultyLevelingSettings {
 	if ls.Settings == nil {
 		ls.ctx.Logger.Error("sequence settings not loaded")
 		return nil
 	}
 
-	switch ls.ctx.CharacterCfg.Game.Difficulty {
+	switch diff {
 	case difficulty.Normal:
 		return &ls.Settings.Normal
 	case difficulty.Nightmare:
@@ -444,7 +471,7 @@ func (ls LevelingSequence) GetCurrentDifficultySettings() *DifficultyLevelingSet
 	return nil
 }
 
-func (ls LevelingSequence) CheckDifficultyConditions(conditions *DifficultyConditionsSettings, targetDifficulty difficulty.Difficulty) bool {
+func (ls LevelingSequence) CheckDifficultyConditions(conditions *DifficultyConditionsSettings, targetDifficulty difficulty.Difficulty, levelOnly bool) bool {
 	if conditions == nil {
 		return true
 	}
@@ -459,6 +486,9 @@ func (ls LevelingSequence) CheckDifficultyConditions(conditions *DifficultyCondi
 			ls.ctx.Logger.Error("leveling difficulty check : couldn't find player level")
 			return false
 		}
+	}
+	if levelOnly {
+		return true
 	}
 
 	resPenalty := 0
