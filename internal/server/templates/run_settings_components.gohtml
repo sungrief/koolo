@@ -181,11 +181,31 @@
 {{ end }}
 
 {{ define "leveling_sequence" }}
-    <fieldset>
-        <label>
-            Leveling Sequence File
-            <input type="text" name="gameLevelingSequenceFile" value="{{ .Config.Game.LevelingSequence.SequenceFile }}">
-        </label>
+    {{$current := .Config.Game.LevelingSequence.SequenceFile }}
+    <fieldset class="leveling-sequence-field">
+        <label>Leveling Sequence File</label>
+        <div class="leveling-sequence-input">
+            <select id="gameLevelingSequenceSelect" name="gameLevelingSequenceFile">
+                <option value="" disabled {{ if not $current }}selected{{ end }}>Select a sequence file</option>
+                {{ if and $current (not (contains .LevelingSequenceFiles $current)) }}
+                    <option value="{{ $current }}" selected>{{ $current }} (missing)</option>
+                {{ end }}
+                {{ range .LevelingSequenceFiles }}
+                    <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+                {{ end }}
+            </select>
+            <div class="sequence-action-buttons">
+                <button type="button" class="btn icon-btn btn-success" id="levelingSequenceAddBtn" title="Create sequence">
+                    <i class="bi bi-plus"></i>
+                </button>
+                <button type="button" class="btn icon-btn" id="levelingSequenceEditBtn" title="Edit selected sequence" {{ if not $current }}disabled{{ end }}>
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button type="button" class="btn icon-btn btn-danger" id="levelingSequenceDeleteBtn" title="Delete selected sequence" {{ if not $current }}disabled{{ end }}>
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
     </fieldset>
 {{ end }}
 
