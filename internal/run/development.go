@@ -114,6 +114,25 @@ func (t *DevRun) logPlayerState(reason string) {
 func (t *DevRun) fixBeltFromHotkey() {
 	t.ctx.Logger.Info("Manual belt fix triggered")
 
+	restoreCursorOverride := false
+	if !t.ctx.MemoryInjector.CursorOverrideActive() {
+		if err := t.ctx.MemoryInjector.EnableCursorOverride(); err != nil {
+			t.ctx.Logger.Error("Failed to re-enable cursor override for manual belt fix", slog.Any("error", err))
+			return
+		}
+		restoreCursorOverride = true
+	}
+
+	if restoreCursorOverride {
+		defer func() {
+			if err := t.ctx.MemoryInjector.DisableCursorOverride(); err != nil {
+				t.ctx.Logger.Warn("Failed to disable cursor override after manual belt fix", slog.Any("error", err))
+			} else {
+				t.ctx.Logger.Info("Cursor override disabled after manual belt fix to restore manual control")
+			}
+		}()
+	}
+
 	if err := action.ManageBelt(); err != nil {
 		t.ctx.Logger.Error("Manual belt fix failed", slog.Any("error", err))
 		return
@@ -154,6 +173,17 @@ func (t *DevRun) Run(parameters *RunParameters) error {
 	t.ctx.Logger.Info(
 		"Development mode enabled: No automation will run.",
 	)
+
+	if err := t.ctx.MemoryInjector.DisableCursorOverride(); err != nil {
+		t.ctx.Logger.Warn("Failed to disable cursor override for development run", slog.Any("error", err))
+	} else {
+		t.ctx.Logger.Info("Cursor override disabled for manual control")
+	}
+	defer func() {
+		if err := t.ctx.MemoryInjector.EnableCursorOverride(); err != nil {
+			t.ctx.Logger.Warn("Failed to re-enable cursor override after development run", slog.Any("error", err))
+		}
+	}()
 
 	refreshTicker := time.NewTicker(250 * time.Millisecond)
 	defer refreshTicker.Stop()
