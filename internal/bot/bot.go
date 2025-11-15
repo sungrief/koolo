@@ -384,7 +384,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 
 				// Update activity before the main run logic is executed.
 				b.updateActivityAndPosition()
-				err = r.Run()
+				err = r.Run(nil)
 
 				var runFinishReason event.FinishReason
 				if err != nil {

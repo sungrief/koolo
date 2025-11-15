@@ -114,6 +114,20 @@ func CubeTransmute() error {
 	return step.CloseAllMenus()
 }
 
+func EmptyCube() error {
+	err := ensureCubeIsOpen()
+	if err != nil {
+		return err
+	}
+
+	err = ensureCubeIsEmpty()
+	if err != nil {
+		return err
+	}
+
+	return step.CloseAllMenus()
+}
+
 func ensureCubeIsEmpty() error {
 	ctx := context.Get()
 	if !ctx.Data.OpenMenus.Cube {
@@ -164,6 +178,19 @@ func ensureCubeIsOpen() error {
 
 	// If cube is in stash, switch to the correct tab
 	if cube.Location.LocationType == item.LocationStash || cube.Location.LocationType == item.LocationSharedStash {
+		ctx := context.Get()
+
+		// Ensure stash is open
+		if !ctx.Data.OpenMenus.Stash {
+			bank, _ := ctx.Data.Objects.FindOne(object.Bank)
+			err := InteractObject(bank, func() bool {
+				return ctx.Data.OpenMenus.Stash
+			})
+			if err != nil {
+				return err
+			}
+		}
+
 		SwitchStashTab(cube.Location.Page + 1)
 	}
 
