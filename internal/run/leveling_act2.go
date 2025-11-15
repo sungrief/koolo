@@ -69,7 +69,7 @@ func (a Leveling) act2() error {
 		case difficulty.Normal:
 			return NewQuests().killRadamentQuest()
 		case difficulty.Hell:
-			NewMausoleum().Run()
+			NewMausoleum().Run(nil)
 			err := action.WayPoint(area.LutGholein)
 			if err != nil {
 				a.ctx.Logger.Error(fmt.Sprintf("Waypoint to Lut Gholein failed after farming: %s.", err.Error()))
@@ -197,7 +197,7 @@ func (a Leveling) act2() error {
 
 			if !hasBonePrison || bonePrisonSkill.Level < 1 {
 				a.ctx.Logger.Info("Necromancer needs Bone Prison skill before Duriel. Farming tombs.")
-				return NewTalRashaTombs().Run()
+				return NewTalRashaTombs().Run(nil)
 			}
 			a.ctx.Logger.Info("Necromancer has Bone Prison, ready for Duriel.")
 		} else {
@@ -205,7 +205,7 @@ func (a Leveling) act2() error {
 			a.ctx.Logger.Info("Not Necromancer or level check", "level", lvl.Value)
 			if lvl.Value < 24 {
 				a.ctx.Logger.Info("Player not level 24, farming tombs before Duriel.")
-				return NewTalRashaTombs().Run()
+				return NewTalRashaTombs().Run(nil)
 			}
 		}
 
@@ -272,7 +272,7 @@ func (a Leveling) act2() error {
 	if !a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].NotStarted() {
 		a.ctx.Logger.Info("Starting summoner quest (Summoner not yet completed).")
 		action.InteractNPC(npc.Drognan)
-		err := NewSummoner().Run()
+		err := NewSummoner().Run(nil)
 		if err != nil {
 			return err
 		}
@@ -313,7 +313,7 @@ func (a Leveling) act2() error {
 	}
 
 	if a.ctx.Data.Quests[quest.Act2TheSummoner].Completed() && a.ctx.Data.Quests[quest.Act2TheSevenTombs].NotStarted() {
-		err := NewTalRashaTombs().Run()
+		err := NewTalRashaTombs().Run(nil)
 		if err != nil {
 			return err
 		}
@@ -365,7 +365,7 @@ func (a Leveling) act2() error {
 
 			if !hasBonePrison || bonePrisonSkill.Level < 1 {
 				a.ctx.Logger.Info("Necromancer needs Bone Prison skill before Duriel. Farming tombs.")
-				return NewTalRashaTombs().Run()
+				return NewTalRashaTombs().Run(nil)
 			}
 			a.ctx.Logger.Info("Necromancer has Bone Prison, ready for Duriel.")
 		} else {
@@ -373,7 +373,7 @@ func (a Leveling) act2() error {
 			a.ctx.Logger.Info("Not Necromancer or level check", "level", lvl.Value)
 			if lvl.Value < 24 {
 				a.ctx.Logger.Info("Player not level 24, farming tombs before Duriel.")
-				return NewTalRashaTombs().Run()
+				return NewTalRashaTombs().Run(nil)
 			}
 		}
 
@@ -567,7 +567,7 @@ func (a Leveling) prepareStaff() error {
 func (a Leveling) duriel() error {
 	a.ctx.Logger.Info("Starting Duriel....")
 	a.ctx.CharacterCfg.Game.Duriel.UseThawing = true
-	if err := NewDuriel().Run(); err != nil {
+	if err := NewDuriel().Run(nil); err != nil {
 		return err
 	}
 

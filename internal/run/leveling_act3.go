@@ -1,12 +1,10 @@
 package run
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
-	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
@@ -47,7 +45,7 @@ func (a Leveling) act3() error {
 	if action.IsLowGold() {
 
 		a.ctx.Logger.Info("Low on gold. Initiating Lower Kurast Chests gold farm.")
-		if err := NewLowerKurastChest().Run(); err != nil {
+		if err := NewLowerKurastChest().Run(nil); err != nil {
 			a.ctx.Logger.Error("Error during Lower Kurast Chests gold farm: %v", err)
 			return err
 		}
@@ -55,14 +53,14 @@ func (a Leveling) act3() error {
 		return nil
 	}
 
-	if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
+	/*if a.ctx.CharacterCfg.Game.Difficulty == difficulty.Hell {
 
 		NewMausoleum().Run()
 		err := action.WayPoint(area.KurastDocks)
 		if err != nil {
 			a.ctx.Logger.Error(fmt.Sprintf("Waypoint to Lut Gholein failed after farming: %s.", err.Error()))
 		}
-	}
+	}*/
 
 	if a.ctx.Data.Quests[quest.Act3TheGuardian].Completed() {
 
@@ -114,7 +112,7 @@ func (a Leveling) act3() error {
 		a.ctx.CharacterCfg.Game.Mephisto.OpenChests = false
 		a.ctx.CharacterCfg.Game.Mephisto.KillCouncilMembers = false
 		a.ctx.CharacterCfg.Game.Mephisto.ExitToA4 = true
-		err := NewMephisto(nil).Run()
+		err := NewMephisto(nil).Run(nil)
 		if err != nil {
 			a.ctx.Logger.Error("Mephisto run failed, ending Act 3 script.", err)
 			return err
@@ -203,7 +201,7 @@ func (a Leveling) act3() error {
 		a.ctx.Logger.Info("KhalimsBrain found, skipping quest")
 	} else if !willFound && !a.ctx.Data.Quests[quest.Act3KhalimsWill].Completed() {
 		a.ctx.Logger.Info("KhalimsBrain not found, starting quest")
-		NewEndugu().Run()
+		NewEndugu().Run(nil)
 		// Sometimes it doesn't pick up the brain
 		utils.Sleep(500)
 		action.ItemPickup(10)
@@ -254,7 +252,7 @@ func (a Leveling) act3() error {
 		return nil // Exit gracefully
 	} else if !willFound && !a.ctx.Data.Quests[quest.Act3KhalimsWill].Completed() {
 		a.ctx.Logger.Info("KhalimsFlail not found, starting quest")
-		if err := NewTravincal().Run(); err != nil {
+		if err := NewTravincal().Run(nil); err != nil {
 			return err
 		}
 	}

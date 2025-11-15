@@ -180,6 +180,15 @@
     </fieldset>
 {{ end }}
 
+{{ define "leveling_sequence" }}
+    <fieldset>
+        <label>
+            Leveling Sequence File
+            <input type="text" name="gameLevelingSequenceFile" value="{{ .Config.Game.LevelingSequence.SequenceFile }}">
+        </label>
+    </fieldset>
+{{ end }}
+
 {{ define "quests" }}
     <fieldset>
         <label>Act 1</label>
