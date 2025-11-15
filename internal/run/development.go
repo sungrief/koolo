@@ -146,7 +146,11 @@ func (t *DevRun) SkipTownRoutines() bool {
 	return true
 }
 
-func (t *DevRun) Run() error {
+func (t *DevRun) CheckConditions(parameters *RunParameters) SequencerResult {
+	return SequencerOk
+}
+
+func (t *DevRun) Run(parameters *RunParameters) error {
 	t.ctx.Logger.Info(
 		"Development mode enabled: No automation will run.",
 	)
