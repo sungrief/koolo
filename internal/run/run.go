@@ -9,6 +9,11 @@ type Run interface {
 	Run() error
 }
 
+// TownRoutineSkipper allows specific runs to suppress the automatic PreRun/PostRun sequences.
+type TownRoutineSkipper interface {
+	SkipTownRoutines() bool
+}
+
 func BuildRuns(cfg *config.CharacterCfg, runs []string) (builtRuns []Run) {
 	//if cfg.Companion.Enabled && !cfg.Companion.Leader {
 	//	return []Run{Companion{baseRun: baseRun}}
@@ -91,6 +96,8 @@ func BuildRuns(cfg *config.CharacterCfg, runs []string) (builtRuns []Run) {
 			builtRuns = append(builtRuns, NewUtility())
 		case string(config.FireEyeRun):
 			builtRuns = append(builtRuns, NewFireEye())
+		case string(config.DevelopmentRun):
+			builtRuns = append(builtRuns, NewDevRun())
 		}
 	}
 
