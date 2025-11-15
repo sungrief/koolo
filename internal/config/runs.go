@@ -34,6 +34,7 @@ const (
 	EnduguRun           Run = "endugu"
 	UtilityRun          Run = "utility"
 	FireEyeRun          Run = "fire_eye"
+	DevelopmentRun      Run = "development"
 )
 
 var AvailableRuns = map[Run]interface{}{
@@ -68,4 +69,5 @@ var AvailableRuns = map[Run]interface{}{
 	EnduguRun:           nil,
 	UtilityRun:          nil,
 	FireEyeRun:          nil,
+	DevelopmentRun:      nil,
 }
