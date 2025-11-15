@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/memory"
 	"golang.org/x/sys/windows"
@@ -27,6 +29,8 @@ type MemoryInjector struct {
 	getKeyStateOrigBytes  [18]byte
 	setCursorPosAddr      uintptr
 	logger                *slog.Logger
+	cursorReleaseMu       sync.Mutex
+	cursorReleaseTimer    *time.Timer
 }
 
 func InjectorInit(logger *slog.Logger, pid uint32) (*MemoryInjector, error) {
@@ -102,6 +106,7 @@ func (i *MemoryInjector) RestoreMemory() error {
 		return nil
 	}
 
+	i.cancelCursorReleaseTimer()
 	i.isLoaded = false
 	err := i.RestoreGetCursorPosAddr()
 	if err != nil {
@@ -109,6 +114,15 @@ func (i *MemoryInjector) RestoreMemory() error {
 	}
 
 	return i.RestoreGetKeyState()
+}
+
+func (i *MemoryInjector) cancelCursorReleaseTimer() {
+	i.cursorReleaseMu.Lock()
+	defer i.cursorReleaseMu.Unlock()
+	if i.cursorReleaseTimer != nil {
+		i.cursorReleaseTimer.Stop()
+		i.cursorReleaseTimer = nil
+	}
 }
 
 func (i *MemoryInjector) CursorPos(x, y int) error {
@@ -135,6 +149,34 @@ func (i *MemoryInjector) CursorPos(x, y int) error {
 	copy(bytes[13:], buff)
 
 	return windows.WriteProcessMemory(i.handle, i.getCursorPosAddr, &bytes[0], uintptr(len(bytes)), nil)
+}
+
+func (i *MemoryInjector) ScheduleCursorRelease(delay time.Duration) {
+	if !i.isLoaded {
+		return
+	}
+
+	i.cursorReleaseMu.Lock()
+	defer i.cursorReleaseMu.Unlock()
+
+	if i.cursorReleaseTimer != nil {
+		i.cursorReleaseTimer.Stop()
+	}
+
+	i.cursorReleaseTimer = time.AfterFunc(delay, func() {
+		if !i.isLoaded {
+			i.cursorReleaseMu.Lock()
+			i.cursorReleaseTimer = nil
+			i.cursorReleaseMu.Unlock()
+			return
+		}
+		if err := i.RestoreGetCursorPosAddr(); err != nil && i.logger != nil {
+			i.logger.Warn("failed to restore cursor position", slog.Any("error", err))
+		}
+		i.cursorReleaseMu.Lock()
+		i.cursorReleaseTimer = nil
+		i.cursorReleaseMu.Unlock()
+	})
 }
 
 func (i *MemoryInjector) OverrideGetKeyState(key byte) error {

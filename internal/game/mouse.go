@@ -18,6 +18,8 @@ const (
 type MouseButton uint
 type ModifierKey byte
 
+const pointerReleaseDelay = 150 * time.Millisecond
+
 // MovePointer moves the mouse to the requested position, x and y should be the final position based on
 // pixels shown in the screen. Top-left corner is 0,0
 func (hid *HID) MovePointer(x, y int) {
@@ -30,6 +32,7 @@ func (hid *HID) MovePointer(x, y int) {
 	win.SendMessage(hid.gr.HWND, win.WM_NCHITTEST, 0, lParam)
 	win.SendMessage(hid.gr.HWND, win.WM_SETCURSOR, 0x000105A8, 0x2010001)
 	win.PostMessage(hid.gr.HWND, win.WM_MOUSEMOVE, 0, lParam)
+	hid.gi.ScheduleCursorRelease(pointerReleaseDelay)
 }
 
 // Click just does a single mouse click at current pointer position
