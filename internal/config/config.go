@@ -277,6 +277,9 @@ type CharacterCfg struct {
 			HellRequiredLightRes     int      `yaml:"hellRequiredLightRes"`
 			EnabledRunewordRecipes   []string `yaml:"enabledRunewordRecipes"`
 		} `yaml:"leveling"`
+		LevelingSequence struct {
+			SequenceFile string `yaml:"sequenceFile"`
+		} `yaml:"leveling_sequence"`
 		Quests struct {
 			ClearDen       bool `yaml:"clearDen"`
 			RescueCain     bool `yaml:"rescueCain"`
@@ -446,7 +449,8 @@ func Load() error {
 		}
 
 		// Load the leveling pickit rules
-		if len(charCfg.Game.Runs) > 0 && charCfg.Game.Runs[0] == "leveling" {
+
+		if len(charCfg.Game.Runs) > 0 && charCfg.Game.Runs[0] == "leveling" || charCfg.Game.Runs[0] == "leveling_sequence") {
 			nips := getLevelingNipFiles(&charCfg, entry.Name())
 
 			for _, nipFile := range nips {
