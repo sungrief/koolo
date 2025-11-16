@@ -51,8 +51,8 @@ func InteractEntrance(targetArea area.ID) error {
 }
 
 func InteractEntranceMouse(targetArea area.ID) error {
-	maxInteractionAttempts := 5
-	interactionAttempts := 0
+	maxInteractionAttempts := 21
+	interactionAttempts := 1
 	waitingForInteraction := false
 	currentMouseCoords := data.Position{}
 	lastRun := time.Time{}
@@ -165,21 +165,14 @@ func InteractEntranceMouse(targetArea area.ID) error {
 			}
 
 			x, y := utils.Spiral(interactionAttempts)
-			x = x / 3
-			y = y / 3
+			if ctx.Data.AreaData.Area == area.CanyonOfTheMagi {
+				x = x * 5
+				y = y * 5
+			}
 			currentMouseCoords = data.Position{X: lx + x, Y: ly + y}
 			ctx.HID.MovePointer(lx+x, ly+y)
 			interactionAttempts++
-
 			utils.PingSleep(utils.Light, 100) // Light operation: Mouse movement delay
-
-			//Add a random movement logic when interaction attempts fail
-			if interactionAttempts > 1 && interactionAttempts%3 == 0 {
-				ctx.Logger.Debug("Failed to interact with entrance, performing random movement to reset position.")
-				ctx.PathFinder.RandomMovement()
-				// Escalating delay for repositioning attempts
-				utils.RetrySleep(interactionAttempts/3, float64(ctx.Data.Game.Ping), 1000)
-			}
 
 			lastEntranceLevel = l
 
