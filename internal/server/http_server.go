@@ -275,7 +275,7 @@ func (s *HttpServer) attachProcess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call manager.Start with the correct arguments, including the HWND
-	go s.manager.Start(characterName, true, uint32(pid), uint32(hwnd))
+	go s.manager.Start(characterName, true, false, uint32(pid), uint32(hwnd))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
@@ -716,6 +716,7 @@ func (s *HttpServer) pickitEditorPage(w http.ResponseWriter, r *http.Request) {
 func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 	supervisorList := s.manager.AvailableSupervisors()
 	Supervisor := r.URL.Query().Get("characterName")
+	manualMode := r.URL.Query().Get("manualMode") == "true"
 
 	// Get the current auth method for the supervisor we wanna start
 	supCfg, currFound := config.GetCharacter(Supervisor)
@@ -749,7 +750,7 @@ func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.manager.Start(Supervisor, false)
+	s.manager.Start(Supervisor, false, manualMode)
 	s.initialData(w, r)
 }
 

@@ -50,7 +50,7 @@ func (mng *SupervisorManager) AvailableSupervisors() []string {
 	return availableSupervisors
 }
 
-func (mng *SupervisorManager) Start(supervisorName string, attachToExisting bool, pidHwnd ...uint32) error {
+func (mng *SupervisorManager) Start(supervisorName string, attachToExisting bool, manualMode bool, pidHwnd ...uint32) error {
 	// Avoid multiple instances of the supervisor - shitstorm prevention
 	if _, exists := mng.supervisors[supervisorName]; exists {
 		return fmt.Errorf("supervisor %s is already running", supervisorName)
@@ -83,6 +83,18 @@ func (mng *SupervisorManager) Start(supervisorName string, attachToExisting bool
 	supervisor, crashDetector, err := mng.buildSupervisor(supervisorName, supervisorLogger, attachToExisting, optionalPID, optionalHWND)
 	if err != nil {
 		return err
+	}
+
+	// Set manual mode flag
+	ctx := supervisor.GetContext()
+	if ctx != nil {
+		if manualMode {
+			ctx.ManualModeActive = true
+			supervisorLogger.Info("Manual mode enabled")
+		} else {
+			ctx.ManualModeActive = false
+			supervisorLogger.Info("Normal mode enabled")
+		}
 	}
 
 	if oldCrashDetector, exists := mng.crashDetectors[supervisorName]; exists {
@@ -285,6 +297,15 @@ func (mng *SupervisorManager) buildSupervisor(supervisorName string, logger *slo
 	restartFunc := func() {
 
 		ctx := supervisor.GetContext()
+
+		// Manual mode: just stop, don't restart
+		if ctx.ManualModeActive {
+			mng.logger.Info("Manual mode: D2R closed, stopping without restart", slog.String("supervisor", supervisorName))
+			ctx.ManualModeActive = false // Clear the flag before stopping
+			mng.Stop(supervisorName)
+			return
+		}
+
 		if ctx.CleanStopRequested {
 			if ctx.RestartWithCharacter != "" {
 				mng.logger.Info("Supervisor requested restart with different character",
@@ -293,7 +314,7 @@ func (mng *SupervisorManager) buildSupervisor(supervisorName string, logger *slo
 				nextCharacter := ctx.RestartWithCharacter
 				mng.Stop(supervisorName)
 				time.Sleep(5 * time.Second) // Wait before starting new character
-				if err := mng.Start(nextCharacter, false); err != nil {
+				if err := mng.Start(nextCharacter, false, false); err != nil {
 					mng.logger.Error("Failed to start next character",
 						slog.String("character", nextCharacter),
 						slog.String("error", err.Error()))
@@ -357,7 +378,7 @@ func (mng *SupervisorManager) buildSupervisor(supervisorName string, logger *slo
 		gameTitle := "D2R - [" + strconv.FormatInt(int64(pid), 10) + "] - " + supervisorName + " - " + cfg.Realm
 		winproc.SetWindowText.Call(uintptr(hwnd), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(gameTitle))))
 
-		err := mng.Start(supervisorName, false)
+		err := mng.Start(supervisorName, false, false)
 		if err != nil {
 			mng.logger.Error("Failed to restart supervisor", slog.String("supervisor", supervisorName), slog.String("Error: ", err.Error()))
 		}

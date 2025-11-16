@@ -63,6 +63,7 @@ type Context struct {
 	RestartWithCharacter string
 	PacketSender         *game.PacketSender
 	IsLevelingCharacter  *bool
+	ManualModeActive     bool // Manual play mode: stops after character selection
 	LastPortalTick       time.Time // NEW FIELD: Tracks last portal creation for spam prevention
 }
 
@@ -112,9 +113,10 @@ func NewContext(name string) *Status {
 			PriorityPause:      {},
 			PriorityStop:       {},
 		},
-		CurrentGame:     NewGameHelper(),
-		SkillPointIndex: 0,
-		ForceAttack:     false,
+		CurrentGame:      NewGameHelper(),
+		SkillPointIndex:  0,
+		ForceAttack:      false,
+		ManualModeActive: false, // Explicitly initialize to false
 	}
 	ctx.AttachRoutine(PriorityNormal)
 
