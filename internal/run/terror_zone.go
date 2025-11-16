@@ -105,9 +105,7 @@ func (tz TerrorZone) Run(parameters *RunParameters) error {
 }
 
 func (tz TerrorZone) AvailableTZs() []area.ID {
-	//Simulation
-	tz.ctx.Data.TerrorZones = []area.ID{area.NihlathaksTemple}
-	//tz.ctx.RefreshGameData() -< uncomment for normal
+	tz.ctx.RefreshGameData()
 	var availableTZs []area.ID
 	for _, tzone := range tz.ctx.Data.TerrorZones {
 		for _, tzArea := range tz.ctx.CharacterCfg.Game.TerrorZone.Areas {
