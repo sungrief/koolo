@@ -44,11 +44,11 @@ type SequenceSettings struct {
 	Run              string `json:"run"`
 	MinLevel         *int   `json:"minLevel,omitempty"`
 	MaxLevel         *int   `json:"maxLevel,omitempty"`
-	LowGoldRun       bool   `json:"lowGoldRun"`
-	SkipTownChores   bool   `json:"skipTownChores"`
-	ExitGame         bool   `json:"exitGame"`
-	StopIfCheckFails bool   `json:"stopIfCheckFails"`
-	Parameters       string `json:"parameters"`
+	LowGoldRun       bool   `json:"lowGoldRun,omitempty"`
+	SkipTownChores   bool   `json:"skipTownChores,omitempty"`
+	ExitGame         bool   `json:"exitGame,omitempty"`
+	StopIfCheckFails bool   `json:"stopIfCheckFails,omitempty"`
+	Parameters       string `json:"parameters,omitempty"`
 }
 
 type DifficultyConditionsSettings struct {
@@ -57,8 +57,8 @@ type DifficultyConditionsSettings struct {
 	ColdRes            *int `json:"coldRes,omitempty"`
 	LightRes           *int `json:"lightRes,omitempty"`
 	PoisonRes          *int `json:"poisonRes,omitempty"`
-	AboveLowGold       bool `json:"aboveLowGold"`
-	AboveGoldThreshold bool `json:"aboveGoldThreshold"`
+	AboveLowGold       bool `json:"aboveLowGold,omitempty"`
+	AboveGoldThreshold bool `json:"aboveGoldThreshold,omitempty"`
 }
 
 type ConfigLevelingSettings struct {

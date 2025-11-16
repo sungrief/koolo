@@ -63,6 +63,7 @@ type Context struct {
 	RestartWithCharacter string
 	PacketSender         *game.PacketSender
 	IsLevelingCharacter  *bool
+	ManualModeActive     bool // Manual play mode: stops after character selection
 	LastPortalTick       time.Time // NEW FIELD: Tracks last portal creation for spam prevention
 }
 
@@ -79,6 +80,7 @@ type CurrentGameHelper struct {
 		ExpectedArea area.ID
 	}
 	PickupItems                bool
+	IsPickingItems             bool
 	FailedToCreateGameAttempts int
 	FailedMenuAttempts         int
 	// When this is set, the supervisor will stop and the manager will start a new supervisor for the specified character.
@@ -88,6 +90,7 @@ type CurrentGameHelper struct {
 	CurrentMuleIndex  int
 	ShouldCheckStash  bool
 	StashFull         bool
+	mutex             sync.Mutex
 }
 
 func (ctx *Context) StopSupervisor() {
@@ -112,9 +115,10 @@ func NewContext(name string) *Status {
 			PriorityPause:      {},
 			PriorityStop:       {},
 		},
-		CurrentGame:     NewGameHelper(),
-		SkillPointIndex: 0,
-		ForceAttack:     false,
+		CurrentGame:      NewGameHelper(),
+		SkillPointIndex:  0,
+		ForceAttack:      false,
+		ManualModeActive: false, // Explicitly initialize to false
 	}
 	ctx.AttachRoutine(PriorityNormal)
 
@@ -198,6 +202,12 @@ func (ctx *Context) DisableItemPickup() {
 
 func (ctx *Context) EnableItemPickup() {
 	ctx.CurrentGame.PickupItems = true
+}
+
+func (ctx *Context) SetPickingItems(value bool) {
+	ctx.CurrentGame.mutex.Lock()
+	ctx.CurrentGame.IsPickingItems = value
+	ctx.CurrentGame.mutex.Unlock()
 }
 
 func (s *Status) PauseIfNotPriority() {

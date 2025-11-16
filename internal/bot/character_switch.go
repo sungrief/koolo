@@ -16,7 +16,7 @@ func (mng *SupervisorManager) handleCharacterSwitch(evt event.Event) {
 		time.Sleep(5 * time.Second)
 
 		// Start the new character
-		if err := mng.Start(nextCharacter, false); err != nil {
+		if err := mng.Start(nextCharacter, false, false); err != nil {
 			mng.logger.Error("Failed to start next character",
 				"from", currentSupervisor,
 				"to", nextCharacter,

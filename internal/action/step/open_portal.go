@@ -36,7 +36,7 @@ func OpenPortal() error {
 	lastRun := time.Time{}
 	for {
 		// IMPORTANT: Check for player death at the beginning of each loop iteration
-		if ctx.Data.PlayerUnit.HPPercent() <= 0 {
+		if ctx.Data.PlayerUnit.IsDead() && !ctx.Data.PlayerUnit.Area.IsTown() {
 			return ErrPlayerDied // Player is dead, stop trying to open portal
 		}
 
@@ -75,6 +75,9 @@ func OpenPortal() error {
 			CloseAllMenus()
 		}
 
+		if !tpItemFound {
+			return errors.New("no tp item, can't open portal")
+		}
 		lastRun = time.Now()
 	}
 }

@@ -126,6 +126,10 @@ func PreRun(firstRun bool) error {
 	CubeRecipes()
 	MakeRunewords()
 
+	if isLevelingChar {
+		OptimizeInventory(item.LocationInventory)
+	}
+
 	// Leveling related checks
 	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
 		ResetStats()

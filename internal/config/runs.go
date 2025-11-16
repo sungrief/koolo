@@ -62,6 +62,12 @@ const (
 	DevelopmentRun Run = "development"
 )
 
+type LevelingRunInfo struct {
+	Run         Run
+	Act         int
+	IsMandatory bool
+}
+
 var AvailableRuns = map[Run]interface{}{
 	CountessRun:         nil,
 	AndarielRun:         nil,
@@ -96,4 +102,89 @@ var AvailableRuns = map[Run]interface{}{
 	UtilityRun:          nil,
 	FireEyeRun:          nil,
 	DevelopmentRun:      nil,
+}
+
+var SequencerQuests = []LevelingRunInfo{
+	// Act 1
+	{Run: DenRun, Act: 1, IsMandatory: false},
+	{Run: BloodravenRun, Act: 1, IsMandatory: false},
+	{Run: RescueCainRun, Act: 1, IsMandatory: false},
+	{Run: CountessRun, Act: 1, IsMandatory: false},
+	{Run: RetrieveHammerRun, Act: 1, IsMandatory: false},
+	{Run: AndarielRun, Act: 1, IsMandatory: true},
+	// Act 2
+	{Run: RadamentRun, Act: 2, IsMandatory: false},
+	{Run: CubeRun, Act: 2, IsMandatory: true},
+	{Run: StaffRun, Act: 2, IsMandatory: true},
+	{Run: AmuletRun, Act: 2, IsMandatory: true},
+	{Run: SummonerRun, Act: 2, IsMandatory: true},
+	{Run: DurielRun, Act: 2, IsMandatory: true},
+	// Act 3
+	{Run: JadeFigurineRun, Act: 3, IsMandatory: false},
+	{Run: KhalimsEyeRun, Act: 3, IsMandatory: true},
+	{Run: KhalimsBrainRun, Act: 3, IsMandatory: true},
+	{Run: KhalimsHeartRun, Act: 3, IsMandatory: true},
+	{Run: GidbinnRun, Act: 3, IsMandatory: false},
+	{Run: LamEsenRun, Act: 3, IsMandatory: false},
+	{Run: TravincalRun, Act: 3, IsMandatory: true},
+	{Run: MephistoRun, Act: 3, IsMandatory: true},
+	// Act 4
+	{Run: IzualRun, Act: 4, IsMandatory: false},
+	{Run: HellforgeRun, Act: 4, IsMandatory: false},
+	{Run: DiabloRun, Act: 4, IsMandatory: true},
+	// Act 5
+	{Run: ShenkRun, Act: 5, IsMandatory: false},
+	{Run: RescueBarbsRun, Act: 5, IsMandatory: false},
+	{Run: AnyaRun, Act: 5, IsMandatory: false},
+	{Run: NihlathakRun, Act: 5, IsMandatory: false},
+	{Run: AncientsRun, Act: 5, IsMandatory: true},
+	{Run: BaalRun, Act: 5, IsMandatory: true},
+}
+
+var SequencerRuns = []Run{
+	AmuletRun,
+	AncientsRun,
+	AndarielRun,
+	AnyaRun,
+	ArachnidLairRun,
+	BaalRun,
+	BloodravenRun,
+	CountessRun,
+	CowsRun,
+	CubeRun,
+	DenRun,
+	DiabloRun,
+	DrifterCavernRun,
+	DurielRun,
+	EldritchRun,
+	EnduguRun,
+	FrozenAuraMercRun,
+	GidbinnRun,
+	IzualRun,
+	JadeFigurineRun,
+	KhalimsBrainRun,
+	KhalimsEyeRun,
+	KhalimsHeartRun,
+	LamEsenRun,
+	LowerKurastChestRun,
+	LowerKurastRun,
+	MausoleumRun,
+	MephistoRun,
+	NihlathakRun,
+	PindleskinRun,
+	PitRun,
+	RadamentRun,
+	RescueBarbsRun,
+	RescueCainRun,
+	RetrieveHammerRun,
+	ShenkRun,
+	SpiderCavernRun,
+	StaffRun,
+	StonyTombRun,
+	SummonerRun,
+	TalRashaTombsRun,
+	ThreshsocketRun,
+	TravincalRun,
+	TristramEarlyGoldfarmRun,
+	TristramRun,
 }
