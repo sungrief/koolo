@@ -24,7 +24,7 @@ func InteractNPC(npc npc.ID) error {
 
 	var err error
 	for range 5 {
-		err = step.MoveTo(pos)
+		err = MoveToCoords(pos)
 		if err != nil {
 			continue
 		}

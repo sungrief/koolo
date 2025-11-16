@@ -36,6 +36,9 @@
                 <label>
                     Class
                     <select name="characterClass">
+                        {{ if eq .Version "dev" }}
+                        <option value="development" {{ if eq .Config.Character.Class "development" }}selected{{ end }}>Development</option>
+                        {{ end }}
                         <option value="sorceress" {{ if eq .Config.Character.Class "sorceress" }}selected{{ end }}>Blizzard Sorceress</option>
                         <option value="nova" {{ if eq .Config.Character.Class "nova" }}selected{{ end }}>Nova Sorceress</option>
                         <option value="hydraorb" {{ if eq .Config.Character.Class "hydraorb" }}selected{{ end }}>Hydra Orb Sorceress</option>
@@ -481,7 +484,7 @@
                 <label>
                     Rejuv at (% of mana)
                     <input type="number" name="rejuvPotionAtMana" min="0" max="99" placeholder="{{ .Config.Health.RejuvPotionAtMana }}" value="{{ .Config.Health.RejuvPotionAtMana }}"/>
-                </label>       
+                </label>
                 <label>
                     Chicken at (%)
                     <input type="number" name="chickenAt" min="0" max="99" placeholder="{{ .Config.Health.ChickenAt }}"
@@ -600,6 +603,7 @@
                     <h6>Enabled Runs:</h6>
                     <ul style="padding-top: 52px" class="run-list" id="enabled_runs">
                         {{ range $index, $run := .EnabledRuns }}
+                        {{ if or (eq $topLevelContext.Version "dev") (ne $run "development") }}
                         <li value="{{ $run }}">
                             <details>
                                 <summary role="button" class="outline secondary">
@@ -610,6 +614,7 @@
                             </details>
                         </li>
                         {{ end }}
+                        {{ end }}
                     </ul>
                 </div>
                 <div>
@@ -617,6 +622,7 @@
                     <input type="text" id="search-disabled-runs" placeholder="Search runs...">
                     <ul class="run-list" id="disabled_runs">
                         {{ range $index, $run := .DisabledRuns }}
+                        {{ if or (eq $topLevelContext.Version "dev") (ne $run "development") }}
                         <li value="{{ $run }}">
                             <details>
                                 <summary role="button" class="outline secondary">
@@ -626,6 +632,7 @@
                                 {{ executeTemplateByName $run $topLevelContext }}
                             </details>
                         </li>
+                        {{ end }}
                         {{ end }}
                     </ul>
                 </div>
