@@ -39,10 +39,6 @@ func (s BlizzardSorceress) ShouldIgnoreMonster(m data.Monster) bool {
 	return false
 }
 
-func (s BlizzardSorceress) isPlayerDead2() bool {
-	return s.Data.PlayerUnit.HPPercent() <= 0
-}
-
 func (s BlizzardSorceress) CheckKeyBindings() []skill.ID {
 	requireKeybindings := []skill.ID{skill.Blizzard, skill.Teleport, skill.TomeOfTownPortal, skill.ShiverArmor, skill.StaticField}
 	missingKeybindings := []skill.ID{}
@@ -83,7 +79,7 @@ func (s BlizzardSorceress) KillMonsterSequence(
 	for {
 		context.Get().PauseIfNotPriority()
 
-		if s.isPlayerDead2() { // Or directly: if s.Data.PlayerUnit.HPPercent() <= 0 {
+		if s.Context.Data.PlayerUnit.IsDead() {
 			s.Logger.Info("Player detected as dead during KillMonsterSequence, stopping actions.")
 			time.Sleep(500 * time.Millisecond)
 			return health.ErrDied // Or return an error that indicates death if desired by higher-level logic
