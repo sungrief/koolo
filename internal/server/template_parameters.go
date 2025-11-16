@@ -53,7 +53,7 @@ type CharacterSettings struct {
 	DayNames              []string
 	EnabledRuns           []string
 	DisabledRuns          []string
-	AvailableTZs          []TZGroup
+	TerrorZoneGroups      []TZGroup
 	RecipeList            []string
 	RunewordRecipeList    []string
 	AvailableProfiles     []string
