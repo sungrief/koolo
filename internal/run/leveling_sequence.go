@@ -609,6 +609,7 @@ func (ls LevelingSequence) setupLevelOneConfig() {
 	ls.ctx.CharacterCfg.Game.Mephisto.KillCouncilMembers = false
 	ls.ctx.CharacterCfg.Game.Mephisto.OpenChests = false
 	ls.ctx.CharacterCfg.Game.Mephisto.ExitToA4 = true
+	ls.ctx.CharacterCfg.Game.Countess.ClearFloors = false
 	ls.ctx.CharacterCfg.Inventory.InventoryLock = [][]int{
 		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
