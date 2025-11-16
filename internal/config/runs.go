@@ -58,6 +58,8 @@ const (
 	AncientsRun              Run = "ancients"
 	FrozenAuraMercRun        Run = "frozen_aura_merc"
 	TristramEarlyGoldfarmRun Run = "tristram_early_gold_farm"
+	// Development / Utility runs
+	DevelopmentRun Run = "development"
 )
 
 type LevelingRunInfo struct {
@@ -99,6 +101,7 @@ var AvailableRuns = map[Run]interface{}{
 	EnduguRun:           nil,
 	UtilityRun:          nil,
 	FireEyeRun:          nil,
+	DevelopmentRun:      nil,
 }
 
 var SequencerQuests = []LevelingRunInfo{
