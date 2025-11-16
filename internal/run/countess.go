@@ -3,8 +3,7 @@ package run
 import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
-	"github.com/hectorgimenez/d2go/pkg/data/npc"
-	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -24,8 +23,17 @@ func (c Countess) Name() string {
 	return string(config.CountessRun)
 }
 
-func (c Countess) Run() error {
-	// Travel to Black Marsh
+func (a Countess) CheckConditions(parameters *RunParameters) SequencerResult {
+	farmingRun := IsFarmingRun(parameters)
+	questCompleted := a.ctx.Data.Quests[quest.Act1TheForgottenTower].Completed()
+	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (c Countess) Run(parameters *RunParameters) error {
+	// Travel to boss level
 	err := action.WayPoint(area.BlackMarsh)
 	if err != nil {
 		return err
@@ -39,7 +47,6 @@ func (c Countess) Run() error {
 		area.TowerCellarLevel4,
 		area.TowerCellarLevel5,
 	}
-
 	clearFloors := c.ctx.CharacterCfg.Game.Countess.ClearFloors
 
 	for _, a := range areas {
@@ -48,7 +55,7 @@ func (c Countess) Run() error {
 			return err
 		}
 
-		if clearFloors && a != area.TowerCellarLevel5 {
+				if clearFloors && a != area.TowerCellarLevel5 {
 			if err = action.ClearCurrentLevel(false, data.MonsterAnyFilter()); err != nil {
 				return err
 			}
@@ -56,31 +63,27 @@ func (c Countess) Run() error {
 	}
 
 	err = action.MoveTo(func() (data.Position, bool) {
-		if areaData, ok := context.Get().GameReader.GetData().Areas[area.TowerCellarLevel5]; ok {
-			for _, o := range areaData.Objects {
-				if o.Name == object.GoodChest {
-					return o.Position, true // Countess chest position (1.13c)
-				}
-			}
+		areaData := c.ctx.Data.Areas[area.TowerCellarLevel5]
+		countessNPC, found := areaData.NPCs.FindOne(740)
+		if !found {
+			return data.Position{}, false
 		}
 
-		if countess, found := c.ctx.Data.Monsters.FindOne(npc.DarkStalker, data.MonsterTypeSuperUnique); found {
-			return countess.Position, true
-		}
-
-		return data.Position{}, false
+		return countessNPC.Positions[0], true
 	})
 	if err != nil {
 		return err
 	}
 
+	// Kill Countess
 	if err := c.ctx.Char.KillCountess(); err != nil {
 		return err
 	}
 
+	action.ItemPickup(30)
+	
 	if clearFloors {
 		return action.ClearCurrentLevel(false, data.MonsterAnyFilter())
 	}
-
 	return nil
 }
