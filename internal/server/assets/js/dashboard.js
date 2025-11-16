@@ -123,6 +123,9 @@ function createCharacterCard(key) {
                       <button class="start-pause btn btn-start" data-character="${key}" title="Start">
                           <i class="bi bi-play-fill"></i>
                       </button>
+                      <button class="manual-play btn btn-manual" data-character="${key}" title="Manual Play" style="display:none;">
+                          M
+                      </button>
                       <button class="stop btn btn-stop" data-character="${key}" style="display:none;" title="Stop">
                           <i class="bi bi-stop-fill"></i>
                       </button>
@@ -255,6 +258,20 @@ function setupEventListeners(card, key) {
       fetch(`/stop?characterName=${key}`).then(() => fetchInitialData());
     });
   }
+
+  const manualPlayBtn = card.querySelector(".manual-play");
+  if (manualPlayBtn) {
+    manualPlayBtn.addEventListener("click", function () {
+      // Don't trigger if already running (yellow state)
+      if (this.className.includes("btn-pause")) {
+        return;
+      }
+      fetch(`/start?characterName=${key}&manualMode=true`)
+        .then((response) => response.json())
+        .then((data) => updateDashboard(data))
+        .catch((error) => console.error("Error:", error));
+    });
+  }
 }
 
 function updateStatusPosition(card, isExpanded) {
@@ -282,6 +299,7 @@ function updateCharacterCard(card, key, value, dropCount) {
   const startPauseBtn = card.querySelector(".start-pause");
   const stopBtn = card.querySelector(".stop");
   const attachBtn = card.querySelector(".attach-btn");
+  const manualPlayBtn = card.querySelector(".manual-play");
   const companionJoinBtn = card.querySelector(".companion-join-btn");
   const statusDetails = card.querySelector(".status-details");
   const statusBadge = statusDetails.querySelector(".status-badge");
@@ -295,8 +313,8 @@ function updateCharacterCard(card, key, value, dropCount) {
     updateStatusIndicator(statusIndicator, value.SupervisorStatus);
   }
 
-  if (startPauseBtn && stopBtn && attachBtn) {
-    updateButtons(startPauseBtn, stopBtn, attachBtn, value.SupervisorStatus);
+  if (startPauseBtn && stopBtn && attachBtn && manualPlayBtn) {
+    updateButtons(startPauseBtn, stopBtn, attachBtn, manualPlayBtn, value.SupervisorStatus, value.manualModeActive);
   }
 
   // Update companion join button visibility
@@ -372,7 +390,22 @@ function updateStartedTime(statusDetails, startedAt) {
   runningForElement.textContent = `Running for: ${duration}`;
 }
 
-function updateButtons(startPauseBtn, stopBtn, attachBtn, status) {
+function updateButtons(startPauseBtn, stopBtn, attachBtn, manualPlayBtn, status, manualModeActive) {
+  // Manual mode active - show yellow M button
+  if (manualModeActive) {
+    startPauseBtn.style.display = "none";
+    manualPlayBtn.style.display = "flex";
+    manualPlayBtn.className = "manual-play btn btn-pause"; // Yellow
+    stopBtn.style.display = "flex";
+    attachBtn.style.display = "none";
+    return;
+  }
+
+  // Normal mode - reset manual button
+  manualPlayBtn.style.display = "none";
+  manualPlayBtn.className = "manual-play btn btn-manual"; // Darker green
+  startPauseBtn.style.display = "flex";
+
   if (status === "Paused") {
     startPauseBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
     startPauseBtn.className = "start-pause btn btn-resume";
@@ -388,6 +421,7 @@ function updateButtons(startPauseBtn, stopBtn, attachBtn, status) {
     startPauseBtn.className = "start-pause btn btn-start";
     stopBtn.style.display = "none";
     attachBtn.style.display = "flex";
+    manualPlayBtn.style.display = "flex"; // Show manual button when not running
   }
 }
 

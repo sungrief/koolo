@@ -1,7 +1,9 @@
 package run
 
 import (
+	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -9,11 +11,13 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/utils"
+	"github.com/lxn/win"
 )
 
 var diabloSpawnPosition = data.Position{X: 7792, Y: 5294}
@@ -34,7 +38,35 @@ func (d *Diablo) Name() string {
 	return string(config.DiabloRun)
 }
 
-func (d *Diablo) Run() error {
+func (d Diablo) CheckConditions(parameters *RunParameters) SequencerResult {
+	farmingRun := IsFarmingRun(parameters)
+	questCompleted := d.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed()
+	if farmingRun && !questCompleted {
+		return SequencerSkip
+	}
+
+	if !farmingRun && questCompleted {
+		if slices.Contains(d.ctx.Data.PlayerUnit.AvailableWaypoints, area.Harrogath) || d.ctx.Data.PlayerUnit.Area.Act() == 5 {
+			return SequencerSkip
+		}
+
+		//Workaround AvailableWaypoints only filled when wp menu has been opened on act page
+		//Check if any act 5 quest is started or completed
+		if action.HasAnyQuestStartedOrCompleted(quest.Act5SiegeOnHarrogath, quest.Act5EveOfDestruction) {
+			return SequencerSkip
+		}
+	}
+	return SequencerOk
+}
+
+func (d *Diablo) Run(parameters *RunParameters) error {
+	if IsQuestRun(parameters) && d.ctx.Data.Quests[quest.Act4TerrorsEnd].Completed() {
+		if err := d.goToAct5(); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	// Just to be sure we always re-enable item pickup after the run
 	defer func() {
 		d.ctx.EnableItemPickup()
@@ -207,8 +239,17 @@ func (d *Diablo) Run() error {
 			d.ctx.DisableItemPickup()
 		}
 
-		return d.ctx.Char.KillDiablo()
+		if err := d.ctx.Char.KillDiablo(); err != nil {
+			return err
+		}
 
+		action.ItemPickup(30)
+
+		if IsQuestRun(parameters) {
+			if err := d.goToAct5(); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -424,5 +465,56 @@ func (d *Diablo) getMonsterFilter() data.MonsterFilter {
 		}
 
 		return filteredMonsters
+	}
+}
+
+func (d *Diablo) goToAct5() error {
+	err := action.WayPoint(area.ThePandemoniumFortress)
+	if err != nil {
+		return err
+	}
+
+	err = action.InteractNPC(npc.Tyrael2)
+	if err != nil {
+		return err
+	}
+
+	//Choose travel to harrogath option
+	d.ctx.HID.KeySequence(win.VK_DOWN, win.VK_RETURN)
+	utils.Sleep(1000)
+	d.ctx.RefreshGameData()
+	utils.Sleep(1000)
+
+	d.trySkipCinematic()
+
+	if d.ctx.Data.PlayerUnit.Area.Act() != 5 {
+		harrogathPortal, found := d.ctx.Data.Objects.FindOne(object.LastLastPortal)
+		if found {
+			err = action.InteractObject(harrogathPortal, func() bool {
+				utils.Sleep(100)
+				ctx := context.Get()
+				return !ctx.Manager.InGame() || d.ctx.Data.PlayerUnit.Area.Act() == 5
+			})
+
+			if err != nil {
+				return err
+			}
+
+			d.trySkipCinematic()
+		}
+		return errors.New("failed to go to act 5")
+	}
+
+	return nil
+}
+
+func (d Diablo) trySkipCinematic() {
+	if !d.ctx.Manager.InGame() {
+		// Skip Cinematics
+		utils.Sleep(2000)
+		action.HoldKey(win.VK_SPACE, 2000)
+		utils.Sleep(2000)
+		action.HoldKey(win.VK_SPACE, 2000)
+		utils.Sleep(2000)
 	}
 }

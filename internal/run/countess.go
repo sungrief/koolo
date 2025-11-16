@@ -55,7 +55,7 @@ func (c Countess) Run(parameters *RunParameters) error {
 			return err
 		}
 
-				if clearFloors && a != area.TowerCellarLevel5 {
+		if clearFloors && a != area.TowerCellarLevel5 {
 			if err = action.ClearCurrentLevel(false, data.MonsterAnyFilter()); err != nil {
 				return err
 			}
@@ -81,7 +81,7 @@ func (c Countess) Run(parameters *RunParameters) error {
 	}
 
 	action.ItemPickup(30)
-	
+
 	if clearFloors {
 		return action.ClearCurrentLevel(false, data.MonsterAnyFilter())
 	}

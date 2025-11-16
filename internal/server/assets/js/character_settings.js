@@ -50,7 +50,7 @@ window.onload = function () {
         if (!enabledRunListElement) return;
 
         const enabledRuns = Array.from(enabledRunListElement.querySelectorAll('li')).map(li => li.getAttribute('value'));
-        const isLevelingRunEnabled = enabledRuns.includes('leveling');
+        const isLevelingRunEnabled = enabledRuns.includes('leveling') || enabledRuns.includes('leveling_sequence');
         const hasOtherRunsEnabled = enabledRuns.length > 1;
 
         if (levelingBuilds.includes(selectedBuild) && (!isLevelingRunEnabled || hasOtherRunsEnabled)) {
@@ -368,8 +368,197 @@ document.addEventListener('DOMContentLoaded', function () {
         filterRunewords();
     }
 
+    const levelingSequenceSelect = document.getElementById('gameLevelingSequenceSelect');
+    const levelingSequenceAddBtn = document.getElementById('levelingSequenceAddBtn');
+    const levelingSequenceEditBtn = document.getElementById('levelingSequenceEditBtn');
+    const levelingSequenceDeleteBtn = document.getElementById('levelingSequenceDeleteBtn');
+    const LAST_SEQUENCE_KEY = 'koolo:lastSequenceName';
+    const REFRESH_FLAG_KEY = 'koolo:sequenceRefreshRequired';
+    const sequenceFilesEndpoint = '/api/sequence-editor/files';
+    const sequenceDeleteEndpoint = '/api/sequence-editor/delete';
+
+    const updateLevelingSequenceActionState = () => {
+        const hasSelection = Boolean(levelingSequenceSelect && levelingSequenceSelect.value);
+        if (levelingSequenceEditBtn) {
+            levelingSequenceEditBtn.disabled = !hasSelection;
+        }
+        if (levelingSequenceDeleteBtn) {
+            levelingSequenceDeleteBtn.disabled = !hasSelection;
+        }
+    };
+
+    const rebuildLevelingSequenceOptions = (files, desiredSelection) => {
+        if (!levelingSequenceSelect) {
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.disabled = true;
+        placeholder.textContent = 'Select a sequence file';
+        if (!desiredSelection) {
+            placeholder.selected = true;
+        }
+        fragment.appendChild(placeholder);
+
+        const hasDesired = desiredSelection && files.includes(desiredSelection);
+
+        if (desiredSelection && !hasDesired) {
+            const missingOption = document.createElement('option');
+            missingOption.value = desiredSelection;
+            missingOption.textContent = `${desiredSelection} (missing)`;
+            missingOption.selected = true;
+            fragment.appendChild(missingOption);
+        }
+
+        files.forEach((fileName) => {
+            const option = document.createElement('option');
+            option.value = fileName;
+            option.textContent = fileName;
+            if (fileName === desiredSelection) {
+                option.selected = true;
+            }
+            fragment.appendChild(option);
+        });
+
+        levelingSequenceSelect.innerHTML = '';
+        levelingSequenceSelect.appendChild(fragment);
+
+        if (desiredSelection && hasDesired) {
+            levelingSequenceSelect.value = desiredSelection;
+        }
+    };
+
+    const refreshLevelingSequenceOptions = async (preferredSelection) => {
+        if (!levelingSequenceSelect) {
+            return false;
+        }
+
+        const targetSelection = typeof preferredSelection === 'string' ? preferredSelection : levelingSequenceSelect.value;
+
+        try {
+            const response = await fetch(sequenceFilesEndpoint, {
+                headers: { 'Accept': 'application/json' },
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch sequence files (${response.status})`);
+            }
+            const payload = await response.json();
+            const files = Array.isArray(payload.files) ? payload.files : [];
+            rebuildLevelingSequenceOptions(files, targetSelection);
+            updateLevelingSequenceActionState();
+            return true;
+        } catch (error) {
+            console.error('Unable to refresh leveling sequence list', error);
+            return false;
+        }
+    };
+
+    const maybeRefreshSequencesFromStorage = async () => {
+        if (!levelingSequenceSelect || !window.localStorage) {
+            return;
+        }
+
+        let refreshFlag;
+        try {
+            refreshFlag = window.localStorage.getItem(REFRESH_FLAG_KEY);
+        } catch (error) {
+            console.warn('Unable to read sequence refresh flag', error);
+            return;
+        }
+
+        if (!refreshFlag) {
+            return;
+        }
+
+        let desiredSelection = '';
+        try {
+            desiredSelection = window.localStorage.getItem(LAST_SEQUENCE_KEY) || '';
+        } catch (error) {
+            console.warn('Unable to read last sequence name', error);
+        }
+
+        const refreshed = await refreshLevelingSequenceOptions(desiredSelection);
+        if (refreshed) {
+            try {
+                window.localStorage.removeItem(REFRESH_FLAG_KEY);
+                if (desiredSelection) {
+                    window.localStorage.removeItem(LAST_SEQUENCE_KEY);
+                }
+            } catch (error) {
+                console.warn('Unable to clear sequence refresh flags', error);
+            }
+        }
+    };
+
+    if (levelingSequenceSelect) {
+        levelingSequenceSelect.addEventListener('change', updateLevelingSequenceActionState);
+    }
+    if (levelingSequenceDeleteBtn) {
+        levelingSequenceDeleteBtn.addEventListener('click', async () => {
+            if (!levelingSequenceSelect || !levelingSequenceSelect.value) {
+                return;
+            }
+
+            const targetName = levelingSequenceSelect.value;
+            const confirmed = window.confirm(`Delete "${targetName}"? This cannot be undone.`);
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const response = await fetch(sequenceDeleteEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ name: targetName }),
+                });
+
+                if (!response.ok) {
+                    const message = await response.text();
+                    throw new Error(message || `Failed to delete sequence (${response.status})`);
+                }
+
+                await refreshLevelingSequenceOptions('');
+                updateLevelingSequenceActionState();
+            } catch (error) {
+                console.error('Failed to delete leveling sequence', error);
+                alert('Unable to delete the selected sequence. Please check the logs for more information.');
+            }
+        });
+    }
 
 
+    if (levelingSequenceAddBtn) {
+        levelingSequenceAddBtn.addEventListener('click', () => {
+            window.open('/sequence-editor', '_blank');
+        });
+    }
+
+    if (levelingSequenceEditBtn) {
+        levelingSequenceEditBtn.addEventListener('click', () => {
+            if (!levelingSequenceSelect || !levelingSequenceSelect.value) {
+                return;
+            }
+            const encoded = encodeURIComponent(levelingSequenceSelect.value);
+            window.open(`/sequence-editor?sequence=${encoded}`, '_blank');
+        });
+    }
+
+    window.addEventListener('focus', () => {
+        void maybeRefreshSequencesFromStorage();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            void maybeRefreshSequencesFromStorage();
+        }
+    });
+
+    updateLevelingSequenceActionState();
 });
 
 function handleBossStaticThresholdChange() {

@@ -2,6 +2,7 @@ package action
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -186,6 +187,24 @@ var (
 			Items: []string{"ChamRune", "ChamRune", "FlawlessEmerald"},
 		},
 
+		// add sockets
+		{
+			Name:  "Add Sockets to Weapon",
+			Items: []string{"RalRune", "AmnRune", "PerfectAmethyst", "NormalWeapon"},
+		},
+		{
+			Name:  "Add Sockets to Armor",
+			Items: []string{"TalRune", "ThulRune", "PerfectTopaz", "NormalArmor"},
+		},
+		{
+			Name:  "Add Sockets to Helm",
+			Items: []string{"RalRune", "ThulRune", "PerfectSapphire", "NormalHelm"},
+		},
+		{
+			Name:  "Add Sockets to Shield",
+			Items: []string{"TalRune", "AmnRune", "PerfectRuby", "NormalShield"},
+		},
+
 		// Crafting
 		{
 			Name:  "Reroll GrandCharms",
@@ -207,7 +226,7 @@ var (
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Ring"},
 		},
-		
+
 		// Caster Belt
 		{
 			Name:             "Caster Belt",
@@ -223,14 +242,14 @@ var (
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Boots", "DemonhideBoots", "WyrmhideBoots"},
 		},
-		
+
 		// Blood Amulet
 		{
 			Name:             "Blood Amulet",
 			Items:            []string{"AmnRune", "PerfectRuby", "Jewel"},
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Amulet"},
-		},	
+		},
 
 		// Blood Ring
 		{
@@ -238,7 +257,7 @@ var (
 			Items:            []string{"SolRune", "PerfectRuby", "Jewel"},
 			PurchaseRequired: true,
 			PurchaseItems:    []string{"Ring"},
-		},	
+		},
 
 		// Blood Gloves
 		{
@@ -509,6 +528,11 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 
 	ctx.RefreshGameData()
 	items := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash)
+
+	if strings.Contains(recipe.Name, "Add Sockets to") {
+		return hasItemsForSocketRecipe(ctx, recipe, items)
+	}
+
 	// Special handling for "Reroll GrandCharms" recipe
 	if recipe.Name == "Reroll GrandCharms" {
 		return hasItemsForGrandCharmReroll(ctx, items)
@@ -549,6 +573,128 @@ func hasItemsForRecipe(ctx *context.Status, recipe CubeRecipe) ([]data.Item, boo
 
 	// We don't have all the items for the recipie.
 	return nil, false
+}
+
+func hasItemsForSocketRecipe(ctx *context.Status, recipe CubeRecipe, items []data.Item) ([]data.Item, bool) {
+	ctx.Logger.Debug("Processing socket recipe", "recipe", recipe.Name, "totalItems", len(items))
+
+	recipeItems := make(map[string]int)
+	for _, itemName := range recipe.Items {
+		recipeItems[itemName]++
+	}
+
+	itemsForRecipe := []data.Item{}
+
+	var targetItemTypes []string
+	switch recipe.Name {
+	case "Add Sockets to Weapon":
+		targetItemTypes = []string{
+			item.TypeWeapon, item.TypeAxe, item.TypeSword, item.TypeSpear,
+			item.TypePolearm, item.TypeMace, item.TypeBow,
+			item.TypeWand, item.TypeStaff, item.TypeScepter, item.TypeClub, item.TypeHammer, item.TypeKnife,
+			item.TypeCrossbow, item.TypeHandtoHand, item.TypeHandtoHand2, item.TypeOrb,
+			item.TypeAmazonBow, item.TypeAmazonSpear,
+		}
+	case "Add Sockets to Armor":
+		targetItemTypes = []string{item.TypeArmor}
+	case "Add Sockets to Helm":
+		targetItemTypes = []string{
+			item.TypeHelm,
+			item.TypePrimalHelm, item.TypePelt, item.TypeCirclet,
+		}
+	case "Add Sockets to Shield":
+		targetItemTypes = []string{
+			item.TypeShield, item.TypeAuricShields, item.TypeVoodooHeads,
+		}
+	default:
+		return nil, false
+	}
+
+	for _, itm := range items {
+		itemName := string(itm.Name)
+
+		if count, ok := recipeItems[itemName]; ok {
+			itemsForRecipe = append(itemsForRecipe, itm)
+			count--
+			if count == 0 {
+				delete(recipeItems, itemName)
+			} else {
+				recipeItems[itemName] = count
+			}
+		} else {
+
+			specialType := ""
+			switch recipe.Name {
+			case "Add Sockets to Weapon":
+				specialType = "NormalWeapon"
+			case "Add Sockets to Armor":
+				specialType = "NormalArmor"
+			case "Add Sockets to Helm":
+				specialType = "NormalHelm"
+			case "Add Sockets to Shield":
+				specialType = "NormalShield"
+			}
+
+			if count, ok := recipeItems[specialType]; ok && isSocketableItemMultiType(itm, targetItemTypes) {
+				ctx.Logger.Debug("Found socketable item for recipe", "recipe", recipe.Name, "item", itm.Name, "quality", itm.Quality.ToString(), "ethereal", itm.Ethereal)
+				itemsForRecipe = append(itemsForRecipe, itm)
+				count--
+				if count == 0 {
+					delete(recipeItems, specialType)
+				} else {
+					recipeItems[specialType] = count
+				}
+			}
+		}
+
+		if len(recipeItems) == 0 {
+			ctx.Logger.Debug("Socket recipe ready to execute", "recipe", recipe.Name, "itemCount", len(itemsForRecipe))
+			return itemsForRecipe, true
+		}
+	}
+
+	return nil, false
+}
+
+func isSocketableItemMultiType(itm data.Item, targetTypes []string) bool {
+
+	excludedItems := []string{
+		"Runic Talons",
+		"War Scepter",
+		"Greater Talons",
+		"Caduceus",
+		"Divine Scepter",
+		"Cedar Staff",
+		"Elder Staff",
+		"Gnarled Staff",
+		"Walking Stick",
+	}
+
+	for _, excluded := range excludedItems {
+		if string(itm.Name) == excluded {
+			return false
+		}
+	}
+
+	if itm.Quality != item.QualityNormal {
+		return false
+	}
+
+	if itm.HasSockets || len(itm.Sockets) > 0 {
+		return false
+	}
+
+	if itm.Desc().MaxSockets == 0 {
+		return false
+	}
+
+	for _, targetType := range targetTypes {
+		if itm.Type().IsType(targetType) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func hasItemsForGrandCharmReroll(ctx *context.Status, items []data.Item) ([]data.Item, bool) {

@@ -52,7 +52,11 @@ func (s *baseSupervisor) Name() string {
 }
 
 func (s *baseSupervisor) Stats() Stats {
-	return s.statsHandler.Stats()
+	stats := s.statsHandler.Stats()
+	if s.bot.ctx != nil {
+		stats.ManualModeActive = s.bot.ctx.ManualModeActive
+	}
+	return stats
 }
 
 func (s *baseSupervisor) TogglePause() {
@@ -76,6 +80,7 @@ func (s *baseSupervisor) Stop() {
 	}
 
 	s.bot.ctx.SwitchPriority(ct.PriorityStop)
+	s.bot.ctx.ManualModeActive = false // Clear manual mode flag
 
 	s.bot.ctx.MemoryInjector.Unload()
 	s.bot.ctx.GameReader.Close()

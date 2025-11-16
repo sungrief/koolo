@@ -103,8 +103,9 @@ type Stats struct {
 	Games               []GameStats
 	IsCompanionFollower bool
 	// UI contains lightweight live character info for the dashboard
-	UI          CharacterOverview
-	MuleEnabled bool `json:"muleEnabled"`
+	UI               CharacterOverview
+	MuleEnabled      bool `json:"muleEnabled"`
+	ManualModeActive bool `json:"manualModeActive"`
 }
 
 type GameStats struct {

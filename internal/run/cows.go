@@ -9,6 +9,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -30,7 +31,17 @@ func (a Cows) Name() string {
 	return string(config.CowsRun)
 }
 
-func (a Cows) Run() error {
+func (a Cows) CheckConditions(parameters *RunParameters) SequencerResult {
+	if IsQuestRun(parameters) {
+		return SequencerError
+	}
+	if !a.ctx.Data.Quests[quest.Act5EveOfDestruction].Completed() {
+		return SequencerSkip
+	}
+	return SequencerOk
+}
+
+func (a Cows) Run(parameters *RunParameters) error {
 
 	// Check if we already have the items in cube so we can skip.
 	if a.hasWristAndBookInCube() {

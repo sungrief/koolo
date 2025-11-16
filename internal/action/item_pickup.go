@@ -73,6 +73,17 @@ func ItemPickup(maxDistance int) error {
 	const totalMaxAttempts = maxRetries + maxItemTooFarAttempts // Combined total attempts
 	const debugPickit = false
 
+	//if we're already picking items, skip it
+	if ctx.CurrentGame.IsPickingItems {
+		return nil
+	}
+
+	//Lock items pickup from other sources during the execution of the function
+	ctx.SetPickingItems(true)
+	defer func() {
+		ctx.SetPickingItems(false)
+	}()
+
 	for {
 		ctx.PauseIfNotPriority()
 		itemsToPickup := GetItemsToPickup(maxDistance)
@@ -107,13 +118,15 @@ func ItemPickup(maxDistance int) error {
 			}
 		}
 
-		ctx.Logger.Info(fmt.Sprintf(
-			"Attempting to pickup item: %s [%d] at X:%d Y:%d",
-			itemToPickup.Name,
-			itemToPickup.Quality,
-			itemToPickup.Position.X,
-			itemToPickup.Position.Y,
-		))
+		if debugPickit {
+			ctx.Logger.Info(fmt.Sprintf(
+				"Attempting to pickup item: %s [%d] at X:%d Y:%d",
+				itemToPickup.Name,
+				itemToPickup.Quality,
+				itemToPickup.Position.X,
+				itemToPickup.Position.Y,
+			))
+		}
 
 		// Try to pick up the item with retries
 		var lastError error
@@ -133,6 +146,7 @@ func ItemPickup(maxDistance int) error {
 			if debugPickit {
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Clearing area around item. Attempt %d", attempt))
 			}
+			ClearAreaAroundPlayer(4, data.MonsterAnyFilter())
 			ClearAreaAroundPosition(itemToPickup.Position, 4, data.MonsterAnyFilter())
 			if debugPickit {
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Area cleared in %v. Attempt %d", time.Since(pickupStartTime), attempt))
@@ -167,14 +181,11 @@ func ItemPickup(maxDistance int) error {
 
 			distance := ctx.PathFinder.DistanceFromMe(itemToPickup.Position)
 			if distance >= 7 || attempt > 1 {
-				distanceToFinish := 3
-				if attempt > 1 {
-					distanceToFinish = 2
-				}
+				distanceToFinish := max(4-attempt, 2)
 				if debugPickit {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moving to coordinates X:%d Y:%d (distance: %d, distToFinish: %d). Attempt %d", pickupPosition.X, pickupPosition.Y, distance, distanceToFinish, attempt))
 				}
-				if err := step.MoveTo(pickupPosition, step.WithDistanceToFinish(distanceToFinish)); err != nil {
+				if err := MoveToCoords(pickupPosition, step.WithDistanceToFinish(distanceToFinish), step.WithIgnoreItems()); err != nil {
 					if debugPickit {
 						ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Failed moving to item on attempt %d: %v", attempt, err))
 					}
@@ -375,10 +386,10 @@ func shouldBePickedUp(i data.Item) bool {
 	}
 
 	// Pick up quest items if we're in leveling or questing run
-	specialRuns := slices.Contains(ctx.CharacterCfg.Game.Runs, "quests") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling")
+	specialRuns := slices.Contains(ctx.CharacterCfg.Game.Runs, "quests") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling_sequence")
 	if specialRuns {
 		switch i.Name {
-		case "Scroll of Inifuss", "ScrollOfInifuss", "LamEsensTome", "HoradricCube", "AmuletoftheViper", "StaffofKings", "HoradricStaff", "AJadeFigurine", "KhalimsEye", "KhalimsBrain", "KhalimsHeart", "KhalimsFlail":
+		case "Scroll of Inifuss", "ScrollOfInifuss", "HoradricMalus", "LamEsensTome", "HoradricCube", "AmuletoftheViper", "StaffofKings", "HoradricStaff", "AJadeFigurine", "KhalimsEye", "KhalimsBrain", "KhalimsHeart", "KhalimsFlail", "TheGidbinn", "HellforgeHammer":
 			return true
 		}
 	}

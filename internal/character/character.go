@@ -15,7 +15,7 @@ func BuildCharacter(ctx *context.Context) (context.Character, error) {
 		Context: ctx,
 	}
 
-	if len(ctx.CharacterCfg.Game.Runs) > 0 && ctx.CharacterCfg.Game.Runs[0] == "leveling" {
+	if len(ctx.CharacterCfg.Game.Runs) > 0 && (ctx.CharacterCfg.Game.Runs[0] == "leveling" || ctx.CharacterCfg.Game.Runs[0] == "leveling_sequence") {
 		switch strings.ToLower(ctx.CharacterCfg.Character.Class) {
 		case "sorceress_leveling":
 			return SorceressLeveling{BaseCharacter: bc}, nil
@@ -61,6 +61,8 @@ func BuildCharacter(ctx *context.Context) (context.Character, error) {
 		return Javazon{BaseCharacter: bc}, nil
 	case "berserker":
 		return &Berserker{BaseCharacter: bc}, nil // Return a pointer to Berserker
+	case "development":
+		return DevelopmentCharacter{BaseCharacter: bc}, nil
 	}
 
 	return nil, fmt.Errorf("class %s not implemented", ctx.CharacterCfg.Character.Class)
