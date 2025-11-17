@@ -179,15 +179,19 @@ func (n Nihlathak) findBestCorner(nihlathakPosition data.Position) data.Position
 }
 
 func (n Nihlathak) goToAnyaInTown() error {
+	// Always make sure we are in Harrogath first.
+	if n.ctx.Data.PlayerUnit.Area != area.Harrogath {
+		if err := action.WayPoint(area.Harrogath); err != nil {
+			return errors.New("could not move to Harrogath")
+		}
+	}
+
 	anyaTownPos, found := n.ctx.Data.Objects.FindOne(object.DrehyaTownStartPosition)
 	if !found {
-		return errors.New("couldn't find anya pos in town")
+		return errors.New("Anya town start position not found in Harrogath")
 	}
-	err := action.MoveToCoords(anyaTownPos.Position)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return action.MoveToCoords(anyaTownPos.Position)
 }
 
 func (n Nihlathak) getHallOfPainWp() error {
