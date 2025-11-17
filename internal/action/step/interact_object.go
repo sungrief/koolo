@@ -2,6 +2,7 @@ package step
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -85,11 +86,6 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		}
 	}
 
-	interactionCooldown := time.Millisecond * 200
-	if ctx.Data.PlayerUnit.Area.IsTown() {
-		interactionCooldown = time.Millisecond * 500
-	}
-
 	for !isCompletedFn() {
 		ctx.PauseIfNotPriority()
 
@@ -99,8 +95,13 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 
 		ctx.RefreshGameData()
 
+		interactionCooldown := utils.PingMultiplier(utils.Light, 200)
+		if ctx.Data.PlayerUnit.Area.IsTown() {
+			interactionCooldown = utils.PingMultiplier(utils.Medium, 400)
+		}
+
 		// Give some time before retrying the interaction
-		if waitingForInteraction && time.Since(lastRun) < interactionCooldown {
+		if waitingForInteraction && time.Since(lastRun) < time.Duration(interactionCooldown)*time.Millisecond {
 			time.Sleep(10 * time.Millisecond)
 			continue
 		}
@@ -123,15 +124,16 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 
 		// Check portal states
 		if o.IsPortal() || o.IsRedPortal() {
-			// If portal is still being created, wait
+			// If portal is still being created, wait with escalating delay
 			if o.Mode == mode.ObjectModeOperating {
-				utils.Sleep(100)
+				// Use retry escalation for portal opening waits
+				utils.RetrySleep(interactionAttempts, float64(ctx.Data.Game.Ping), 100)
 				continue
 			}
 
 			// Only interact when portal is fully opened
 			if o.Mode != mode.ObjectModeOpened {
-				utils.Sleep(100)
+				utils.RetrySleep(interactionAttempts, float64(ctx.Data.Game.Ping), 100)
 				continue
 			}
 		}
@@ -144,8 +146,10 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 
 			// For portals with expected area, we need to wait for proper area sync
 			if expectedArea != 0 {
-				utils.Sleep(500) // Initial delay for area transition
-				for attempts := 0; attempts < maxPortalSyncAttempts; attempts++ {
+				utils.PingSleep(utils.Medium, 500)
+
+				maxQuickChecks := 5
+				for attempts := 0; attempts < maxQuickChecks; attempts++ {
 					ctx.RefreshGameData()
 					if ctx.Data.PlayerUnit.Area == expectedArea {
 						if areaData, ok := ctx.Data.Areas[expectedArea]; ok {
@@ -160,9 +164,18 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 							}
 						}
 					}
-					utils.Sleep(portalSyncDelay)
+
+					utils.PingSleep(utils.Light, 100)
 				}
-				return fmt.Errorf("portal sync timeout - expected area: %v, current: %v", expectedArea, ctx.Data.PlayerUnit.Area)
+
+				// Area transition didn't happen yet - reset hover state to retry portal click
+				ctx.Logger.Debug("Portal click may have failed - will retry",
+					slog.String("expected_area", expectedArea.Area().Name),
+					slog.String("current_area", ctx.Data.PlayerUnit.Area.Area().Name),
+					slog.Int("interaction_attempt", interactionAttempts),
+				)
+				waitingForInteraction = false
+				mouseOverAttempts = 0 // Reset to find portal again
 			}
 			continue
 		} else {

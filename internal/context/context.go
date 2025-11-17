@@ -15,6 +15,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/health"
 	"github.com/hectorgimenez/koolo/internal/pather"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 var mu sync.Mutex
@@ -62,6 +63,8 @@ type Context struct {
 	RestartWithCharacter string
 	PacketSender         *game.PacketSender
 	IsLevelingCharacter  *bool
+	ManualModeActive     bool // Manual play mode: stops after character selection
+	LastPortalTick       time.Time // NEW FIELD: Tracks last portal creation for spam prevention
 }
 
 type Debug struct {
@@ -77,6 +80,7 @@ type CurrentGameHelper struct {
 		ExpectedArea area.ID
 	}
 	PickupItems                bool
+	IsPickingItems             bool
 	FailedToCreateGameAttempts int
 	FailedMenuAttempts         int
 	// When this is set, the supervisor will stop and the manager will start a new supervisor for the specified character.
@@ -86,6 +90,7 @@ type CurrentGameHelper struct {
 	CurrentMuleIndex  int
 	ShouldCheckStash  bool
 	StashFull         bool
+	mutex             sync.Mutex
 }
 
 func (ctx *Context) StopSupervisor() {
@@ -110,11 +115,21 @@ func NewContext(name string) *Status {
 			PriorityPause:      {},
 			PriorityStop:       {},
 		},
-		CurrentGame:     NewGameHelper(),
-		SkillPointIndex: 0,
-		ForceAttack:     false,
+		CurrentGame:      NewGameHelper(),
+		SkillPointIndex:  0,
+		ForceAttack:      false,
+		ManualModeActive: false, // Explicitly initialize to false
 	}
 	ctx.AttachRoutine(PriorityNormal)
+
+	// Initialize ping getter for adaptive delays (avoids import cycle)
+	utils.SetPingGetter(func() int {
+		if ctx.Data != nil && ctx.Data.Game.Ping > 0 {
+			return ctx.Data.Game.Ping
+		}
+		return 50 // Safe default
+	})
+
 	return Get()
 }
 
@@ -187,6 +202,12 @@ func (ctx *Context) DisableItemPickup() {
 
 func (ctx *Context) EnableItemPickup() {
 	ctx.CurrentGame.PickupItems = true
+}
+
+func (ctx *Context) SetPickingItems(value bool) {
+	ctx.CurrentGame.mutex.Lock()
+	ctx.CurrentGame.IsPickingItems = value
+	ctx.CurrentGame.mutex.Unlock()
 }
 
 func (s *Status) PauseIfNotPriority() {

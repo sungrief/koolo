@@ -1,72 +1,94 @@
 package game
 
 import (
-	"image"
-	"unsafe"
+    "image"
+    "reflect"
+    "unsafe"
 
-	"github.com/hectorgimenez/koolo/internal/utils/winproc"
+    "github.com/hectorgimenez/koolo/internal/utils/winproc"
 )
 
+type bmpInfoHeader struct {
+    BiSize          uint32
+    BiWidth         int32
+    BiHeight        int32
+    BiPlanes        uint16
+    BiBitCount      uint16
+    BiCompression   uint32
+    BiSizeImage     uint32
+    BiXPelsPerMeter int32
+    BiYPelsPerMeter int32
+    BiClrUsed       uint32
+    BiClrImportant  uint32
+}
+
+type bitmapInfo struct{ Header bmpInfoHeader }
+
+type rect struct{ Left, Top, Right, Bottom int32 }
+
+func clientSize(hwnd uintptr) (width, height int) {
+    var rc rect
+    winproc.GetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&rc)))
+    return int(rc.Right - rc.Left), int(rc.Bottom - rc.Top)
+}
+
 func (gd *MemoryReader) Screenshot() image.Image {
-	// Create a device context compatible with the window
-	hdcWindow, _, _ := winproc.GetWindowDC.Call(uintptr(gd.HWND))
-	hdcMem, _, _ := winproc.CreateCompatibleDC.Call(hdcWindow)
-	hbmMem, _, _ := winproc.CreateCompatibleBitmap.Call(hdcWindow, uintptr(gd.GameAreaSizeX), uintptr(gd.GameAreaSizeY))
-	_, _, _ = winproc.SelectObject.Call(hdcMem, hbmMem)
+    gd.updateWindowPositionData()
 
-	// Use PrintWindow to copy the window into the bitmap
-	winproc.PrintWindow.Call(uintptr(gd.HWND), hdcMem, 3) // use 3 to get window content only
+    width, height := clientSize(uintptr(gd.HWND))
+    if width <= 0 || height <= 0 {
+        return nil
+    }
 
-	// map the bitmap structure
-	bmpInfo := struct {
-		BiSize            uint32
-		BiWidth, BiHeight int32
-		BiPlanes          uint16
-		BiBitCount        uint16
-		BiCompression     uint32
-		BiSizeImage       uint32
-		BiXPelsPerMeter   int32
-		BiYPelsPerMeter   int32
-		BiClrUsed         uint32
-		BiClrImportant    uint32
-	}{
-		BiSize:        40, // The size of the BITMAPINFOHEADER structure
-		BiWidth:       int32(gd.GameAreaSizeX),
-		BiHeight:      -int32(gd.GameAreaSizeY), // negative to indicate top-down bitmap
-		BiPlanes:      1,
-		BiBitCount:    32, // 32 bits-per-pixel
-		BiCompression: 0,  // BI_RGB, no compression
-		BiSizeImage:   0,  // 0 for BI_RGB
-	}
+    // Screen DC (for compatibility); no blit from it, only to create DIB/DC
+    hdcScreen, _, _ := winproc.GetDC.Call(0)
+    if hdcScreen == 0 {
+        return nil
+    }
+    defer winproc.ReleaseDC.Call(0, hdcScreen)
 
-	bufSize := gd.GameAreaSizeX * gd.GameAreaSizeY * 4
-	buf := make([]byte, bufSize)
-	winproc.GetDIBits.Call(
-		hdcMem,
-		hbmMem,
-		0,
-		uintptr(gd.GameAreaSizeY),
-		uintptr(unsafe.Pointer(&buf[0])),
-		uintptr(unsafe.Pointer(&bmpInfo)),
-		0, // DIB_RGB_COLORS
-	)
+    // Memory DC
+    hdcMem, _, _ := winproc.CreateCompatibleDC.Call(hdcScreen)
+    if hdcMem == 0 {
+        return nil
+    }
+    defer winproc.DeleteDC.Call(hdcMem)
 
-	// Convert raw bytes to *image.RGBA
-	img := image.NewRGBA(image.Rect(0, 0, gd.GameAreaSizeX, gd.GameAreaSizeY))
-	copy(img.Pix, buf)
+    // Top‑down 32‑bpp DIB
+    bi := bitmapInfo{Header: bmpInfoHeader{
+        BiSize:     40,
+        BiWidth:    int32(width),
+        BiHeight:   -int32(height),
+        BiPlanes:   1,
+        BiBitCount: 32,
+    }}
+    var bitsPtr uintptr
+    hbm, _, _ := winproc.CreateDIBSection.Call(hdcScreen, uintptr(unsafe.Pointer(&bi)), 0, uintptr(unsafe.Pointer(&bitsPtr)), 0, 0)
+    if hbm == 0 || bitsPtr == 0 {
+        return nil
+    }
+    defer winproc.DeleteObject.Call(hbm)
+    winproc.SelectObject.Call(hdcMem, hbm)
 
-	// Windows is using BRG instead of RGB, let's swap red and blue layers
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			idx := y*img.Stride + x*4 // Calculate index for the start of the pixel
-			// Swap red and blue (at idx and idx+2)
-			img.Pix[idx], img.Pix[idx+2] = img.Pix[idx+2], img.Pix[idx]
-		}
-	}
+    // Single capture method: PrintWindow with PW_CLIENTONLY|PW_RENDERFULLCONTENT (flags=3)
+    _, _, _ = winproc.PrintWindow.Call(uintptr(gd.HWND), hdcMem, 3)
+    winproc.GdiFlush.Call()
 
-	// Cleanup
-	_, _, _ = winproc.DeleteObject.Call(hbmMem)
-	_, _, _ = winproc.DeleteDC.Call(hdcMem)
+    // Wrap the DIB memory into an RGBA and swap B<->R (BGRA->RGBA)
+    n := width * height * 4
+    var src []byte
+    hdr := (*reflect.SliceHeader)(unsafe.Pointer(&src))
+    hdr.Data = bitsPtr
+    hdr.Len = n
+    hdr.Cap = n
 
-	return img
+    img := image.NewRGBA(image.Rect(0, 0, width, height))
+    copy(img.Pix, src)
+    for y := 0; y < img.Bounds().Dy(); y++ {
+        for x := 0; x < img.Bounds().Dx(); x++ {
+            idx := y*img.Stride + x*4
+            img.Pix[idx], img.Pix[idx+2] = img.Pix[idx+2], img.Pix[idx]
+        }
+    }
+    return img
 }

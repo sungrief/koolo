@@ -15,6 +15,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 func itemFitsInventory(i data.Item) bool {
@@ -70,6 +71,18 @@ func ItemPickup(maxDistance int) error {
 	const maxRetries = 5                                        // Base retries for various issues
 	const maxItemTooFarAttempts = 5                             // Additional retries specifically for "item too far"
 	const totalMaxAttempts = maxRetries + maxItemTooFarAttempts // Combined total attempts
+	const debugPickit = false
+
+	//if we're already picking items, skip it
+	if ctx.CurrentGame.IsPickingItems {
+		return nil
+	}
+
+	//Lock items pickup from other sources during the execution of the function
+	ctx.SetPickingItems(true)
+	defer func() {
+		ctx.SetPickingItems(false)
+	}()
 
 	for {
 		ctx.PauseIfNotPriority()
@@ -88,9 +101,13 @@ func ItemPickup(maxDistance int) error {
 		}
 
 		if itemToPickup.UnitID == 0 {
-			ctx.Logger.Debug("No fitting items found for pickup after filtering.")
+			if debugPickit {
+				ctx.Logger.Debug("No fitting items found for pickup after filtering.")
+			}
 			if HasTPsAvailable() {
-				ctx.Logger.Debug("TPs available and keybinding found, returning to town to sell junk and stash items.")
+				if debugPickit {
+					ctx.Logger.Debug("TPs available and keybinding found, returning to town to sell junk and stash items.")
+				}
 				if err := InRunReturnTownRoutine(); err != nil {
 					ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
 				}
@@ -101,13 +118,15 @@ func ItemPickup(maxDistance int) error {
 			}
 		}
 
-		ctx.Logger.Info(fmt.Sprintf(
-			"Attempting to pickup item: %s [%d] at X:%d Y:%d",
-			itemToPickup.Name,
-			itemToPickup.Quality,
-			itemToPickup.Position.X,
-			itemToPickup.Position.Y,
-		))
+		if debugPickit {
+			ctx.Logger.Info(fmt.Sprintf(
+				"Attempting to pickup item: %s [%d] at X:%d Y:%d",
+				itemToPickup.Name,
+				itemToPickup.Quality,
+				itemToPickup.Position.X,
+				itemToPickup.Position.Y,
+			))
+		}
 
 		// Try to pick up the item with retries
 		var lastError error
@@ -118,13 +137,20 @@ func ItemPickup(maxDistance int) error {
 
 		for totalAttemptCounter < totalMaxAttempts { // Loop until totalMaxAttempts is reached
 			totalAttemptCounter++
-			ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Starting attempt %d (total: %d)", attempt, totalAttemptCounter))
+			if debugPickit {
+				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Starting attempt %d (total: %d)", attempt, totalAttemptCounter))
+			}
 			pickupStartTime := time.Now()
 
 			// Clear monsters on each attempt
-			ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Clearing area around item. Attempt %d", attempt))
+			if debugPickit {
+				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Clearing area around item. Attempt %d", attempt))
+			}
+			ClearAreaAroundPlayer(4, data.MonsterAnyFilter())
 			ClearAreaAroundPosition(itemToPickup.Position, 4, data.MonsterAnyFilter())
-			ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Area cleared in %v. Attempt %d", time.Since(pickupStartTime), attempt))
+			if debugPickit {
+				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Area cleared in %v. Attempt %d", time.Since(pickupStartTime), attempt))
+			}
 
 			// Calculate position to move to based on attempt number
 			// on 2nd and 3rd attempt try position left/right of item
@@ -155,43 +181,55 @@ func ItemPickup(maxDistance int) error {
 
 			distance := ctx.PathFinder.DistanceFromMe(itemToPickup.Position)
 			if distance >= 7 || attempt > 1 {
-				distanceToFinish := 3
-				if attempt > 1 {
-					distanceToFinish = 2
+				distanceToFinish := max(4-attempt, 2)
+				if debugPickit {
+					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moving to coordinates X:%d Y:%d (distance: %d, distToFinish: %d). Attempt %d", pickupPosition.X, pickupPosition.Y, distance, distanceToFinish, attempt))
 				}
-				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moving to coordinates X:%d Y:%d (distance: %d, distToFinish: %d). Attempt %d", pickupPosition.X, pickupPosition.Y, distance, distanceToFinish, attempt))
-				if err := step.MoveTo(pickupPosition, step.WithDistanceToFinish(distanceToFinish)); err != nil {
-					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Failed moving to item on attempt %d: %v", attempt, err))
+				if err := MoveToCoords(pickupPosition, step.WithDistanceToFinish(distanceToFinish), step.WithIgnoreItems()); err != nil {
+					if debugPickit {
+						ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Failed moving to item on attempt %d: %v", attempt, err))
+					}
 					lastError = err
 
 					continue // Go to next total attempt
 				}
-				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Move completed in %v. Attempt %d", time.Since(pickupStartTime), attempt))
+				if debugPickit {
+					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Move completed in %v. Attempt %d", time.Since(pickupStartTime), attempt))
+				}
 			}
 
 			// Try to pick up the item
 			pickupActionStartTime := time.Now()
-			ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Initiating PickupItem action. Attempt %d", attempt))
+			if debugPickit {
+				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Initiating PickupItem action. Attempt %d", attempt))
+			}
 			err := step.PickupItem(itemToPickup, attempt)
 			if err == nil {
-				ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
+				if debugPickit {
+					ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
+				}
 				break // Success! Exit the inner retry loop
 			}
 
 			lastError = err
-			ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Pickup attempt %d failed: %v", attempt, err), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
+			if debugPickit {
+				ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Pickup attempt %d failed: %v", attempt, err), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
+			}
 
 			// Here's the fix: Add a pause and an error counter
 			if errors.Is(err, step.ErrCastingMoving) {
 				consecutiveMoveErrors++
 				if consecutiveMoveErrors > 3 {
 					// Give up on this item after 3 consecutive failed attempts due to movement
-					ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Giving up on item after %d consecutive failed pickup attempts due to movement.", consecutiveMoveErrors))
+					if debugPickit {
+						ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Giving up on item after %d consecutive failed pickup attempts due to movement.", consecutiveMoveErrors))
+					}
 					lastError = fmt.Errorf("failed to pick up item after multiple attempts due to movement state: %w", err)
 					break // Exit the inner loop to blacklist the item
 				}
 				// Pause to let the game state update from 'walking' to 'idle'
-				time.Sleep(100 * time.Millisecond)
+				// Use adaptive delay based on ping
+				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 100)))
 				continue
 			}
 			if errors.Is(err, step.ErrMonsterAroundItem) {
@@ -201,7 +239,9 @@ func ItemPickup(maxDistance int) error {
 			// Item too far retry logic: Use itemTooFarRetryCount for this specific error type
 			if errors.Is(err, step.ErrItemTooFar) {
 				itemTooFarRetryCount++
-				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Item too far detected. ItemTooFar specific retry %d/%d.", itemTooFarRetryCount, maxItemTooFarAttempts))
+				if debugPickit {
+					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Item too far detected. ItemTooFar specific retry %d/%d.", itemTooFarRetryCount, maxItemTooFarAttempts))
+				}
 				// We don't increment 'attempt' here to keep the movement strategy.
 				if itemTooFarRetryCount < maxItemTooFarAttempts {
 					ctx.PathFinder.RandomMovement() // Add random movement to break potential sticking
@@ -211,23 +251,32 @@ func ItemPickup(maxDistance int) error {
 			}
 
 			if errors.Is(err, step.ErrNoLOSToItem) {
-				ctx.Logger.Debug("Item Pickup: No line of sight to item, moving closer",
-					slog.String("item", string(itemToPickup.Desc().Name))) // <--- FIXED: string(itemToPickup.Desc().Name)
-
+				if debugPickit {
+					ctx.Logger.Debug("Item Pickup: No line of sight to item, moving closer",
+						slog.String("item", string(itemToPickup.Desc().Name))) // <--- FIXED: string(itemToPickup.Desc().Name)
+				}
 				// Try moving beyond the item for better line of sight
 				beyondPos := ctx.PathFinder.BeyondPosition(ctx.Data.PlayerUnit.Position, itemToPickup.Position, 2+attempt)
 				if mvErr := MoveToCoords(beyondPos, step.WithIgnoreItems()); mvErr == nil {
-					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moved for LOS. Retrying pickup. Attempt %d", attempt))
+					if debugPickit {
+						ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moved for LOS. Retrying pickup. Attempt %d", attempt))
+					}
 					err = step.PickupItem(itemToPickup, attempt)
 					if err == nil {
-						ctx.Logger.Info(fmt.Sprintf("Successfully picked up item after LOS correction: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
+						if debugPickit {
+							ctx.Logger.Info(fmt.Sprintf("Successfully picked up item after LOS correction: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
+						}
 						break
 					}
 					lastError = err
-					ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Pickup attempt %d failed even after LOS correction: %v", attempt, err), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
+					if debugPickit {
+						ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Pickup attempt %d failed even after LOS correction: %v", attempt, err), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
+					}
 				} else {
 					lastError = mvErr
-					ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Failed to move for LOS correction: %v", mvErr), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
+					if debugPickit {
+						ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Failed to move for LOS correction: %v", mvErr), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
+					}
 				}
 			}
 			attempt++ // Only increment 'attempt' for general strategy change (movements, etc.)
@@ -239,8 +288,8 @@ func ItemPickup(maxDistance int) error {
 
 			// Screenshot with show items on
 			ctx.HID.KeyDown(ctx.Data.KeyBindings.ShowItems)
-			// Small delay to ensure items are shown before screenshot
-			time.Sleep(200 * time.Millisecond)
+			// Adaptive delay to ensure items are shown before screenshot
+			time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 200)))
 			screenshot := ctx.GameReader.Screenshot()
 			event.Send(event.ItemBlackListed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] BlackListed in Area:%s", itemToPickup.Name, itemToPickup.Quality.ToString(), ctx.Data.PlayerUnit.Area.Area().Name), screenshot), data.Drop{Item: itemToPickup}))
 			ctx.HID.KeyUp(ctx.Data.KeyBindings.ShowItems)
@@ -337,10 +386,10 @@ func shouldBePickedUp(i data.Item) bool {
 	}
 
 	// Pick up quest items if we're in leveling or questing run
-	specialRuns := slices.Contains(ctx.CharacterCfg.Game.Runs, "quests") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling")
+	specialRuns := slices.Contains(ctx.CharacterCfg.Game.Runs, "quests") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling_sequence")
 	if specialRuns {
 		switch i.Name {
-		case "Scroll of Inifuss", "ScrollOfInifuss", "LamEsensTome", "HoradricCube", "AmuletoftheViper", "StaffofKings", "HoradricStaff", "AJadeFigurine", "KhalimsEye", "KhalimsBrain", "KhalimsHeart", "KhalimsFlail":
+		case "Scroll of Inifuss", "ScrollOfInifuss", "HoradricMalus", "LamEsensTome", "HoradricCube", "AmuletoftheViper", "StaffofKings", "HoradricStaff", "AJadeFigurine", "KhalimsEye", "KhalimsBrain", "KhalimsHeart", "KhalimsFlail", "TheGidbinn", "HellforgeHammer":
 			return true
 		}
 	}
@@ -378,6 +427,7 @@ func shouldBePickedUp(i data.Item) bool {
 		return true
 	}
 
+	// Evaluate item based on NIP rules
 	playerRule, mercRule := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateTiers(i, ctx.Data.CharacterCfg.Runtime.TierRules)
 	if playerRule.Tier() > 0.0 || mercRule.MercTier() > 0.0 {
 		if i.Quality <= item.QualitySuperior {

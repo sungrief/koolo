@@ -131,11 +131,19 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 	const roundTripThreshold = 10 * time.Second
 	const roundTripMaxRadius = 8
 
+	// Adaptive movement refresh intervals based on ping
+	// Adjust polling frequency based on network latency
 	var walkDuration time.Duration
 	if !ctx.Data.AreaData.Area.IsTown() {
-		walkDuration = utils.RandomDurationMs(300, 350)
+		// In dungeons: faster refresh for combat
+		baseMin, baseMax := 300, 350
+		pingAdjustment := int(float64(ctx.Data.Game.Ping) * 0.5) // Add half ping to base
+		walkDuration = utils.RandomDurationMs(baseMin+pingAdjustment, baseMax+pingAdjustment)
 	} else {
-		walkDuration = utils.RandomDurationMs(500, 800)
+		// In town: slower refresh is acceptable
+		baseMin, baseMax := 500, 800
+		pingAdjustment := int(float64(ctx.Data.Game.Ping) * 0.5)
+		walkDuration = utils.RandomDurationMs(baseMin+pingAdjustment, baseMax+pingAdjustment)
 	}
 
 	lastRun := time.Time{}
@@ -170,11 +178,20 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		if !ctx.Data.CanTeleport() {
 			if doorFound, doorObj := ctx.PathFinder.HasDoorBetween(ctx.Data.PlayerUnit.Position, currentDest); doorFound {
 				doorToOpen := *doorObj
-				if err := InteractObject(doorToOpen, func() bool {
-					door, found := ctx.Data.Objects.FindByID(doorToOpen.ID)
-					return found && !door.Selectable
-				}); err != nil {
-					return err
+				interactErr := error(nil)
+				//Retry a few times (maggot lair slime door fix)
+				for range 5 {
+					if interactErr = InteractObject(doorToOpen, func() bool {
+						door, found := ctx.Data.Objects.FindByID(doorToOpen.ID)
+						return found && !door.Selectable
+					}); interactErr == nil {
+						break
+					}
+					ctx.PathFinder.RandomMovement()
+					utils.Sleep(250)
+				}
+				if interactErr != nil {
+					return interactErr
 				}
 			}
 		}
@@ -264,7 +281,8 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 				x, y := ui.GameCoordsToScreenCords(obj.Position.X, obj.Position.Y)
 				ctx.HID.Click(game.LeftButton, x, y)
 
-				time.Sleep(time.Millisecond * 100)
+				// Adaptive delay for obstacle interaction based on ping
+				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 100)))
 			} else if door, found := ctx.PathFinder.GetClosestDoor(ctx.Data.PlayerUnit.Position); found {
 				//There's a door really close, try to open it
 				doorToOpen := *door

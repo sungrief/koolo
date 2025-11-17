@@ -1,6 +1,8 @@
 package action
 
 import (
+	"time"
+
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/koolo/internal/action/step"
@@ -75,4 +77,17 @@ func ClearMessages() error {
 	ctx.SetLastAction("ClearMessages")
 	ctx.HID.PressKey(ctx.Data.KeyBindings.ClearMessages.Key1[0])
 	return nil
+}
+func HoldKey(keyCode byte, durationMs int) {
+	ctx := context.Get()
+	kb := ToKeyBinding(keyCode)                              // Convert byte to data.KeyBinding
+	ctx.HID.KeyDown(kb)                                      // Simulate pressing the key down
+	time.Sleep(time.Duration(durationMs) * time.Millisecond) // Wait for the specified duration
+	ctx.HID.KeyUp(kb)                                        // Simulate releasing the key
+}
+func ToKeyBinding(keyCode byte) data.KeyBinding {
+	return data.KeyBinding{
+		Key1: [2]byte{keyCode, 0},
+		Key2: [2]byte{0, 0},
+	}
 }

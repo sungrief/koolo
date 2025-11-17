@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
+	"slices"
 	"sort"
 	"time"
 
 	"github.com/hectorgimenez/koolo/internal/pather"
 	"github.com/hectorgimenez/koolo/internal/town"
-	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -61,9 +62,17 @@ var curseBreakingShrines = []object.ShrineType{
 	object.ResistPoisonShrine,
 }
 
+var (
+	ErrArcaneDeadEnd = errors.New("arcane sanctuary dead end")
+)
+
 // checkPlayerDeath checks if the player is dead and returns ErrDied if so.
 func checkPlayerDeath(ctx *context.Status) error {
-	if ctx.Data.PlayerUnit.HPPercent() <= 0 {
+	if ctx.Data.PlayerUnit.Area.IsTown() {
+		return nil
+	}
+
+	if ctx.Data.PlayerUnit.IsDead() {
 		return health.ErrDied
 	}
 	return nil
@@ -403,6 +412,10 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 	blacklistedInteractions := map[data.UnitID]bool{}
 	adjustMinDist := false
 
+	//Arcane sanctuary portal navigation
+	var tpPad data.Object
+	var blacklistedPads []data.Object
+
 	// Initial sync check
 	if err := ensureAreaSync(ctx, ctx.Data.PlayerUnit.Area); err != nil {
 		return err
@@ -492,6 +505,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			targetPosition = shrine.Position
 		} else if chest.ID != 0 {
 			targetPosition = chest.Position
+		} else if !utils.IsZeroPosition(tpPad.Position) {
+			targetPosition = tpPad.Position
 		}
 
 		//Only recompute path if needed, it can be heavy
@@ -509,6 +524,14 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 				if err := UsePortalInTown(); err != nil {
 					return errors.New("path failed during moveto. player in town, target position outside of town and no tp")
 				}
+			} else if ctx.Data.PlayerUnit.Area == area.ArcaneSanctuary {
+				//try to go to the end of the tp lane to find target position
+				tpPad, err := getArcaneNextTeleportPadPosition(blacklistedPads)
+				if err != nil {
+					return err
+				}
+				blacklistedPads = append(blacklistedPads, tpPad)
+				continue
 			} else {
 				pathErrors++
 				//Try some randome movements to help pathfinding (not sure that it helps)
@@ -568,6 +591,17 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 					}
 				}
 				chest = data.Object{}
+				continue
+			} else if !utils.IsZeroPosition(tpPad.Position) && targetPosition == tpPad.Position {
+				//Handle arcane sanctuary tp pad if any
+				if err := InteractObject(tpPad, func() bool {
+					return ctx.PathFinder.DistanceFromMe(tpPad.Position) > 5
+				}); err != nil {
+					return err
+				}
+				tpPad = data.Object{}
+				exitPad := getClosestTeleportPad(blacklistedPads)
+				blacklistedPads = append(blacklistedPads, exitPad)
 				continue
 			}
 
@@ -646,7 +680,7 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 	ctx := context.Get()
 
 	// Check if the bot is dead or chickened before proceeding.
-	if ctx.Data.PlayerUnit.HPPercent() <= 0 || ctx.Data.PlayerUnit.HPPercent() <= ctx.Data.CharacterCfg.Health.ChickenAt || ctx.Data.AreaData.Area.IsTown() {
+	if ctx.Data.PlayerUnit.IsDead() || ctx.Data.PlayerUnit.HPPercent() <= ctx.Data.CharacterCfg.Health.ChickenAt || ctx.Data.AreaData.Area.IsTown() {
 		ctx.Logger.Debug("Bot is dead or chickened, skipping shrine search.")
 		return nil
 	}
@@ -745,30 +779,59 @@ func findClosestShrine(maxScanDistance float64) *data.Object {
 	return nil
 }
 
-func interactWithShrine(shrine *data.Object) error {
+func getArcaneNextTeleportPadPosition(blacklistedPads []data.Object) (data.Object, error) {
 	ctx := context.Get()
-	ctx.Logger.Debug(fmt.Sprintf("Shrine [%s] found. Interacting with it...", shrine.Desc().Name))
+	teleportPads := getValidTeleportPads(blacklistedPads)
+	var bestPad data.Object
+	bestPathDistance := math.MaxInt
+	padFound := false
 
-	attempts := 0
-	maxAttempts := 3
-
-	for {
-		ctx.RefreshGameData()
-		s, found := ctx.Data.Objects.FindByID(shrine.ID)
-
-		if !found || !s.Selectable {
-			ctx.Logger.Debug("Shrine successfully activated.")
-			return nil
+	for _, tpPad := range teleportPads {
+		_, distance, found := ctx.PathFinder.GetPath(tpPad.Position)
+		//Basic rule to go to the end : go to closest reachable portal
+		if found && distance < bestPathDistance {
+			bestPad = tpPad
+			bestPathDistance = distance
+			padFound = true
 		}
-
-		if attempts >= maxAttempts {
-			ctx.Logger.Warn(fmt.Sprintf("Failed to activate shrine [%s] after multiple attempts. Moving on.", shrine.Desc().Name))
-			return fmt.Errorf("failed to activate shrine [%s] after multiple attempts", shrine.Desc().Name)
-		}
-
-		x, y := ui.GameCoordsToScreenCords(s.Position.X, s.Position.Y)
-		ctx.HID.Click(game.LeftButton, x, y)
-		attempts++
-		utils.Sleep(100)
 	}
+
+	if !padFound {
+		return bestPad, ErrArcaneDeadEnd
+	}
+	return bestPad, nil
+}
+
+func getClosestTeleportPad(blacklistedPads []data.Object) data.Object {
+	ctx := context.Get()
+	tpPads := getValidTeleportPads(blacklistedPads)
+	var bestPad data.Object
+	closestDistance := math.MaxInt
+
+	for _, tpPad := range tpPads {
+		distance := ctx.PathFinder.DistanceFromMe(tpPad.Position)
+		if distance < closestDistance {
+			bestPad = tpPad
+			closestDistance = distance
+		}
+	}
+
+	return bestPad
+}
+
+func getValidTeleportPads(blacklistedPads []data.Object) []data.Object {
+	ctx := context.Get()
+	var teleportPads []data.Object
+	for _, obj := range ctx.Data.AreaData.Objects {
+		if slices.ContainsFunc(blacklistedPads, func(e data.Object) bool {
+			return utils.IsSamePosition(e.Position, obj.Position)
+		}) {
+			continue
+		}
+		switch obj.Name {
+		case object.TeleportationPad1, object.TeleportationPad2, object.TeleportationPad3, object.TeleportationPad4:
+			teleportPads = append(teleportPads, obj)
+		}
+	}
+	return teleportPads
 }

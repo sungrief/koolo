@@ -16,7 +16,11 @@ import (
 )
 
 func checkPlayerDeathForTP(ctx *context.Status) error {
-	if ctx.Data.PlayerUnit.HPPercent() <= 0 {
+	if ctx.Data.PlayerUnit.Area.IsTown() {
+		return nil
+	}
+
+	if ctx.Data.PlayerUnit.IsDead() {
 		return health.ErrDied
 	}
 	// Player chicken check
@@ -107,7 +111,7 @@ func ReturnTown() error {
 	}
 
 	// Wait for area transition and data sync
-	utils.Sleep(1000)
+	utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for portal transition
 	ctx.RefreshGameData()
 
 	// Wait for town area data to be fully loaded
@@ -126,7 +130,7 @@ func ReturnTown() error {
 				}
 			}
 		}
-		utils.Sleep(100)
+		utils.PingSleep(utils.Light, 100) // Light operation: Polling for town area data
 		ctx.RefreshGameData()
 	}
 
@@ -155,7 +159,7 @@ func UsePortalInTown() error {
 	}
 
 	// Wait for area sync before attempting any movement
-	utils.Sleep(500)
+	utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for portal exit transition
 	ctx.RefreshGameData()
 	// Check for death after refreshing game data
 	if err := checkPlayerDeathForTP(ctx); err != nil {
@@ -207,7 +211,7 @@ func UsePortalFrom(owner string) error {
 
 				if !ctx.Data.PlayerUnit.Area.IsTown() {
 					// Ensure area data is synced after portal transition
-					utils.Sleep(500)
+					utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for portal transition
 					ctx.RefreshGameData()
 					// Check for death after refreshing game data
 					if errCheck := checkPlayerDeathForTP(ctx); errCheck != nil {

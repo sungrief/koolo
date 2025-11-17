@@ -89,9 +89,13 @@ func (gd *MemoryReader) FetchMapData() error {
 			}
 
 			npcs, exits, objects, rooms := lvl.NPCsExitsAndObjects()
-			grid := NewGrid(resultGrid, lvl.Offset.X, lvl.Offset.Y)
+			areaID := area.ID(lvl.ID)
+			grid := NewGrid(resultGrid, lvl.Offset.X, lvl.Offset.Y, false)
+			if !areaID.IsTown() {
+				gd.TeleportPostProcess(&grid.CollisionGrid, lvl.Size.Width, lvl.Size.Height)
+			}
 			mu.Lock()
-			areas[area.ID(lvl.ID)] = AreaData{
+			areas[areaID] = AreaData{
 				Area:           area.ID(lvl.ID),
 				Name:           lvl.Name,
 				NPCs:           npcs,
@@ -112,6 +116,94 @@ func (gd *MemoryReader) FetchMapData() error {
 	gd.logger.Debug("Fetch completed", slog.Int64("ms", time.Since(t).Milliseconds()))
 
 	return nil
+}
+
+func (gd *MemoryReader) TeleportPostProcess(grid *[][]CollisionType, width int, height int) {
+	for y := 1; y < height-1; y++ {
+		for x := 1; x < width-1; x++ {
+			gridValue := (*grid)[y][x]
+			if gridValue == CollisionTypeNonWalkable || gridValue == CollisionTypeTeleportOver {
+				gd.CheckAndAdjustForTeleport(grid, x, y, width, height, 10)
+			}
+		}
+	}
+}
+
+func (gd *MemoryReader) CheckAndAdjustForTeleport(grid *[][]CollisionType, xPos int, yPos int, width int, height int, dist int) {
+	minX := max(xPos-dist, 0)
+	maxX := min(xPos+dist, width-1)
+	minY := max(yPos-dist, 0)
+	maxY := min(yPos+dist, height-1)
+
+	if gd.CheckForWalkable(grid, minX, yPos, xPos-1, yPos) && gd.CheckForWalkable(grid, xPos+1, yPos, maxX, yPos) {
+		gd.SetTeleportable(grid, minX, yPos, maxX, yPos)
+	}
+
+	if gd.CheckForWalkable(grid, xPos, minY, xPos, yPos-1) && gd.CheckForWalkable(grid, xPos, yPos+1, xPos, maxY) {
+		gd.SetTeleportable(grid, xPos, minY, xPos, maxY)
+	}
+
+	diagDist := dist / 2
+	minX = max(xPos-diagDist, 0)
+	maxX = min(xPos+diagDist, width-1)
+	minY = max(yPos-diagDist, 0)
+	maxY = min(yPos+diagDist, height-1)
+
+	if gd.CheckForWalkableDiagonal(grid, minX, minY, xPos-1, yPos-1, 1) && gd.CheckForWalkableDiagonal(grid, xPos+1, yPos+1, maxX, maxY, 1) {
+		gd.SetTeleportableDiagonal(grid, minX, minY, maxX, maxY, 1, 1)
+	}
+
+	if gd.CheckForWalkableDiagonal(grid, minX, maxY, xPos-1, yPos+1, -1) && gd.CheckForWalkableDiagonal(grid, xPos+1, yPos-1, maxX, minY, -1) {
+		gd.SetTeleportableDiagonal(grid, minX, maxY, maxX, minY, 1, -1)
+	}
+}
+
+func (gd *MemoryReader) CheckForWalkable(grid *[][]CollisionType, xStart int, yStart int, xEnd int, yEnd int) bool {
+	for x := xStart; x <= xEnd; x++ {
+		for y := yStart; y <= yEnd; y++ {
+			if (*grid)[y][x] == CollisionTypeWalkable {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (gd *MemoryReader) CheckForWalkableDiagonal(grid *[][]CollisionType, xStart int, yStart int, xEnd int, yEnd int, yStep int) bool {
+	y := yStart
+	minY := min(yStart, yEnd)
+	maxY := max(yStart, yEnd)
+	for x := xStart; x <= xEnd && y >= minY && y <= maxY; {
+		if (*grid)[y][x] == CollisionTypeWalkable {
+			return true
+		}
+		x += 1
+		y += yStep
+	}
+	return false
+}
+
+func (gd *MemoryReader) SetTeleportable(grid *[][]CollisionType, xStart int, yStart int, xEnd int, yEnd int) {
+	for x := xStart; x <= xEnd; x++ {
+		for y := yStart; y <= yEnd; y++ {
+			if (*grid)[y][x] == CollisionTypeNonWalkable {
+				(*grid)[y][x] = CollisionTypeTeleportOver
+			}
+		}
+	}
+}
+
+func (gd *MemoryReader) SetTeleportableDiagonal(grid *[][]CollisionType, xStart int, yStart int, xEnd int, yEnd int, xStep int, yStep int) {
+	y := yStart
+	minY := min(yStart, yEnd)
+	maxY := max(yStart, yEnd)
+	for x := xStart; x <= xEnd && y >= minY && y <= maxY; {
+		if (*grid)[y][x] == CollisionTypeNonWalkable {
+			(*grid)[y][x] = CollisionTypeTeleportOver
+		}
+		x += 1
+		y += yStep
+	}
 }
 
 func (gd *MemoryReader) updateWindowPositionData() {

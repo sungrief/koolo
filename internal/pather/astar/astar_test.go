@@ -17,7 +17,7 @@ func BenchmarkAstar(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		CalculatePath(grid, start, goal)
+		CalculatePath(grid, start, goal, false)
 	}
 }
 
@@ -27,7 +27,7 @@ func TestAstar(t *testing.T) {
 	start := data.Position{X: 336, Y: 701}
 	goal := data.Position{X: 11, Y: 330}
 
-	p, dist, found := CalculatePath(grid, start, goal)
+	p, dist, found := CalculatePath(grid, start, goal, false)
 	if dist != 546 {
 		t.Errorf("Expected distance to be 546, got %d", dist)
 	}

@@ -49,6 +49,7 @@ func (pf *PathFinder) GetPath(to data.Position) (Path, int, bool) {
 
 func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 	a := pf.data.AreaData
+	canTeleport := pf.data.CanTeleport()
 
 	// We don't want to modify the original grid
 	grid := a.Grid.Copy()
@@ -70,13 +71,18 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 	}
 
 	if !a.IsInside(to) {
-		expandedGrid, err := pf.mergeGrids(to)
+		expandedGrid, err := pf.mergeGrids(to, canTeleport)
 		if err != nil {
 			return nil, 0, false
 		}
 		grid = expandedGrid
 	}
 
+	if !grid.IsWalkable(to) {
+		if walkableTo, found := pf.findNearbyWalkablePositionInGrid(grid, to); found {
+			to = walkableTo
+		}
+	}
 	from = grid.RelativePosition(from)
 	to = grid.RelativePosition(to)
 
@@ -143,7 +149,8 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 			}
 		}
 	}
-	path, distance, found := astar.CalculatePath(grid, from, to)
+
+	path, distance, found := astar.CalculatePath(grid, from, to, canTeleport)
 
 	if config.Koolo.Debug.RenderMap {
 		pf.renderMap(grid, from, to, path)
@@ -152,7 +159,7 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 	return path, distance, found
 }
 
-func (pf *PathFinder) mergeGrids(to data.Position) (*game.Grid, error) {
+func (pf *PathFinder) mergeGrids(to data.Position, canTeleport bool) (*game.Grid, error) {
 	for _, a := range pf.data.AreaData.AdjacentLevels {
 		destination := pf.data.Areas[a.Area]
 		if destination.IsInside(to) {
@@ -180,7 +187,7 @@ func (pf *PathFinder) mergeGrids(to data.Position) (*game.Grid, error) {
 			copyGrid(resultGrid, origin.CollisionGrid, origin.OffsetX-minX, origin.OffsetY-minY)
 			copyGrid(resultGrid, destination.CollisionGrid, destination.OffsetX-minX, destination.OffsetY-minY)
 
-			grid := game.NewGrid(resultGrid, minX, minY)
+			grid := game.NewGrid(resultGrid, minX, minY, canTeleport)
 
 			return grid, nil
 		}
@@ -235,7 +242,7 @@ func (pf *PathFinder) GetClosestWalkablePathFrom(from, dest data.Position) (Path
 	return nil, 0, false
 }
 
-func (pf *PathFinder) findNearbyWalkablePosition(target data.Position) (data.Position, bool) {
+func (pf *PathFinder) findNearbyWalkablePositionInGrid(grid *game.Grid, target data.Position) (data.Position, bool) {
 	// Search in expanding squares around the target position
 	for radius := 1; radius <= 3; radius++ {
 		for x := -radius; x <= radius; x++ {
@@ -244,11 +251,16 @@ func (pf *PathFinder) findNearbyWalkablePosition(target data.Position) (data.Pos
 					continue
 				}
 				pos := data.Position{X: target.X + x, Y: target.Y + y}
-				if pf.data.AreaData.IsWalkable(pos) {
+				if (*grid).IsWalkable(pos) {
 					return pos, true
 				}
 			}
 		}
 	}
 	return data.Position{}, false
+}
+
+func (pf *PathFinder) findNearbyWalkablePosition(target data.Position) (data.Position, bool) {
+
+	return pf.findNearbyWalkablePositionInGrid(pf.data.AreaData.Grid, target)
 }

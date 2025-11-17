@@ -18,6 +18,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/memory"
@@ -551,6 +552,19 @@ func IsLowGold() bool {
 	return ctx.Data.PlayerUnit.TotalPlayerGold() < playerLevel*1000
 }
 
+func IsBelowGoldPickupThreshold() bool {
+	ctx := context.Get()
+
+	var playerLevel int
+	if lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); found {
+		playerLevel = lvl.Value
+	} else {
+		playerLevel = 1
+	}
+
+	return ctx.Data.PlayerUnit.TotalPlayerGold() < playerLevel*5000
+}
+
 func GetCastersCommonRunewords() []string {
 	castersRunewords := []string{"Stealth", "Spirit", "Heart of the Oak"}
 	return castersRunewords
@@ -566,4 +580,15 @@ func TryConsumeStaminaPot() {
 			step.CloseAllMenus()
 		}
 	}
+}
+
+func HasAnyQuestStartedOrCompleted(startQuest, endQuest quest.Quest) bool {
+	ctx := context.Get()
+	for i := int(startQuest); i <= int(endQuest); i++ {
+		q := ctx.Data.Quests[quest.Quest(i)]
+		if !q.NotStarted() || q.Completed() {
+			return true
+		}
+	}
+	return false
 }

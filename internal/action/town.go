@@ -87,7 +87,7 @@ func PreRun(firstRun bool) error {
 	DropMouseItem()
 	step.SetSkill(skill.Vigor)
 	RecoverCorpse()
-	ConsumeMisplacedPotionsInBelt()
+	ManageBelt()
 	// Just to make sure messages like TZ change or public game spam arent on the way
 	ClearMessages()
 	RefillBeltFromInventory()
@@ -126,6 +126,10 @@ func PreRun(firstRun bool) error {
 	CubeRecipes()
 	MakeRunewords()
 
+	if isLevelingChar {
+		OptimizeInventory(item.LocationInventory)
+	}
+
 	// Leveling related checks
 	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
 		ResetStats()
@@ -161,7 +165,7 @@ func InRunReturnTownRoutine() error {
 	step.SetSkill(skill.Vigor)
 	RecoverCorpse()
 	ctx.PauseIfNotPriority() // Check after RecoverCorpse
-	ConsumeMisplacedPotionsInBelt()
+	ManageBelt()
 	ctx.PauseIfNotPriority() // Check after ManageBelt
 	RefillBeltFromInventory()
 	ctx.PauseIfNotPriority() // Check after RefillBeltFromInventory

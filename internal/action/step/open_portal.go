@@ -20,10 +20,23 @@ func OpenPortal() error {
 	ctx.SetLastStep("OpenPortal")
 	tpItem, tpItemFound := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory)
 
+	// Portal cooldown: Prevent rapid portal creation during lag
+	// Check last portal time to avoid spam during network delays
+	if !ctx.LastPortalTick.IsZero() {
+		timeSinceLastPortal := time.Since(ctx.LastPortalTick)
+		minPortalCooldown := time.Duration(utils.PingMultiplier(utils.Critical, 1000)) * time.Millisecond
+		if timeSinceLastPortal < minPortalCooldown {
+			remainingCooldown := minPortalCooldown - timeSinceLastPortal
+			ctx.Logger.Debug("Portal cooldown active, waiting",
+				"cooldownRemaining", remainingCooldown)
+			time.Sleep(remainingCooldown)
+		}
+	}
+
 	lastRun := time.Time{}
 	for {
 		// IMPORTANT: Check for player death at the beginning of each loop iteration
-		if ctx.Data.PlayerUnit.HPPercent() <= 0 {
+		if ctx.Data.PlayerUnit.IsDead() && !ctx.Data.PlayerUnit.Area.IsTown() {
 			return ErrPlayerDied // Player is dead, stop trying to open portal
 		}
 
@@ -32,7 +45,8 @@ func OpenPortal() error {
 
 		_, found := ctx.Data.Objects.FindOne(object.TownPortal)
 		if found {
-			return nil // Portal found, success!
+			ctx.LastPortalTick = time.Now() // Update portal timestamp on success
+			return nil                      // Portal found, success!
 		}
 
 		// Give some time to portal to popup before retrying...
@@ -45,7 +59,7 @@ func OpenPortal() error {
 		if tpItemFound {
 			if _, bindingFound := ctx.Data.KeyBindings.KeyBindingForSkill(skill.TomeOfTownPortal); bindingFound {
 				ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.MustKBForSkill(skill.TomeOfTownPortal))
-				utils.Sleep(250)
+				utils.PingSleep(utils.Medium, 250) // Medium operation: Wait for tome activation
 				ctx.HID.Click(game.RightButton, 300, 300)
 				usedKB = true
 			}
@@ -61,6 +75,9 @@ func OpenPortal() error {
 			CloseAllMenus()
 		}
 
+		if !tpItemFound {
+			return errors.New("no tp item, can't open portal")
+		}
 		lastRun = time.Now()
 	}
 }

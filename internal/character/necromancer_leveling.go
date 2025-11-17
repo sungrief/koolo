@@ -106,7 +106,7 @@ func (n *NecromancerLeveling) ensureBoneArmor() {
 		// Cast Bone Armor immediately if it's down
 		step.SecondaryAttack(skill.BoneArmor, n.Data.PlayerUnit.ID, 1, step.Distance(0, 1))
 		n.lastBoneArmorCast = time.Now()
-		n.Logger.Debug("Casting Bone Armor (buff expired)")
+		//n.Logger.Debug("Casting Bone Armor (buff expired)")
 		utils.Sleep(200)
 		return
 	}
@@ -115,7 +115,7 @@ func (n *NecromancerLeveling) ensureBoneArmor() {
 	if time.Since(n.lastBoneArmorCast) > time.Second*10 {
 		step.SecondaryAttack(skill.BoneArmor, n.Data.PlayerUnit.ID, 1, step.Distance(0, 1))
 		n.lastBoneArmorCast = time.Now()
-		n.Logger.Debug("Refreshing Bone Armor")
+		//n.Logger.Debug("Refreshing Bone Armor")
 		utils.Sleep(200)
 	}
 }
@@ -265,14 +265,14 @@ func (n *NecromancerLeveling) KillMonsterSequence(
 			if lastPrisonCast, found := bonePrisonnedMonsters[targetMonster.UnitID]; !found || time.Since(lastPrisonCast) > time.Second*4 {
 				step.SecondaryAttack(skill.BonePrison, targetMonster.UnitID, 1, bonePrisonRange)
 				bonePrisonnedMonsters[targetMonster.UnitID] = time.Now()
-				n.Logger.Debug("Casting Bone Prison", "target", targetMonster.Name)
+				//n.Logger.Debug("Casting Bone Prison", "target", targetMonster.Name)
 				utils.Sleep(150)
 			}
 		}
 
 		if n.hasSkill(skill.AmplifyDamage) && !targetMonster.States.HasState(state.Amplifydamage) && time.Since(n.lastAmplifyDamageCast) > time.Second*2 {
 			step.SecondaryAttack(skill.AmplifyDamage, targetMonster.UnitID, 1, amplifyDamageRange)
-			n.Logger.Debug("Casting Amplify Damage")
+			//n.Logger.Debug("Casting Amplify Damage")
 			utils.Sleep(150)
 			n.lastAmplifyDamageCast = time.Now()
 		}
@@ -297,7 +297,7 @@ func (n *NecromancerLeveling) KillMonsterSequence(
 			if nearbyCorpse != nil {
 				if lastCastTime, found := n.lastCorpseExplosionCast[targetMonster.UnitID]; !found || time.Since(lastCastTime) > time.Second*2 {
 					n.castCorpseSkill(skill.CorpseExplosion, nearbyCorpse, int(math.Ceil(corpseExplosionMaxDistance)))
-					n.Logger.Debug("Casting Corpse Explosion")
+					//n.Logger.Debug("Casting Corpse Explosion")
 					utils.Sleep(150)
 					n.lastCorpseExplosionCast[targetMonster.UnitID] = time.Now()
 					completedAttackLoops++
@@ -325,7 +325,7 @@ func (n *NecromancerLeveling) KillMonsterSequence(
 
 				if nearbyCorpse != nil {
 					n.castCorpseSkill(skill.RaiseSkeleton, nearbyCorpse, RaiseSkeletonMaxDistance)
-					n.Logger.Debug("Casting Raise Skeleton")
+					//n.Logger.Debug("Casting Raise Skeleton")
 					utils.Sleep(300) // Give time for skeleton to spawn
 					completedAttackLoops++
 					previousUnitID = int(id)
@@ -334,19 +334,19 @@ func (n *NecromancerLeveling) KillMonsterSequence(
 			}
 
 			step.PrimaryAttack(targetMonster.UnitID, 1, false, step.Distance(1, 3))
-			n.Logger.Debug("Using Basic attack (pre-Teeth)")
+			//n.Logger.Debug("Using Basic attack (pre-Teeth)")
 			utils.Sleep(150)
 		} else if n.Data.PlayerUnit.MPPercent() < 15 && lvl.Value < 12 || lvl.Value < 2 {
 			step.PrimaryAttack(targetMonster.UnitID, 1, false, step.Distance(1, 2))
-			n.Logger.Debug("Using Basic attack")
+			//n.Logger.Debug("Using Basic attack")
 			utils.Sleep(150)
 		} else if n.hasSkill(skill.BoneSpear) {
 			step.PrimaryAttack(targetMonster.UnitID, 3, true, boneSpearRange)
-			n.Logger.Debug("Casting Bone Spear")
+			//n.Logger.Debug("Casting Bone Spear")
 			utils.Sleep(150)
 		} else if n.hasSkill(skill.Teeth) {
 			step.SecondaryAttack(skill.Teeth, targetMonster.UnitID, 3, boneSpearRange)
-			n.Logger.Debug("Casting Teeth")
+			//n.Logger.Debug("Casting Teeth")
 			utils.Sleep(150)
 		}
 

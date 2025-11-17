@@ -55,6 +55,15 @@ func GetScreenCoordsForItem(itm data.Item) data.Position {
 	return getScreenCoordsForItem(itm)
 }
 
+func GetScreenCoordsForInventoryPosition(pos data.Position, loc item.LocationType) data.Position {
+	ctx := context.Get()
+	if ctx.GameReader.LegacyGraphics() {
+		return getScreenCoordsForInventoryPositionClassic(pos, loc)
+	}
+
+	return getScreenCoordsForInventoryPosition(pos, loc)
+}
+
 func getScreenCoordsForItem(itm data.Item) data.Position {
 	switch itm.Location.LocationType {
 	case item.LocationVendor, item.LocationStash, item.LocationSharedStash:
@@ -75,6 +84,26 @@ func getScreenCoordsForItem(itm data.Item) data.Position {
 	return data.Position{X: x, Y: y}
 }
 
+func getScreenCoordsForInventoryPosition(pos data.Position, loc item.LocationType) data.Position {
+	switch loc {
+	case item.LocationVendor, item.LocationStash, item.LocationSharedStash:
+		x := topCornerVendorWindowX + pos.X*itemBoxSize + (itemBoxSize / 2)
+		y := topCornerVendorWindowY + pos.Y*itemBoxSize + (itemBoxSize / 2)
+
+		return data.Position{X: x, Y: y}
+	case item.LocationCube:
+		x := topCornerCubeWindowX + pos.X*itemBoxSize + (itemBoxSize / 2)
+		y := topCornerCubeWindowY + pos.Y*itemBoxSize + (itemBoxSize / 2)
+
+		return data.Position{X: x, Y: y}
+	}
+
+	x := inventoryTopLeftX + pos.X*itemBoxSize + (itemBoxSize / 2)
+	y := inventoryTopLeftY + pos.Y*itemBoxSize + (itemBoxSize / 2)
+
+	return data.Position{X: x, Y: y}
+}
+
 func getScreenCoordsForItemClassic(itm data.Item) data.Position {
 	switch itm.Location.LocationType {
 	case item.LocationVendor, item.LocationStash, item.LocationSharedStash:
@@ -91,6 +120,26 @@ func getScreenCoordsForItemClassic(itm data.Item) data.Position {
 
 	x := inventoryTopLeftXClassic + itm.Position.X*itemBoxSizeClassic + (itemBoxSizeClassic / 2)
 	y := inventoryTopLeftYClassic + itm.Position.Y*itemBoxSizeClassic + (itemBoxSizeClassic / 2)
+
+	return data.Position{X: x, Y: y}
+}
+
+func getScreenCoordsForInventoryPositionClassic(pos data.Position, loc item.LocationType) data.Position {
+	switch loc {
+	case item.LocationVendor, item.LocationStash, item.LocationSharedStash:
+		x := topCornerVendorWindowXClassic + pos.X*itemBoxSizeClassic + (itemBoxSizeClassic / 2)
+		y := topCornerVendorWindowYClassic + pos.Y*itemBoxSizeClassic + (itemBoxSizeClassic / 2)
+
+		return data.Position{X: x, Y: y}
+	case item.LocationCube:
+		x := topCornerCubeWindowXClassic + pos.X*itemBoxSizeClassic + (itemBoxSizeClassic / 2)
+		y := topCornerCubeWindowYClassic + pos.Y*itemBoxSizeClassic + (itemBoxSizeClassic / 2)
+
+		return data.Position{X: x, Y: y}
+	}
+
+	x := inventoryTopLeftXClassic + pos.X*itemBoxSizeClassic + (itemBoxSizeClassic / 2)
+	y := inventoryTopLeftYClassic + pos.Y*itemBoxSizeClassic + (itemBoxSizeClassic / 2)
 
 	return data.Position{X: x, Y: y}
 }

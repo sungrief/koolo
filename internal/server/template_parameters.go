@@ -36,17 +36,19 @@ type AllDropRecord struct {
 }
 
 type CharacterSettings struct {
-	ErrorMessage       string
-	Supervisor         string
-	Config             *config.CharacterCfg
-	DayNames           []string
-	EnabledRuns        []string
-	DisabledRuns       []string
-	AvailableTZs       map[int]string
-	RecipeList         []string
-	RunewordRecipeList []string
-	AvailableProfiles  []string
-	FarmerProfiles     []string
+	Version               string
+	ErrorMessage          string
+	Supervisor            string
+	Config                *config.CharacterCfg
+	DayNames              []string
+	EnabledRuns           []string
+	DisabledRuns          []string
+	AvailableTZs          map[int]string
+	RecipeList            []string
+	RunewordRecipeList    []string
+	AvailableProfiles     []string
+	FarmerProfiles        []string
+	LevelingSequenceFiles []string
 }
 
 type ConfigData struct {

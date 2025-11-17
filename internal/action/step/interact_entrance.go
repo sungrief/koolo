@@ -51,8 +51,8 @@ func InteractEntrance(targetArea area.ID) error {
 }
 
 func InteractEntranceMouse(targetArea area.ID) error {
-	maxInteractionAttempts := 5
-	interactionAttempts := 0
+	maxInteractionAttempts := 21
+	interactionAttempts := 1
 	waitingForInteraction := false
 	currentMouseCoords := data.Position{}
 	lastRun := time.Time{}
@@ -130,6 +130,7 @@ func InteractEntranceMouse(targetArea area.ID) error {
 		distance := ctx.PathFinder.DistanceFromMe(l.Position)
 		if distance > maxEntranceDistance {
 			// Try to move closer with retries - stop 2 units away for better interaction range
+			// Use escalating retry delays
 			for retry := 0; retry < maxMoveRetries; retry++ {
 				if err := MoveTo(l.Position, WithDistanceToFinish(2)); err != nil {
 					// If MoveTo fails, try direct movement
@@ -138,7 +139,8 @@ func InteractEntranceMouse(targetArea area.ID) error {
 						l.Position.Y-2,
 					)
 					ctx.HID.Click(game.LeftButton, screenX, screenY)
-					utils.Sleep(800)
+					// Escalating retry delay: increases with each attempt
+					utils.RetrySleep(retry, float64(ctx.Data.Game.Ping), 800)
 					ctx.RefreshGameData()
 				}
 
@@ -159,23 +161,18 @@ func InteractEntranceMouse(targetArea area.ID) error {
 			if ctx.Data.HoverData.UnitType == 5 || ctx.Data.HoverData.UnitType == 2 && ctx.Data.HoverData.IsHovered {
 				ctx.HID.Click(game.LeftButton, currentMouseCoords.X, currentMouseCoords.Y)
 				waitingForInteraction = true
-				utils.Sleep(200)
+				utils.PingSleep(utils.Light, 200) // Light operation: Wait for click registration
 			}
 
 			x, y := utils.Spiral(interactionAttempts)
-			x = x / 3
-			y = y / 3
+			if ctx.Data.AreaData.Area == area.CanyonOfTheMagi {
+				x = x * 5
+				y = y * 5
+			}
 			currentMouseCoords = data.Position{X: lx + x, Y: ly + y}
 			ctx.HID.MovePointer(lx+x, ly+y)
 			interactionAttempts++
-			utils.Sleep(100)
-
-			//Add a random movement logic when interaction attempts fail
-			if interactionAttempts > 1 && interactionAttempts%3 == 0 {
-				ctx.Logger.Debug("Failed to interact with entrance, performing random movement to reset position.")
-				ctx.PathFinder.RandomMovement()
-				utils.Sleep(1000)
-			}
+			utils.PingSleep(utils.Light, 100) // Light operation: Mouse movement delay
 
 			lastEntranceLevel = l
 

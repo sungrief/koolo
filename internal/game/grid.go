@@ -8,6 +8,7 @@ const (
 	CollisionTypeLowPriority
 	CollisionTypeMonster
 	CollisionTypeObject
+	CollisionTypeTeleportOver
 )
 
 type CollisionType uint8
@@ -20,7 +21,7 @@ type Grid struct {
 	CollisionGrid [][]CollisionType
 }
 
-func NewGrid(rawCollisionGrid [][]CollisionType, offsetX, offsetY int) *Grid {
+func NewGrid(rawCollisionGrid [][]CollisionType, offsetX, offsetY int, canTeleport bool) *Grid {
 	grid := &Grid{
 		OffsetX:       offsetX,
 		OffsetY:       offsetY,
@@ -32,7 +33,8 @@ func NewGrid(rawCollisionGrid [][]CollisionType, offsetX, offsetY int) *Grid {
 	// Let's lower the priority for the walkable tiles that are close to non-walkable tiles, so we can avoid walking too close to walls and obstacles
 	for y := 0; y < len(rawCollisionGrid); y++ {
 		for x := 0; x < len(rawCollisionGrid[y]); x++ {
-			if rawCollisionGrid[y][x] == CollisionTypeNonWalkable {
+			collisionType := rawCollisionGrid[y][x]
+			if collisionType == CollisionTypeNonWalkable || (!canTeleport && collisionType == CollisionTypeTeleportOver) {
 				for i := -2; i <= 2; i++ {
 					for j := -2; j <= 2; j++ {
 						if i == 0 && j == 0 {
@@ -62,7 +64,11 @@ func (g *Grid) RelativePosition(p data.Position) data.Position {
 
 func (g *Grid) IsWalkable(p data.Position) bool {
 	p = g.RelativePosition(p)
-	return p.X >= 0 && p.X < g.Width && p.Y >= 0 && p.Y < g.Height && g.CollisionGrid[p.Y][p.X] != CollisionTypeNonWalkable
+	if p.X < 0 || p.X >= g.Width || p.Y < 0 || p.Y >= g.Height {
+		return false
+	}
+	positionType := g.CollisionGrid[p.Y][p.X]
+	return positionType != CollisionTypeNonWalkable && positionType != CollisionTypeTeleportOver
 }
 
 func (g *Grid) Copy() *Grid {
