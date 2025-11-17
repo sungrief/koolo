@@ -332,13 +332,15 @@ func shouldKeepRecipeItem(i data.Item) bool {
 
 	itemInStashNotMatchingRule := false
 
-	// Check if we already have the item in our stash and if it doesn't match any of our pickit rules
+	// Only count *magic* items when checking if we already have a stash item that should be rerolled.
+	// Unique/rare/set charms (e.g. Gheed’s Fortune) shouldn’t block a magic charm from being kept.
 	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
-		if it.Name == i.Name {
+		// Match on base name and require magic quality so only another magic grand charm will block us
+		if strings.EqualFold(string(it.Name), string(i.Name)) && it.Quality == item.QualityMagic {
 			_, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it)
 			if res != nip.RuleResultFullMatch {
 				itemInStashNotMatchingRule = true
-				break // Optimization: Found one, no need to check others
+				break
 			}
 		}
 	}
