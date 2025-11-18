@@ -249,7 +249,7 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 			if !typeMatch(it, plan.Types) {
 				continue
 			}
-			if !shouldBePickedUp(it) {
+			if !shouldMatchRulesOnly(it) {
 				continue
 			}
 
@@ -308,7 +308,7 @@ func scanAndPurchaseItems(vendorID npc.ID, plan ActionShoppingPlan) (itemsPurcha
 			if !ok {
 				continue
 			}
-			if !typeMatch(it, plan.Types) || !shouldBePickedUp(it) {
+			if !typeMatch(it, plan.Types) || !shouldMatchRulesOnly(it) {
 				continue
 			}
 
