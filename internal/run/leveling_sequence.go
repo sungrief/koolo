@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -176,6 +175,11 @@ func (ls *LevelingSequence) RunSequences(sequences []SequenceSettings, farmSeque
 					return false, fmt.Errorf("run %s not supported as quest sequence", sequenceSettings.Run)
 				}
 			case SequencerStop:
+				if IsQuestRun(parameters) {
+					ls.ctx.Logger.Info("Stopping quest sequences due to condition check.", "run", sequenceSettings.Run)
+				} else {
+					ls.ctx.Logger.Info("Stopping farming sequences due to condition check.", "run", sequenceSettings.Run)
+				}
 				return true, nil
 			case SequencerSkip:
 				continue
@@ -185,12 +189,30 @@ func (ls *LevelingSequence) RunSequences(sequences []SequenceSettings, farmSeque
 				continue
 			}
 
+			if IsQuestRun(parameters) {
+				ls.ctx.Logger.Info("Starting quest run", "run", sequenceSettings.Run)
+			} else {
+				ls.ctx.Logger.Info("Starting farming run", "run", sequenceSettings.Run)
+			}
+
 			shouldContinue, runErr := ls.RunSequence(run, sequenceSettings, parameters)
 			if runErr != nil {
 				return false, fmt.Errorf("error during run %s : %s", sequenceSettings.Run, runErr)
 			}
+
+			if IsQuestRun(parameters) {
+				ls.ctx.Logger.Info("Quest run ended successfully", "run", sequenceSettings.Run)
+			} else {
+				ls.ctx.Logger.Info("Farming run ended successfully", "run", sequenceSettings.Run)
+			}
+
 			ls.DoneRuns = append(ls.DoneRuns, sequenceSettings.Run)
 			if !shouldContinue {
+				if IsQuestRun(parameters) {
+					ls.ctx.Logger.Info("Stopping quest sequences after run", "run", sequenceSettings.Run)
+				} else {
+					ls.ctx.Logger.Info("Stopping farming sequences after run", "run", sequenceSettings.Run)
+				}
 				return false, nil
 			}
 		}
@@ -259,14 +281,11 @@ func (ls *LevelingSequence) LoadSettings() error {
 	fileName := ls.ctx.CharacterCfg.Game.LevelingSequence.SequenceFile
 	levelingSequencesPath := getAbsPath(filepath.Join("config", "template", "sequences_leveling"))
 	sequenceFilePath := filepath.Join(levelingSequencesPath, fileName+".json")
-	data, err := os.ReadFile(sequenceFilePath)
+	jsonData, err := utils.GetJsonData(sequenceFilePath)
 	if err != nil {
 		ls.ctx.Logger.Error("failed to load sequence ", "file name", fileName)
 		return err
 	}
-
-	re := regexp.MustCompile("(?s)//.*?\n|/\\*.*?\\*/")
-	jsonData := re.ReplaceAll(data, nil)
 
 	var sequenceSettings LevelingSequenceSettings
 	err = json.Unmarshal(jsonData, &sequenceSettings)
@@ -390,6 +409,7 @@ func (ls LevelingSequence) AdjustDifficulty() (bool, error) {
 		//We don't meet level requirements, revert to this difficulty
 		if !ls.CheckDifficultyConditions(diffSettings.NextDifficultyConditions, nextDiff, true) {
 			if difficulty != ls.ctx.CharacterCfg.Game.Difficulty {
+				ls.ctx.Logger.Info("Reverting difficulty", "difficulty", difficulty)
 				ls.ctx.CharacterCfg.Game.Difficulty = difficulty
 				difficultyChanged = true
 			}
@@ -403,6 +423,8 @@ func (ls LevelingSequence) AdjustDifficulty() (bool, error) {
 		if !ls.CheckDifficultyConditions(difficultySettings.StayDifficultyConditions, ls.ctx.CharacterCfg.Game.Difficulty, false) {
 			targetDifficulty := ls.GetPreviousDifficulty()
 			if targetDifficulty != ls.ctx.CharacterCfg.Game.Difficulty {
+				ls.ctx.Logger.Info("Reverting difficulty", "difficulty", targetDifficulty)
+				ls.ctx.CharacterCfg.Game.Difficulty = targetDifficulty
 				difficultyChanged = true
 			}
 		}
@@ -413,6 +435,7 @@ func (ls LevelingSequence) AdjustDifficulty() (bool, error) {
 		nextDifficulty := ls.GetCurrentNextDifficulty()
 		if nextDifficulty != ls.ctx.CharacterCfg.Game.Difficulty {
 			if ls.CheckDifficultyConditions(difficultySettings.NextDifficultyConditions, nextDifficulty, false) {
+				ls.ctx.Logger.Info("Changing difficulty", "difficulty", nextDifficulty)
 				ls.ctx.CharacterCfg.Game.Difficulty = nextDifficulty
 				difficultyChanged = true
 			}
