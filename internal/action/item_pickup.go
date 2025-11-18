@@ -385,8 +385,7 @@ func shouldBePickedUp(i data.Item) bool {
 	}
 
 	// Pick up quest items if in a leveling or questing run.
-	specialRuns := slices.Contains(ctx.CharacterCfg.Game.Runs, "quests") ||
-		slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling")
+	specialRuns := slices.Contains(ctx.CharacterCfg.Game.Runs, "quests") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling_sequence")
 	if specialRuns {
 		switch i.Name {
 		case "Scroll of Inifuss", "ScrollOfInifuss", "LamEsensTome", "HoradricCube",
