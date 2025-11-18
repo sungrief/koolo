@@ -391,7 +391,7 @@ func shouldBePickedUp(i data.Item) bool {
 		switch i.Name {
 		case "Scroll of Inifuss", "ScrollOfInifuss", "LamEsensTome", "HoradricCube",
 			"AmuletoftheViper", "StaffofKings", "HoradricStaff",
-			"AJadeFigurine", "KhalimsEye", "KhalimsBrain", "KhalimsHeart", "KhalimsFlail":
+			"AJadeFigurine", "KhalimsEye", "KhalimsBrain", "KhalimsHeart", "KhalimsFlail", "HellforgeHammer", "TheGidbinn":
 			return true
 		}
 	}
