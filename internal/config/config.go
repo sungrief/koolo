@@ -106,6 +106,7 @@ type CharacterCfg struct {
 		UseForItemPickup          bool `yaml:"useForItemPickup"`
 		UseForTpInteraction       bool `yaml:"useForTpInteraction"`
 		UseForTeleport            bool `yaml:"useForTeleport"`
+		UseForEntitySkills        bool `yaml:"useForEntitySkills"`
 	} `yaml:"packetCasting"`
 
 	Scheduler Scheduler `yaml:"scheduler"`
@@ -673,4 +674,3 @@ func getNipFilePath(charPath, templatePath, nipFile string) (string, error) {
 	}
 	return nipFile, errors.New("pickit not found")
 }
-

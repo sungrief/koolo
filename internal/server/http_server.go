@@ -275,7 +275,7 @@ func (s *HttpServer) attachProcess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call manager.Start with the correct arguments, including the HWND
-	go s.manager.Start(characterName, true, uint32(pid), uint32(hwnd))
+	go s.manager.Start(characterName, true, true, uint32(pid), uint32(hwnd))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
@@ -749,7 +749,7 @@ func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.manager.Start(Supervisor, false)
+	s.manager.Start(Supervisor, false, false)
 	s.initialData(w, r)
 }
 
@@ -1318,6 +1318,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.PacketCasting.UseForItemPickup = r.Form.Has("packetCastingUseForItemPickup")
 		cfg.PacketCasting.UseForTpInteraction = r.Form.Has("packetCastingUseForTpInteraction")
 		cfg.PacketCasting.UseForTeleport = r.Form.Has("packetCastingUseForTeleport")
+		cfg.PacketCasting.UseForEntitySkills = r.Form.Has("packetCastingUseForEntitySkills")
 		cfg.Game.Difficulty = difficulty.Difficulty(r.Form.Get("gameDifficulty"))
 		cfg.Game.RandomizeRuns = r.Form.Has("gameRandomizeRuns")
 

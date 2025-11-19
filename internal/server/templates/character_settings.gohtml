@@ -358,6 +358,10 @@
                         <input type="checkbox" name="packetCastingUseForTeleport" {{ if .Config.PacketCasting.UseForTeleport }}checked{{ end }}/>
                         Use packets for teleport movement
                     </label>
+                    <label>
+                        <input type="checkbox" name="packetCastingUseForEntitySkills" {{ if .Config.PacketCasting.UseForEntitySkills }}checked{{ end }}/>
+                        Use packets for attacks and skills
+                    </label>
                 </fieldset>
             </article>
 
