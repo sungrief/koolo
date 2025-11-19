@@ -45,10 +45,10 @@ func (t Rakanishu) Run(parameters *RunParameters) error {
 		}
 	}
 
-	// Trying to not be too close to avoid jump in monster pack
+	// Trying to not be too close to avoid jumpimg in a monster pack
 	action.MoveToCoords(cairnStone.Position, step.WithDistanceToFinish(10))
 
-	action.ClearAreaAroundPosition(cairnStone.Position, 15, data.MonsterEliteFilter())
+	action.ClearAreaAroundPosition(cairnStone.Position, 15, data.MonsterAnyFilter())
 
 	return nil
 }
