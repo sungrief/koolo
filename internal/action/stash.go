@@ -332,10 +332,6 @@ func shouldKeepRecipeItem(i data.Item) bool {
 		return false
 	}
 
-	// Number of magic-quality jewels to keep in stash for crafting recipes.
-	// Increase this value to retain more jewels; set to 1 to mimic original behaviour.
-	const maxJewelsKept = 10
-
 	itemInStashNotMatchingRule := false
 	jewelCount := 0
 
@@ -371,7 +367,7 @@ func shouldKeepRecipeItem(i data.Item) bool {
 	// Special-case: For jewels used in crafting recipes, stash up to maxJewelsKept copies.
 	// We treat jewels as recipe items and want to preserve multiple copies for cubing.
 	if string(i.Name) == "Jewel" {
-		if recipeMatch && jewelCount < maxJewelsKept {
+		if recipeMatch && jewelCount < ctx.CharacterCfg.CubeRecipes.JewelsToKeep {
 			return true
 		}
 		// If we've already reached our jewel quota or the recipe is not enabled, do not keep
