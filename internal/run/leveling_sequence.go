@@ -66,15 +66,19 @@ type ConfigLevelingSettings struct {
 }
 
 type HealthLevelingSettings struct {
-	HealingPotionAt     *int `json:"healingPotionAt,omitempty"`
-	ManaPotionAt        *int `json:"manaPotionAt,omitempty"`
-	RejuvPotionAtLife   *int `json:"rejuvPotionAtLife,omitempty"`
-	RejuvPotionAtMana   *int `json:"rejuvPotionAtMana,omitempty"`
-	MercHealingPotionAt *int `json:"mercHealingPotionAt,omitempty"`
-	MercRejuvPotionAt   *int `json:"mercRejuvPotionAt,omitempty"`
-	ChickenAt           *int `json:"chickenAt,omitempty"`
-	TownChickenAt       *int `json:"townChickenAt,omitempty"`
-	MercChickenAt       *int `json:"mercChickenAt,omitempty"`
+	HealingPotionAt     *int      `json:"healingPotionAt,omitempty"`
+	ManaPotionAt        *int      `json:"manaPotionAt,omitempty"`
+	RejuvPotionAtLife   *int      `json:"rejuvPotionAtLife,omitempty"`
+	RejuvPotionAtMana   *int      `json:"rejuvPotionAtMana,omitempty"`
+	MercHealingPotionAt *int      `json:"mercHealingPotionAt,omitempty"`
+	MercRejuvPotionAt   *int      `json:"mercRejuvPotionAt,omitempty"`
+	ChickenAt           *int      `json:"chickenAt,omitempty"`
+	TownChickenAt       *int      `json:"townChickenAt,omitempty"`
+	MercChickenAt       *int      `json:"mercChickenAt,omitempty"`
+	HealingPotionCount  *int      `json:"healingPotionCount,omitempty"`
+	ManaPotionCount     *int      `json:"manaPotionCount,omitempty"`
+	RejuvPotionCount    *int      `json:"rejuvPotionCount,omitempty"`
+	BeltColumns         *[]string `json:"beltColumns,omitempty"`
 }
 
 func NewLevelingSequence() *LevelingSequence {
@@ -385,8 +389,36 @@ func (ls LevelingSequence) ApplyHealthSetting(healthSetting HealthLevelingSettin
 	if healthSetting.MercChickenAt != nil {
 		ls.ctx.CharacterCfg.Health.MercChickenAt = *healthSetting.MercChickenAt
 	}
+	if healthSetting.HealingPotionCount != nil {
+		ls.ctx.CharacterCfg.Inventory.HealingPotionCount = *healthSetting.HealingPotionCount
+	}
+	if healthSetting.ManaPotionCount != nil {
+		ls.ctx.CharacterCfg.Inventory.ManaPotionCount = *healthSetting.ManaPotionCount
+	}
+	if healthSetting.RejuvPotionCount != nil {
+		ls.ctx.CharacterCfg.Inventory.RejuvPotionCount = *healthSetting.RejuvPotionCount
+	}
+	if healthSetting.BeltColumns != nil {
+		ls.applyBeltColumnsOverride(*healthSetting.BeltColumns)
+	}
 
 	return nil
+}
+
+func (ls LevelingSequence) applyBeltColumnsOverride(columns []string) {
+	if len(columns) == 0 {
+		return
+	}
+	for idx := range ls.ctx.CharacterCfg.Inventory.BeltColumns {
+		if idx >= len(columns) {
+			break
+		}
+		value := columns[idx]
+		if value == "" {
+			continue
+		}
+		ls.ctx.CharacterCfg.Inventory.BeltColumns[idx] = value
+	}
 }
 
 func (ls LevelingSequence) AdjustDifficulty() (bool, error) {
