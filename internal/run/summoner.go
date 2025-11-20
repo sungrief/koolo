@@ -39,8 +39,12 @@ func (s Summoner) Name() string {
 	return string(config.SummonerRun)
 }
 
-// Sequencer support – for now we always allow running it.
-func (s Summoner) CheckConditions(_ *RunParameters) SequencerResult {
+func (s Summoner) CheckConditions(parameters *RunParameters) SequencerResult {
+	farmingRun := IsFarmingRun(parameters)
+	questCompleted := s.ctx.Data.Quests[quest.Act2TheSummoner].Completed()
+	if (farmingRun && !questCompleted) || (!farmingRun && questCompleted) {
+		return SequencerSkip
+	}
 	return SequencerOk
 }
 
