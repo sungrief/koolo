@@ -8,41 +8,48 @@ import (
 )
 
 // SelectRightSkill selects a skill for the right mouse button
-// Uses packets if enabled in config, otherwise falls back to HID
+// Uses packets if enabled in config (no keybinding required), otherwise falls back to HID
 func SelectRightSkill(skillID skill.ID) error {
 	ctx := context.Get()
 
+	// If packets are enabled, use them directly (no keybinding needed)
 	if ctx.CharacterCfg.PacketCasting.UseForSkillSelection && ctx.PacketSender != nil {
 		if err := ctx.PacketSender.SelectRightSkill(skillID); err != nil {
-			ctx.Logger.Warn("Failed to select right skill via packet, falling back to HID", "skill", skillID, "error", err)
-			return selectSkillViaHID(skillID)
+			ctx.Logger.Warn("Failed to select right skill via packet", "skill", skillID, "error", err)
+			// Try HID fallback only if keybinding exists
+			return selectSkillViaHIDIfAvailable(skillID)
 		}
 		utils.Sleep(50)
 		return nil
 	}
 
-	return selectSkillViaHID(skillID)
+	// When not using packets, keybinding is required
+	return selectSkillViaHIDIfAvailable(skillID)
 }
 
 // SelectLeftSkill selects a skill for the left mouse button
-// Uses packets if enabled in config, otherwise falls back to HID
+// Uses packets if enabled in config (no keybinding required), otherwise falls back to HID
 func SelectLeftSkill(skillID skill.ID) error {
 	ctx := context.Get()
 
+	// If packets are enabled, use them directly (no keybinding needed)
 	if ctx.CharacterCfg.PacketCasting.UseForSkillSelection && ctx.PacketSender != nil {
 		if err := ctx.PacketSender.SelectLeftSkill(skillID); err != nil {
-			ctx.Logger.Warn("Failed to select left skill via packet, falling back to HID", "skill", skillID, "error", err)
-			return selectSkillViaHID(skillID)
+			ctx.Logger.Warn("Failed to select left skill via packet", "skill", skillID, "error", err)
+			// Try HID fallback only if keybinding exists
+			return selectSkillViaHIDIfAvailable(skillID)
 		}
 		utils.Sleep(50)
 		return nil
 	}
 
-	return selectSkillViaHID(skillID)
+	// When not using packets, keybinding is required
+	return selectSkillViaHIDIfAvailable(skillID)
 }
 
-// selectSkillViaHID is the fallback method that uses keyboard binding
-func selectSkillViaHID(skillID skill.ID) error {
+// selectSkillViaHIDIfAvailable attempts to select skill via HID if keybinding exists
+// Only logs warning if keybinding is missing, doesn't block execution
+func selectSkillViaHIDIfAvailable(skillID skill.ID) error {
 	ctx := context.Get()
 
 	kb, found := ctx.Data.KeyBindings.KeyBindingForSkill(skillID)
