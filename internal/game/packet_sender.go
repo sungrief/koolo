@@ -87,9 +87,22 @@ func (ps *PacketSender) CastSkillAtLocation(position data.Position) error {
 // SelectRightSkill sends packet 0x3C to change the active right-click skill
 // Use cases: Switch skills via packet instead of clicking UI (F1-F9 functionality)
 // Useful for quick skill switching during combat or automation
+// SelectRightSkill sends packet 0x3C to change the active right-click skill
+// Use cases: Switch skills via packet instead of clicking UI (F1-F9 functionality)
+// Useful for quick skill switching during combat or automation
 func (ps *PacketSender) SelectRightSkill(skillID skill.ID) error {
 	if err := ps.SendPacket(packet.NewSkillSelection(skillID).GetPayload()); err != nil {
 		return fmt.Errorf("failed to send skill selection packet: %w", err)
+	}
+	return nil
+}
+
+// SelectLeftSkill sends packet 0x3C to change the active left-click skill
+// Use cases: Switch left-click skills via packet instead of clicking UI
+// Useful for automation or quick skill switching
+func (ps *PacketSender) SelectLeftSkill(skillID skill.ID) error {
+	if err := ps.SendPacket(packet.NewLeftSkillSelection(skillID).GetPayload()); err != nil {
+		return fmt.Errorf("failed to send left skill selection packet: %w", err)
 	}
 	return nil
 }

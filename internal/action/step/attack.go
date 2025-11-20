@@ -312,7 +312,7 @@ func performAttack(ctx *context.Status, settings attackSettings, targetID data.U
 	if useBlizzardPacket {
 		// Ensure we have Blizzard selected on right-click
 		if ctx.Data.PlayerUnit.RightSkill != skill.Blizzard {
-			ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.MustKBForSkill(skill.Blizzard))
+			SelectRightSkill(skill.Blizzard)
 			time.Sleep(time.Millisecond * 10)
 		}
 
@@ -330,7 +330,7 @@ func performAttack(ctx *context.Status, settings attackSettings, targetID data.U
 		// Ensure we have the skill selected
 		if settings.primaryAttack {
 			if settings.skill != 0 && ctx.Data.PlayerUnit.LeftSkill != settings.skill {
-				ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.MustKBForSkill(settings.skill))
+				SelectLeftSkill(settings.skill)
 				time.Sleep(time.Millisecond * 10)
 			}
 			// Send left-click entity skill packet
@@ -344,7 +344,7 @@ func performAttack(ctx *context.Status, settings attackSettings, targetID data.U
 			}
 		} else {
 			if settings.skill != 0 && ctx.Data.PlayerUnit.RightSkill != settings.skill {
-				ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.MustKBForSkill(settings.skill))
+				SelectRightSkill(settings.skill)
 				time.Sleep(time.Millisecond * 10)
 			}
 			// Send right-click entity skill packet
@@ -367,7 +367,7 @@ func performAttack(ctx *context.Status, settings attackSettings, targetID data.U
 func performMouseAttack(ctx *context.Status, settings attackSettings, x, y int) {
 	// Ensure we have the skill selected
 	if settings.skill != 0 && ctx.Data.PlayerUnit.RightSkill != settings.skill {
-		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.MustKBForSkill(settings.skill))
+		SelectRightSkill(settings.skill)
 		time.Sleep(time.Millisecond * 10)
 	}
 

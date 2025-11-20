@@ -204,8 +204,8 @@ func InteractObjectTelekinesisPacket(obj data.Object, isCompletedFn func() bool)
 
 		// Switch to Telekinesis skill before interaction (only on first attempt)
 		if interactionAttempts == 0 {
-			ctx.Logger.Debug("Switching to Telekinesis skill via packet")
-			if err := ctx.PacketSender.SelectRightSkill(skill.Telekinesis); err != nil {
+			ctx.Logger.Debug("Switching to Telekinesis skill")
+			if err := SelectRightSkill(skill.Telekinesis); err != nil {
 				ctx.Logger.Warn("Failed to switch to Telekinesis skill", "error", err)
 				// Don't fail here - continue with interaction attempt
 			}
