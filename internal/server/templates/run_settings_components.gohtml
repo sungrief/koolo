@@ -241,24 +241,19 @@
                 <input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="cold" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "cold" }}checked{{ end }}>
                 <img class="tz-icon" src="/assets/immunities/c.png" width="16" height="16" alt="Cold"> Cold
             </label>
-
             <label>
                 <input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="fire" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "fire" }}checked{{ end }}>
                 <img class="tz-icon" src="/assets/immunities/f.png" width="16" height="16" alt="Fire"> Fire
             </label>
-
             <label>
                 <input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="light" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "light" }}checked{{ end }}>
                 <img class="tz-icon" src="/assets/immunities/l.png" width="16" height="16" alt="Light"> Light
             </label>
-
             <label>
                 <input type="checkbox" name="gameTerrorZoneSkipOnImmunities[]" value="poison" {{ if isInSlice .Config.Game.TerrorZone.SkipOnImmunities "poison" }}checked{{ end }}>
                 <img class="tz-icon" src="/assets/immunities/p.png" width="16" height="16" alt="Poison"> Poison
             </label>
-        </fieldset>
-        
-
+        </fieldset> 
         <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
             <label style="margin:0;">
                 Tracked areas <input type="checkbox" name="tzTrackAll" id="tzTrackAll">
@@ -271,12 +266,10 @@
                 <option value="loot">Sort by Loot Tier</option>
             </select>
         </div>
-
         <div class="tz-card">
             <div class="tz-card-header">
                 Terror Zone Selection
             </div>
-
             <table class="tz-table">
                 <thead>
                     <tr>
@@ -301,7 +294,6 @@
                             </tr>
                             {{ $currentAct = $g.Act }}
                         {{ end }}
-
                         <tr class="tz-row">
                             <td class="tz-checkbox-cell">
                                 <input type="checkbox"
@@ -310,9 +302,7 @@
                                     value="{{ $g.PrimaryAreaID }}"
                                     {{ if isTZSelected $topLevelContext.Config.Game.TerrorZone.Areas $g.PrimaryAreaID }}checked{{ end }}>
                             </td>
-
                             <td>{{ $g.Name }}</td>
-
                             <td class="tz-immunities">
                                 {{ range $code := allImmunities }}
                                     {{ if contains $g.Immunities $code }}
@@ -322,9 +312,7 @@
                                     {{ end }}
                                 {{ end }}
                             </td>
-
                             <td class="tz-bosspacks">{{ $g.BossPacks }}</td>
-
                             <!-- Exp tier column -->
                             <td class="tz-tier tz-exp-header" style="color:
                                 {{ if eq $g.ExpTier "S" }}#fbbf24
@@ -335,7 +323,6 @@
                                 {{ else }}#ef4444{{ end }}">
                                 {{ if $g.ExpTier }}{{ $g.ExpTier }}{{ else }}F{{ end }}
                             </td>
-
                             <!-- Loot tier column (hidden unless Loot sort is selected) -->
                             <td class="tz-tier tz-loot-header" style="display:none; color:
                                 {{ if eq $g.LootTier "S" }}#fbbf24
@@ -346,9 +333,7 @@
                                 {{ else }}#ef4444{{ end }}">
                                 {{ if $g.LootTier }}{{ $g.LootTier }}{{ else }}F{{ end }}
                             </td>
-
                         </tr>
-
                     {{ end }}
                 </tbody>
             </table>
@@ -360,77 +345,52 @@
     function updateTZSort() {
         const select = document.getElementById("tz-sort-select");
         if (!select) return;
-
         const value = select.value;
-
-        // Persist choice
         try {
             localStorage.setItem("tzSort", value);
         } catch (e) {}
-
         const tbody = document.querySelector(".tz-table tbody");
         if (!tbody) return;
-
-        // Capture original row order once (as delivered by server)
         if (!tzOriginalOrder) {
             tzOriginalOrder = Array.from(tbody.children);
         }
-
-        // Toggle Exp vs Loot columns
         document.querySelectorAll(".tz-exp-header").forEach(el => {
             el.style.display = (value === "exp" || value === "act") ? "" : "none";
         });
         document.querySelectorAll(".tz-loot-header").forEach(el => {
             el.style.display = (value === "loot") ? "" : "none";
         });
-
         const actRows  = Array.from(tbody.querySelectorAll(".tz-act-row, .tz-act-spacer"));
         const dataRows = Array.from(tbody.querySelectorAll(".tz-row"));
-
-        // --- ACT MODE: restore original order + show headers, no sorting ---
         if (value === "act") {
             // Put rows back in the exact original sequence
             tzOriginalOrder.forEach(node => tbody.appendChild(node));
             actRows.forEach(r => { r.style.display = ""; });
             return;
         }
-
-        // --- TIER MODES: hide headers + sort only data rows ---
         actRows.forEach(r => { r.style.display = "none"; });
-
         const tierIndex = (value === "exp") ? 4 : 5; // Exp col = 4, Loot col = 5
         const getTierText = row => row.children[tierIndex].textContent.trim();
-
-        // S > A > B > C > D > F ranking
         const rank = { S: 6, A: 5, B: 4, C: 3, D: 2, F: 1 };
-
         dataRows.sort((a, b) => {
             const ta = getTierText(a) || "F";
             const tb = getTierText(b) || "F";
             const ra = rank[ta] || 0;
             const rb = rank[tb] || 0;
-
             if (ra !== rb) return rb - ra; // higher rank first
-
-            // secondary sort: name (col 1)
             const na = a.children[1].textContent.trim();
             const nb = b.children[1].textContent.trim();
             return na.localeCompare(nb);
         });
-
         dataRows.forEach(r => tbody.appendChild(r));
     }
-
-    // Restore last sort on load
     window.addEventListener("DOMContentLoaded", () => {
         const select = document.getElementById("tz-sort-select");
         if (!select) return;
-
         let saved = "act";
         try {
             saved = localStorage.getItem("tzSort") || "act";
         } catch (e) {}
-
         select.value = saved;
         updateTZSort();
     });
