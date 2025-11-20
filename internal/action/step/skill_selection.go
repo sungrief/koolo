@@ -12,10 +12,14 @@ import (
 func SelectRightSkill(skillID skill.ID) error {
 	ctx := context.Get()
 
+	// Check if skill is already selected
+	if ctx.Data.PlayerUnit.RightSkill == skillID {
+		return nil
+	}
+
 	// If packets are enabled, use them directly (no keybinding needed)
 	if ctx.CharacterCfg.PacketCasting.UseForSkillSelection && ctx.PacketSender != nil {
 		if err := ctx.PacketSender.SelectRightSkill(skillID); err != nil {
-			ctx.Logger.Warn("Failed to select right skill via packet", "skill", skillID, "error", err)
 			// Try HID fallback only if keybinding exists
 			return selectSkillViaHIDIfAvailable(skillID)
 		}
@@ -32,10 +36,14 @@ func SelectRightSkill(skillID skill.ID) error {
 func SelectLeftSkill(skillID skill.ID) error {
 	ctx := context.Get()
 
+	// Check if skill is already selected
+	if ctx.Data.PlayerUnit.LeftSkill == skillID {
+		return nil
+	}
+
 	// If packets are enabled, use them directly (no keybinding needed)
 	if ctx.CharacterCfg.PacketCasting.UseForSkillSelection && ctx.PacketSender != nil {
 		if err := ctx.PacketSender.SelectLeftSkill(skillID); err != nil {
-			ctx.Logger.Warn("Failed to select left skill via packet", "skill", skillID, "error", err)
 			// Try HID fallback only if keybinding exists
 			return selectSkillViaHIDIfAvailable(skillID)
 		}
@@ -48,13 +56,11 @@ func SelectLeftSkill(skillID skill.ID) error {
 }
 
 // selectSkillViaHIDIfAvailable attempts to select skill via HID if keybinding exists
-// Only logs warning if keybinding is missing, doesn't block execution
 func selectSkillViaHIDIfAvailable(skillID skill.ID) error {
 	ctx := context.Get()
 
 	kb, found := ctx.Data.KeyBindings.KeyBindingForSkill(skillID)
 	if !found {
-		ctx.Logger.Warn("No keybinding found for skill", "skill", skillID)
 		return nil
 	}
 

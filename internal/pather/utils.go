@@ -9,6 +9,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
@@ -201,27 +202,22 @@ func (pf *PathFinder) isNearAreaBoundary(pos data.Position, threshold int) bool 
 func (pf *PathFinder) MoveCharacter(x, y int, gamePos ...data.Position) {
 	if pf.data.CanTeleport() {
 		if pf.cfg.PacketCasting.UseForTeleport && pf.packetSender != nil && len(gamePos) > 0 {
-			slog.Debug("Attempting packet teleport",
-				slog.Int("gameX", gamePos[0].X),
-				slog.Int("gameY", gamePos[0].Y),
-				slog.Int("screenX", x),
-				slog.Int("screenY", y),
-			)
+			// Ensure Teleport skill is selected on right-click if using packet skill selection
+			if pf.cfg.PacketCasting.UseForSkillSelection && pf.packetSender != nil {
+				if pf.data.PlayerUnit.RightSkill != skill.Teleport {
+					if err := pf.packetSender.SelectRightSkill(skill.Teleport); err == nil {
+						utils.Sleep(50)
+					}
+				}
+			}
+
 			err := pf.packetSender.Teleport(gamePos[0])
 			if err != nil {
-				slog.Warn("Packet teleport failed, falling back to mouse click", slog.String("error", err.Error()))
 				pf.hid.Click(game.RightButton, x, y)
 			} else {
-				slog.Debug("Packet teleport sent successfully, waiting for cast delay")
 				utils.Sleep(int(pf.data.PlayerCastDuration().Milliseconds()))
 			}
 		} else {
-			if pf.cfg.PacketCasting.UseForTeleport {
-				slog.Debug("Packet teleport requested but not available",
-					slog.Bool("hasSender", pf.packetSender != nil),
-					slog.Int("gamePosCount", len(gamePos)),
-				)
-			}
 			pf.hid.Click(game.RightButton, x, y)
 		}
 	} else {
