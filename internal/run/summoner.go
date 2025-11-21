@@ -104,7 +104,7 @@ func (s Summoner) runTerrorZone() error {
 
 // ---------------- NORMAL SUMMONER RUN ----------------
 
-func (s Summoner) runStandard() error {
+func (s Summoner) Run(parameters *RunParameters) error {
 	s.ctx.Logger.Info("Starting normal Summoner run (Quest/Key)")
 
 	// Use the waypoint / Fire Eye portal to get to Arcane Sanctuary
