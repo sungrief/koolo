@@ -104,12 +104,12 @@ func (s Summoner) runTerrorZone() error {
 
 // ---------------- NORMAL SUMMONER RUN ----------------
 
-func (s Summoner) Run(parameters *RunParameters) error {
+func (s Summoner) runStandard(parameters *RunParameters) error {
 	s.ctx.Logger.Info("Starting normal Summoner run (Quest/Key)")
 
 	// Use the waypoint / Fire Eye portal to get to Arcane Sanctuary
 	if s.ctx.CharacterCfg.Game.Summoner.KillFireEye {
-		NewFireEye().Run(nil) // same pattern as other quest runs
+		NewFireEye().Run(parameters) // same pattern as other quest runs
 
 		obj, _ := s.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
 
@@ -156,7 +156,17 @@ func (s Summoner) Run(parameters *RunParameters) error {
 	}
 
 	// Kill Summoner
-	return s.ctx.Char.KillSummoner()
+	if err := s.ctx.Char.KillSummoner(); err != nil {
+		return err
+	}
+
+	if IsQuestRun(parameters) {
+		if err := s.goToCanyon(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ---------------- ARCANE LANES SYSTEM ----------------
