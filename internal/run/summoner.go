@@ -50,15 +50,13 @@ func (s Summoner) CheckConditions(parameters *RunParameters) SequencerResult {
 }
 
 func (s Summoner) Run(parameters *RunParameters) error {
-	_ = parameters // currently unused, kept for future sequencing tweaks
-
 	// If we have a filter, we’re being called from TerrorZone as a TZ run.
 	if s.clearMonsterFilter != nil {
 		return s.runTerrorZone()
 	}
 
 	// Otherwise this is the normal quest/key run.
-	return s.runStandard()
+	return s.runStandard(parameters)
 }
 
 // ---------------- TZ ARCANE SANCTUARY ----------------
@@ -105,6 +103,9 @@ func (s Summoner) runTerrorZone() error {
 // ---------------- NORMAL SUMMONER RUN ----------------
 
 func (s Summoner) runStandard(parameters *RunParameters) error {
+	// currently unused, kept for future sequencing tweaks
+	_ = parameters
+
 	s.ctx.Logger.Info("Starting normal Summoner run (Quest/Key)")
 
 	// Use the waypoint / Fire Eye portal to get to Arcane Sanctuary
@@ -302,4 +303,37 @@ func rotatePoint(x, y, centerX, centerY, angle float64) data.Position {
 		X: int(math.Ceil(newX)) + int(centerX),
 		Y: int(math.Ceil(newY)) + int(centerY),
 	}
+}
+
+func (s Summoner) goToCanyon() error {
+	// Interact with journal to open poratl
+	tome, found := s.ctx.Data.Objects.FindOne(object.YetAnotherTome)
+	if !found {
+		s.ctx.Logger.Error("YetAnotherTome (journal) not found after Summoner kill. This is unexpected.")
+		return errors.New("Journal not found after summoner")
+	}
+
+	err := action.InteractObject(tome, func() bool {
+		_, found := s.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
+		return found
+	})
+	if err != nil {
+		return err
+	}
+
+	//go through portal
+	portal, _ := s.ctx.Data.Objects.FindOne(object.PermanentTownPortal)
+	err = action.InteractObject(portal, func() bool {
+		return s.ctx.Data.PlayerUnit.Area == area.CanyonOfTheMagi && s.ctx.Data.AreaData.IsInside(s.ctx.Data.PlayerUnit.Position)
+	})
+	if err != nil {
+		return err
+	}
+
+	//Get WP
+	err = action.DiscoverWaypoint()
+	if err != nil {
+		return err
+	}
+	return nil // Return to re-evaluate after completing this chain.
 }
