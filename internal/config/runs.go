@@ -35,6 +35,7 @@ const (
 	EnduguRun           Run = "endugu"
 	UtilityRun          Run = "utility"
 	FireEyeRun          Run = "fire_eye"
+	RakanishuRun        Run = "rakanishu"
 	//Leveling Sequence
 	DenRun                   Run = "den"
 	BloodravenRun            Run = "bloodraven"
@@ -159,6 +160,7 @@ var SequencerRuns = []Run{
 	EldritchRun,
 	EnduguRun,
 	FrozenAuraMercRun,
+	FireEyeRun,
 	GidbinnRun,
 	IzualRun,
 	JadeFigurineRun,
@@ -174,6 +176,7 @@ var SequencerRuns = []Run{
 	PindleskinRun,
 	PitRun,
 	RadamentRun,
+	RakanishuRun,
 	RescueBarbsRun,
 	RescueCainRun,
 	RetrieveHammerRun,
