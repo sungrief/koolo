@@ -138,6 +138,23 @@ func InteractObjectTelekinesisPacket(obj data.Object, isCompletedFn func() bool)
 	ctx := context.Get()
 	ctx.SetLastStep("InteractObjectTelekinesis")
 
+	// Check if we should use packet mode for skill selection based on class-specific config
+	usePacketMode := false
+	switch ctx.CharacterCfg.Character.Class {
+	case "sorceress":
+		usePacketMode = ctx.CharacterCfg.Character.BlizzardSorceress.UseTelekinesisPackets
+	case "nova":
+		usePacketMode = ctx.CharacterCfg.Character.NovaSorceress.UseTelekinesisPackets
+	case "lightsorc":
+		usePacketMode = ctx.CharacterCfg.Character.LightningSorceress.UseTelekinesisPackets
+	case "hydraorb":
+		usePacketMode = ctx.CharacterCfg.Character.HydraOrbSorceress.UseTelekinesisPackets
+	case "fireballsorc":
+		usePacketMode = ctx.CharacterCfg.Character.FireballSorceress.UseTelekinesisPackets
+	case "sorceress_leveling":
+		usePacketMode = ctx.CharacterCfg.Character.SorceressLeveling.UseTelekinesisPackets
+	}
+
 	// If there is no completion check, just assume the interaction is completed after sending packet
 	if isCompletedFn == nil {
 		isCompletedFn = func() bool {
@@ -205,7 +222,15 @@ func InteractObjectTelekinesisPacket(obj data.Object, isCompletedFn func() bool)
 		// Switch to Telekinesis skill before interaction (only on first attempt)
 		if interactionAttempts == 0 {
 			ctx.Logger.Debug("Switching to Telekinesis skill")
-			if err := SelectRightSkill(skill.Telekinesis); err != nil {
+			// Use packet skill selection if telekinesis packets are enabled for this character
+			if usePacketMode && ctx.PacketSender != nil {
+				if ctx.Data.PlayerUnit.RightSkill != skill.Telekinesis {
+					if err := ctx.PacketSender.SelectRightSkill(skill.Telekinesis); err != nil {
+						ctx.Logger.Warn("Failed to switch to Telekinesis skill via packet", "error", err)
+					}
+					utils.Sleep(50)
+				}
+			} else if err := SelectRightSkill(skill.Telekinesis); err != nil {
 				ctx.Logger.Warn("Failed to switch to Telekinesis skill", "error", err)
 				// Don't fail here - continue with interaction attempt
 			}
@@ -242,6 +267,23 @@ func InteractObjectTelekinesisKeyboard(obj data.Object, isCompletedFn func() boo
 
 	ctx := context.Get()
 	ctx.SetLastStep("InteractObjectTelekinesisKeyboard")
+
+	// Check if we should use packet mode for skill selection based on class-specific config
+	usePacketMode := false
+	switch ctx.CharacterCfg.Character.Class {
+	case "sorceress":
+		usePacketMode = ctx.CharacterCfg.Character.BlizzardSorceress.UseTelekinesisPackets
+	case "nova":
+		usePacketMode = ctx.CharacterCfg.Character.NovaSorceress.UseTelekinesisPackets
+	case "lightsorc":
+		usePacketMode = ctx.CharacterCfg.Character.LightningSorceress.UseTelekinesisPackets
+	case "hydraorb":
+		usePacketMode = ctx.CharacterCfg.Character.HydraOrbSorceress.UseTelekinesisPackets
+	case "fireballsorc":
+		usePacketMode = ctx.CharacterCfg.Character.FireballSorceress.UseTelekinesisPackets
+	case "sorceress_leveling":
+		usePacketMode = ctx.CharacterCfg.Character.SorceressLeveling.UseTelekinesisPackets
+	}
 
 	// Check if Telekinesis is bound
 	tkBinding, found := ctx.Data.KeyBindings.KeyBindingForSkill(skill.Telekinesis)
@@ -315,9 +357,25 @@ func InteractObjectTelekinesisKeyboard(obj data.Object, isCompletedFn func() boo
 		}
 
 		// Switch to Telekinesis skill on right-click
-		if ctx.Data.PlayerUnit.RightSkill != skill.Telekinesis {
-			ctx.Logger.Debug("Switching to Telekinesis skill via keyboard")
-			ctx.HID.PressKeyBinding(tkBinding)
+		// Use packet skill selection if telekinesis packets are enabled for this character (regardless of UseForSkillSelection)
+		if usePacketMode && ctx.PacketSender != nil {
+			if ctx.Data.PlayerUnit.RightSkill != skill.Telekinesis {
+				if err := ctx.PacketSender.SelectRightSkill(skill.Telekinesis); err != nil {
+					ctx.Logger.Debug("Failed to switch to Telekinesis skill via packet, attempting HID fallback", "error", err)
+					if found {
+						ctx.HID.PressKeyBinding(tkBinding)
+					}
+				}
+				time.Sleep(50 * time.Millisecond)
+			}
+		} else if err := SelectRightSkill(skill.Telekinesis); err != nil {
+			ctx.Logger.Debug("Failed to switch to Telekinesis skill, attempting HID fallback", "error", err)
+			// If SelectRightSkill failed and we have a keybinding, try manual HID press
+			if found {
+				ctx.HID.PressKeyBinding(tkBinding)
+				time.Sleep(50 * time.Millisecond)
+			}
+		} else {
 			time.Sleep(50 * time.Millisecond)
 		}
 
