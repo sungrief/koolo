@@ -323,6 +323,7 @@ type CharacterCfg struct {
 		EnabledRecipes       []string `yaml:"enabledRecipes"`
 		SkipPerfectAmethysts bool     `yaml:"skipPerfectAmethysts"`
 		SkipPerfectRubies    bool     `yaml:"skipPerfectRubies"`
+		JewelsToKeep         int      `yaml:"jewelsToKeep"` // new field: number of magic jewels to keep
 	} `yaml:"cubing"`
 	BackToTown struct {
 		NoHpPotions     bool `yaml:"noHpPotions"`

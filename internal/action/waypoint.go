@@ -185,9 +185,33 @@ func useWP(dest area.ID) error {
 
 	for i, dst := range traverseAreas {
 		if i > 0 {
+			//Fix player great marsh / flayer jungle navigation, part 1
+			if ctx.Data.AreaData.Area == area.GreatMarsh && dst == area.FlayerJungle {
+				found := false
+				for _, adjLvl := range ctx.Data.AreaData.AdjacentLevels {
+					if adjLvl.Area == area.FlayerJungle {
+						found = true
+						break
+					}
+				}
+				if !found {
+					FieldWayPoint(area.SpiderForest)
+					utils.Sleep(500)
+				}
+			}
 			err := MoveToArea(dst)
 			if err != nil {
-				return err
+				//Fix player great marsh / flayer jungle navigation, part 2
+				if ctx.Data.AreaData.Area == area.GreatMarsh && dst == area.FlayerJungle {
+					FieldWayPoint(area.SpiderForest)
+					utils.Sleep(500)
+					err = MoveToArea(dst)
+					if err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
 			}
 
 			err = DiscoverWaypoint()
