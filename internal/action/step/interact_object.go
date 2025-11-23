@@ -202,13 +202,18 @@ func InteractObjectTelekinesisPacket(obj data.Object, isCompletedFn func() bool)
 		distance := ctx.PathFinder.DistanceFromMe(o.Position)
 		if distance > 21 {
 			// Too far, move closer to optimal range (around 15 units)
-			ctx.Logger.Debug("Object too far for telekinesis, moving closer",
+			ctx.Logger.Debug("Object too far for telekinesis packet, moving closer",
 				slog.Any("object_id", o.Name),
 				slog.Int("current_distance", distance),
 				slog.Int("target_distance", 15),
 			)
 			if err := MoveTo(o.Position, WithDistanceToFinish(15)); err != nil {
-				return fmt.Errorf("failed to move closer for telekinesis: %w", err)
+				ctx.Logger.Warn("Failed to move closer for telekinesis packet, falling back to mouse interaction",
+					slog.Any("object_id", o.Name),
+					slog.Any("error", err),
+				)
+				// Fallback to mouse interaction if we can't get closer (obstacle in the way)
+				return InteractObjectMouse(obj, isCompletedFn)
 			}
 			// Refresh distance after moving
 			ctx.RefreshGameData()
@@ -339,13 +344,18 @@ func InteractObjectTelekinesisKeyboard(obj data.Object, isCompletedFn func() boo
 		distance := ctx.PathFinder.DistanceFromMe(o.Position)
 		if distance > 21 {
 			// Too far, move closer to optimal range (around 15 units)
-			ctx.Logger.Debug("Object too far for telekinesis, moving closer",
+			ctx.Logger.Debug("Object too far for telekinesis keyboard, moving closer",
 				slog.Any("object_id", o.Name),
 				slog.Int("current_distance", distance),
 				slog.Int("target_distance", 15),
 			)
 			if err := MoveTo(o.Position, WithDistanceToFinish(15)); err != nil {
-				return fmt.Errorf("failed to move closer for telekinesis: %w", err)
+				ctx.Logger.Warn("Failed to move closer for telekinesis keyboard, falling back to mouse interaction",
+					slog.Any("object_id", o.Name),
+					slog.Any("error", err),
+				)
+				// Fallback to mouse interaction if we can't get closer (obstacle in the way)
+				return InteractObjectMouse(obj, isCompletedFn)
 			}
 			// Refresh distance after moving
 			ctx.RefreshGameData()
@@ -549,7 +559,33 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 			objectY := o.Position.Y - 2
 			distance := ctx.PathFinder.DistanceFromMe(o.Position)
 			if distance > 15 {
-				return fmt.Errorf("object is too far away: %d. Current distance: %d", o.Name, distance)
+				// Try to move closer first before giving up
+				ctx.Logger.Debug("Object too far for mouse interaction, trying to move closer",
+					slog.Any("object_id", o.Name),
+					slog.Int("current_distance", distance),
+					slog.Int("target_distance", 10),
+				)
+				if err := MoveTo(o.Position, WithDistanceToFinish(10)); err != nil {
+					// If we can't get closer (obstacle blocking), fail with helpful error
+					ctx.Logger.Warn("Cannot reach object - obstacle may be blocking path",
+						slog.Any("object_id", o.Name),
+						slog.Int("distance", distance),
+						slog.Any("move_error", err),
+					)
+					return fmt.Errorf("object is too far away and cannot move closer (obstacle blocking): %d. Distance: %d, Error: %w", o.Name, distance, err)
+				}
+				// Refresh after moving and continue with interaction
+				ctx.RefreshGameData()
+				o, found = ctx.Data.Objects.FindByID(o.ID)
+				if !found {
+					return fmt.Errorf("object %v disappeared after moving closer", obj)
+				}
+				objectX = o.Position.X - 2
+				objectY = o.Position.Y - 2
+				distance = ctx.PathFinder.DistanceFromMe(o.Position)
+				if distance > 15 {
+					return fmt.Errorf("object still too far after move attempt: %d. Distance: %d", o.Name, distance)
+				}
 			}
 
 			mX, mY := ui.GameCoordsToScreenCords(objectX, objectY)
