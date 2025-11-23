@@ -122,6 +122,8 @@ func BuildRun(run string) Run {
 		return NewUtility()
 	case string(config.FireEyeRun):
 		return NewFireEye()
+	case string(config.RakanishuRun):
+		return NewRakanishu()
 	case string(config.ShoppingRun):
 		return NewShopping()
 	//Quests Runs
