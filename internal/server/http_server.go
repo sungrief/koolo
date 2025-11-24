@@ -1734,6 +1734,7 @@ func buildTZGroups() []TZGroup {
 	})
 
 	return result
+}
 // Wire Shopping: parse shopping-specific fields (explicit field setting)
 func (s *HttpServer) applyShoppingFromForm(r *http.Request, cfg *config.CharacterCfg) {
 	// Enable/disable
