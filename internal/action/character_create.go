@@ -11,6 +11,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
+	"github.com/hectorgimenez/koolo/internal/utils"
 	"github.com/lxn/win"
 )
 
@@ -46,7 +47,7 @@ func AutoCreateCharacter(class, name string) error {
 		case <-timeout:
 			return errors.New("timed out waiting for character selection after creation")
 		default:
-			time.Sleep(300 * time.Millisecond)
+			utils.Sleep(300)
 		}
 	}
 
@@ -64,9 +65,9 @@ func enterCharacterCreationScreen() error {
 		ctx.Logger.Debug("[AutoCreate] Clicking Create New", slog.Int("attempt", i+1), slog.Int("x", pos[0]), slog.Int("y", pos[1]))
 
 		ctx.HID.Click(game.LeftButton, pos[0], pos[1])
-		time.Sleep(180 * time.Millisecond)
+		utils.Sleep(200)
 		ctx.HID.Click(game.LeftButton, pos[0], pos[1])
-		time.Sleep(1800 * time.Millisecond)
+		utils.Sleep(1500)
 
 		if ctx.GameReader.IsInCharacterCreationScreen() {
 			opened = true
@@ -102,36 +103,34 @@ func createCharacterDetails(class, name string) error {
 	ctx.Logger.Info(fmt.Sprintf("Creating character: Class[%s] Name[%s]", normClass, name))
 
 	ctx.HID.Click(game.LeftButton, pos[0], pos[1])
-	time.Sleep(500 * time.Millisecond)
+	utils.Sleep(500)
 
 	if !ctx.CharacterCfg.Game.IsNonLadderChar {
 		ctx.Logger.Info("Configured as Ladder: Clicking Ladder option")
 		ctx.HID.Click(game.LeftButton, ui.CharLadderBtnX, ui.CharLadderBtnY)
-		time.Sleep(300 * time.Millisecond)
+		utils.Sleep(300)
 	}
 
 	ctx.HID.Click(game.LeftButton, ui.CharNameInputX, ui.CharNameInputY)
-	time.Sleep(300 * time.Millisecond)
-
+	utils.Sleep(300)
 	for i := 0; i < 16; i++ {
 		ctx.HID.PressKey(win.VK_BACK)
-		time.Sleep(20 * time.Millisecond)
+		utils.Sleep(20)
 	}
-	time.Sleep(200 * time.Millisecond)
+	utils.Sleep(200)
 
 	for _, char := range name {
 		if char < 128 {
 			upperChar := unicode.ToUpper(char)
 			ctx.HID.PressKey(byte(upperChar))
-			time.Sleep(60 * time.Millisecond)
+			utils.Sleep(60)
 		}
 	}
 
-	time.Sleep(500 * time.Millisecond)
-
+	utils.Sleep(500)
 	ctx.HID.Click(game.LeftButton, ui.CharCreateBtnX, ui.CharCreateBtnY)
 
-	time.Sleep(2000 * time.Millisecond)
+	utils.Sleep(2000)
 
 	return nil
 }
