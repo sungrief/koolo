@@ -106,6 +106,15 @@ func shouldUseTelekinesisForObject(obj data.Object) bool {
 func InteractObjectTelekinesis(obj data.Object, isCompletedFn func() bool) error {
 	ctx := context.Get()
 
+	// Check line of sight before attempting telekinesis
+	if !ctx.PathFinder.LineOfSight(ctx.Data.PlayerUnit.Position, obj.Position) {
+		ctx.Logger.Debug("No line of sight to object, falling back to mouse interaction",
+			slog.Any("object_id", obj.Name),
+			slog.Int("distance", ctx.PathFinder.DistanceFromMe(obj.Position)),
+		)
+		return InteractObjectMouse(obj, isCompletedFn)
+	}
+
 	// Check if we should use packet mode or keyboard/mouse mode based on class-specific config
 	usePacketMode := false
 	switch ctx.CharacterCfg.Character.Class {
