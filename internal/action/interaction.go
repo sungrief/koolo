@@ -79,7 +79,9 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 				useTelekinesis = ctx.CharacterCfg.Character.SorceressLeveling.UseTelekinesis
 			}
 
-			if useTelekinesis {
+			canUseTK := useTelekinesis && ctx.Data.AreaData.Area.IsTown()
+
+			if canUseTK {
 				// Only move if distance is greater than 21 (telekinesis max range)
 				// Otherwise stay where we are and use telekinesis from current position
 				distance := ctx.PathFinder.DistanceFromMe(pos)
