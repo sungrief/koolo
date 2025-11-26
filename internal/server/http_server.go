@@ -45,12 +45,13 @@ import (
 )
 
 type HttpServer struct {
-	logger    *slog.Logger
-	server    *http.Server
-	manager   *bot.SupervisorManager
-	templates *template.Template
-	wsServer  *WebSocketServer
-	pickitAPI *PickitAPI
+	logger      *slog.Logger
+	server      *http.Server
+	manager     *bot.SupervisorManager
+	templates   *template.Template
+	wsServer    *WebSocketServer
+	pickitAPI   *PickitAPI
+	sequenceAPI *SequenceAPI
 }
 
 var (
@@ -234,10 +235,11 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager) (*HttpServer, erro
 	}
 
 	return &HttpServer{
-		logger:    logger,
-		manager:   manager,
-		templates: templates,
-		pickitAPI: NewPickitAPI(),
+		logger:      logger,
+		manager:     manager,
+		templates:   templates,
+		pickitAPI:   NewPickitAPI(),
+		sequenceAPI: NewSequenceAPI(logger),
 	}, nil
 }
 
@@ -604,6 +606,7 @@ func (s *HttpServer) Listen(port int) error {
 
 	// Pickit Editor routes
 	http.HandleFunc("/pickit-editor", s.pickitEditorPage)
+	http.HandleFunc("/sequence-editor", s.sequenceEditorPage)
 	http.HandleFunc("/api/pickit/items", s.pickitAPI.handleGetItems)
 	http.HandleFunc("/api/pickit/items/search", s.pickitAPI.handleSearchItems)
 	http.HandleFunc("/api/pickit/items/categories", s.pickitAPI.handleGetCategories)
@@ -624,6 +627,12 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/pickit/files/rules/append", s.pickitAPI.handleAppendNIPLine)
 	http.HandleFunc("/api/pickit/browse-folder", s.pickitAPI.handleBrowseFolder)
 	http.HandleFunc("/api/pickit/simulate", s.pickitAPI.handleSimulate)
+	http.HandleFunc("/api/sequence-editor/runs", s.sequenceAPI.handleListRuns)
+	http.HandleFunc("/api/sequence-editor/file", s.sequenceAPI.handleGetSequence)
+	http.HandleFunc("/api/sequence-editor/open", s.sequenceAPI.handleBrowseSequence)
+	http.HandleFunc("/api/sequence-editor/save", s.sequenceAPI.handleSaveSequence)
+	http.HandleFunc("/api/sequence-editor/delete", s.sequenceAPI.handleDeleteSequence)
+	http.HandleFunc("/api/sequence-editor/files", s.sequenceAPI.handleListSequenceFiles)
 
 	assets, _ := fs.Sub(assetsFS, "assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
@@ -715,6 +724,16 @@ func (s *HttpServer) pickitEditorPage(w http.ResponseWriter, r *http.Request) {
 		for _, t := range s.templates.Templates() {
 			s.logger.Info("  - " + t.Name())
 		}
+		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *HttpServer) sequenceEditorPage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	if err := s.templates.ExecuteTemplate(w, "sequence_editor.gohtml", nil); err != nil {
+		s.logger.Error("Failed to execute sequence_editor template", "error", err)
 		http.Error(w, fmt.Sprintf("Template error: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -1058,12 +1077,15 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
+	sequenceFiles := s.listLevelingSequenceFiles()
 	var err error
 	if r.Method == http.MethodPost {
 		err = r.ParseForm()
 		if err != nil {
 			s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-				ErrorMessage: err.Error(),
+				Version:               config.Version,
+				ErrorMessage:          err.Error(),
+				LevelingSequenceFiles: sequenceFiles,
 			})
 
 			return
@@ -1075,8 +1097,10 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			err = config.CreateFromTemplate(supervisorName)
 			if err != nil {
 				s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-					ErrorMessage: err.Error(),
-					Supervisor:   supervisorName,
+					Version:               config.Version,
+					ErrorMessage:          err.Error(),
+					Supervisor:            supervisorName,
+					LevelingSequenceFiles: sequenceFiles,
 				})
 
 				return
@@ -1113,8 +1137,9 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				start, err := time.Parse("15:04", starts[i])
 				if err != nil {
 					s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-						ErrorMessage: fmt.Sprintf("Invalid start time format for day %d: %s", day, starts[i]),
-						// ... (other fields)
+						Version:               config.Version,
+						ErrorMessage:          fmt.Sprintf("Invalid start time format for day %d: %s", day, starts[i]),
+						LevelingSequenceFiles: sequenceFiles,
 					})
 					return
 				}
@@ -1122,7 +1147,9 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				end, err := time.Parse("15:04", ends[i])
 				if err != nil {
 					s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-						ErrorMessage: fmt.Sprintf("Invalid end time format for day %d: %s", day, ends[i]),
+						Version:               config.Version,
+						ErrorMessage:          fmt.Sprintf("Invalid end time format for day %d: %s", day, ends[i]),
+						LevelingSequenceFiles: sequenceFiles,
 					})
 					return
 				}
@@ -1141,8 +1168,9 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		err := validateSchedulerData(cfg)
 		if err != nil {
 			s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-				ErrorMessage: err.Error(),
-				// ... (other fields)
+				Version:               config.Version,
+				ErrorMessage:          err.Error(),
+				LevelingSequenceFiles: sequenceFiles,
 			})
 			return
 		}
@@ -1303,9 +1331,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		for x, value := range r.Form["inventoryBeltColumns[]"] {
-			cfg.Inventory.BeltColumns[x] = value
-		}
+		copy(cfg.Inventory.BeltColumns[:], r.Form["inventoryBeltColumns[]"])
+
 
 		cfg.Inventory.HealingPotionCount, _ = strconv.Atoi(r.Form.Get("healingPotionCount"))
 		cfg.Inventory.ManaPotionCount, _ = strconv.Atoi(r.Form.Get("manaPotionCount"))
@@ -1411,6 +1438,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Leveling.HellRequiredLevel = s.getIntFromForm(r, "gameLevelingHellRequiredLevel", 1, 99, 70)
 		cfg.Game.Leveling.HellRequiredFireRes = s.getIntFromForm(r, "gameLevelingHellRequiredFireRes", -100, 75, 15)
 		cfg.Game.Leveling.HellRequiredLightRes = s.getIntFromForm(r, "gameLevelingHellRequiredLightRes", -100, 75, -10)
+
+		cfg.Game.LevelingSequence.SequenceFile = r.Form.Get("gameLevelingSequenceFile")
 
 		// Socket Recipes
 		cfg.Game.Leveling.EnableRunewordMaker = r.Form.Has("gameLevelingEnableRunewordMaker")
@@ -1574,6 +1603,18 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		FarmerProfiles:        farmerProfiles,
 		LevelingSequenceFiles: sequenceFiles,
 	})
+}
+
+func (s *HttpServer) listLevelingSequenceFiles() []string {
+	if s.sequenceAPI == nil {
+		return nil
+	}
+	files, err := s.sequenceAPI.ListSequenceFiles()
+	if err != nil {
+		s.logger.Error("failed to list leveling sequences", slog.Any("error", err))
+		return nil
+	}
+	return files
 }
 
 // companionJoin handles requests to force a companion to join a game
