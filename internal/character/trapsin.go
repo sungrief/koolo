@@ -31,7 +31,7 @@ func (s Trapsin) ShouldIgnoreMonster(m data.Monster) bool {
 }
 
 func (s Trapsin) CheckKeyBindings() []skill.ID {
-	requireKeybindings := []skill.ID{skill.DeathSentry, skill.LightningSentry, skill.TomeOfTownPortal}
+	requireKeybindings := []skill.ID{skill.DeathSentry, skill.LightningSentry, skill.FireBlast, skill.TomeOfTownPortal}
 	missingKeybindings := []skill.ID{}
 
 	for _, cskill := range requireKeybindings {
@@ -84,6 +84,7 @@ func (s Trapsin) KillMonsterSequence(
 		utils.Sleep(100)
 		step.SecondaryAttack(skill.LightningSentry, id, 3, opts)
 		step.SecondaryAttack(skill.DeathSentry, id, 2, opts)
+		step.SecondaryAttack(skill.FireBlast, id, 5, opts)
 		step.PrimaryAttack(id, 2, true, opts)
 
 		completedAttackLoops++
