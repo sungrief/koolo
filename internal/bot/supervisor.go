@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hectorgimenez/koolo/internal/action"
 	ct "github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
@@ -172,10 +171,10 @@ func (s *baseSupervisor) waitUntilCharacterSelectionScreen() error {
 
 		s.bot.ctx.Logger.Info(
 			fmt.Sprintf("Character %s not found after 25 attempts, attempting auto-create...", s.bot.ctx.CharacterCfg.CharacterName),
-			s.bot.ctx.CharacterCfg.Character.Class,
+			slog.String("class", s.bot.ctx.CharacterCfg.Character.Class),
 		)
 
-		if err := action.AutoCreateCharacter(s.bot.ctx.CharacterCfg.Character.Class, s.bot.ctx.CharacterCfg.CharacterName); err != nil {
+		if err := AutoCreateCharacter(s.bot.ctx.CharacterCfg.Character.Class, s.bot.ctx.CharacterCfg.CharacterName); err != nil {
 			s.bot.ctx.Logger.Error("Auto-create failed, terminating client", slog.String("error", err.Error()))
 			if killErr := s.KillClient(); killErr != nil {
 				return killErr
