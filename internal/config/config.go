@@ -361,6 +361,7 @@ type CharacterCfg struct {
 		EnabledRecipes       []string `yaml:"enabledRecipes"`
 		SkipPerfectAmethysts bool     `yaml:"skipPerfectAmethysts"`
 		SkipPerfectRubies    bool     `yaml:"skipPerfectRubies"`
+		JewelsToKeep         int      `yaml:"jewelsToKeep"` // new field: number of magic jewels to keep
 	} `yaml:"cubing"`
 	BackToTown struct {
 		NoHpPotions     bool `yaml:"noHpPotions"`
@@ -368,7 +369,8 @@ type CharacterCfg struct {
 		MercDied        bool `yaml:"mercDied"`
 		EquipmentBroken bool `yaml:"equipmentBroken"`
 	} `yaml:"backtotown"`
-	Runtime struct {
+	Shopping ShoppingConfig `yaml:"shopping"`
+	Runtime  struct {
 		Rules     nip.Rules   `yaml:"-"`
 		TierRules []int       `yaml:"-"`
 		Drops     []data.Item `yaml:"-"`

@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"embed"
 	"encoding/json"
@@ -36,6 +37,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/remote/droplog"
+	terrorzones "github.com/hectorgimenez/koolo/internal/terrorzone"
 	"github.com/hectorgimenez/koolo/internal/utils"
 	"github.com/hectorgimenez/koolo/internal/utils/winproc"
 	"github.com/lxn/win"
@@ -214,6 +216,11 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager) (*HttpServer, erro
 			}
 			return result
 		},
+		"allImmunities": func() []string {
+			return []string{"f", "c", "l", "p", "ph", "m"}
+		},
+		"upper": strings.ToUpper,
+		"trim":  strings.TrimSpace,
 	}
 	templates, err := template.New("").Funcs(helperFuncs).ParseFS(templatesFS, "templates/*.gohtml")
 	if err != nil {
@@ -1331,6 +1338,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal([]byte(r.FormValue("gameRuns")), &enabledRuns)
 		cfg.Game.Runs = enabledRuns
 
+		s.applyShoppingFromForm(r, cfg)
+
 		cfg.Game.Cows.OpenChests = r.Form.Has("gameCowsOpenChests")
 
 		cfg.Game.Pit.MoveThroughBlackMarsh = r.Form.Has("gamePitMoveThroughBlackMarsh")
@@ -1456,7 +1465,14 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.CubeRecipes.EnabledRecipes = enabledRecipes
 		cfg.CubeRecipes.SkipPerfectAmethysts = r.Form.Has("skipPerfectAmethysts")
 		cfg.CubeRecipes.SkipPerfectRubies = r.Form.Has("skipPerfectRubies")
-
+		// New: parse jewelsToKeep
+		if v := r.Form.Get("jewelsToKeep"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				cfg.CubeRecipes.JewelsToKeep = n
+			} else {
+				cfg.CubeRecipes.JewelsToKeep = 1 // sensible default
+			}
+		}
 		// Companion config
 		cfg.Companion.Enabled = r.Form.Has("companionEnabled")
 		cfg.Companion.Leader = r.Form.Has("companionLeader")
@@ -1510,14 +1526,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(disabledRuns)
 
-	availableTZs := make(map[int]string)
-	for _, tz := range area.Areas {
-		if tz.CanBeTerrorized() {
-			availableTZs[int(tz.ID)] = tz.Name
-		}
-	}
-
-	if cfg.Scheduler.Days == nil || len(cfg.Scheduler.Days) == 0 {
+	if len(cfg.Scheduler.Days) == 0 {
 		cfg.Scheduler.Days = make([]config.Day, 7)
 		for i := 0; i < 7; i++ {
 			cfg.Scheduler.Days[i] = config.Day{DayOfWeek: i}
@@ -1552,16 +1561,18 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	cfg.Muling.MuleProfiles = validConfigMuleProfiles
 
 	s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-		Supervisor:         supervisor,
-		Config:             cfg,
-		DayNames:           dayNames,
-		EnabledRuns:        enabledRuns,
-		DisabledRuns:       disabledRuns,
-		AvailableTZs:       availableTZs,
-		RecipeList:         config.AvailableRecipes,
-		RunewordRecipeList: config.AvailableRunewordRecipes,
-		AvailableProfiles:  muleProfiles,
-		FarmerProfiles:     farmerProfiles,
+		Version:               config.Version,
+		Supervisor:            supervisor,
+		Config:                cfg,
+		DayNames:              dayNames,
+		EnabledRuns:           enabledRuns,
+		DisabledRuns:          disabledRuns,
+		TerrorZoneGroups:      buildTZGroups(),
+		RecipeList:            config.AvailableRecipes,
+		RunewordRecipeList:    config.AvailableRunewordRecipes,
+		AvailableProfiles:     muleProfiles,
+		FarmerProfiles:        farmerProfiles,
+		LevelingSequenceFiles: sequenceFiles,
 	})
 }
 
@@ -1707,4 +1718,83 @@ func (s *HttpServer) getIntFromForm(r *http.Request, param string, min int, max 
 		result = int(math.Max(math.Min(float64(paramValue), float64(max)), float64(min)))
 	}
 	return result
+}
+
+func buildTZGroups() []TZGroup {
+	groups := make(map[string][]area.ID)
+	for id, info := range terrorzones.Zones() {
+		groupName := info.Group
+		if groupName == "" {
+			groupName = id.Area().Name
+		}
+		groups[groupName] = append(groups[groupName], id)
+	}
+
+	var result []TZGroup
+	for name, ids := range groups {
+		zone := terrorzones.Zones()[ids[0]]
+
+		result = append(result, TZGroup{
+			Act:           zone.Act,
+			Name:          name,
+			PrimaryAreaID: int(ids[0]),
+			Immunities:    zone.Immunities,
+			BossPacks:     zone.BossPack,
+			ExpTier:       string(zone.ExpTier),
+			LootTier:      string(zone.LootTier),
+		})
+	}
+
+	slices.SortStableFunc(result, func(a, b TZGroup) int {
+		if a.Act != b.Act {
+			return cmp.Compare(a.Act, b.Act)
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
+
+	return result
+}
+// Wire Shopping: parse shopping-specific fields (explicit field setting)
+func (s *HttpServer) applyShoppingFromForm(r *http.Request, cfg *config.CharacterCfg) {
+	// Enable/disable
+	cfg.Shopping.Enabled = r.Form.Has("shoppingEnabled")
+
+	// Numeric fields
+	if v, err := strconv.Atoi(r.Form.Get("shoppingMaxGoldToSpend")); err == nil {
+		cfg.Shopping.MaxGoldToSpend = v
+	}
+	if v, err := strconv.Atoi(r.Form.Get("shoppingMinGoldReserve")); err == nil {
+		cfg.Shopping.MinGoldReserve = v
+	}
+	if v, err := strconv.Atoi(r.Form.Get("shoppingRefreshesPerRun")); err == nil {
+		cfg.Shopping.RefreshesPerRun = v
+	}
+
+	// Rules file
+	cfg.Shopping.ShoppingRulesFile = r.Form.Get("shoppingRulesFile")
+
+	// Item types (comma-separated string to slice)
+	if raw := strings.TrimSpace(r.Form.Get("shoppingItemTypes")); raw != "" {
+		parts := strings.Split(raw, ",")
+		items := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if p = strings.TrimSpace(p); p != "" {
+				items = append(items, p)
+			}
+		}
+		cfg.Shopping.ItemTypes = items
+	} else {
+		cfg.Shopping.ItemTypes = []string{}
+	}
+
+	// Vendor checkboxes
+	cfg.Shopping.VendorAkara = r.Form.Has("shoppingVendorAkara")
+	cfg.Shopping.VendorCharsi = r.Form.Has("shoppingVendorCharsi")
+	cfg.Shopping.VendorGheed = r.Form.Has("shoppingVendorGheed")
+	cfg.Shopping.VendorFara = r.Form.Has("shoppingVendorFara")
+	cfg.Shopping.VendorDrognan = r.Form.Has("shoppingVendorDrognan")
+	cfg.Shopping.VendorElzix = r.Form.Has("shoppingVendorElzix")
+	cfg.Shopping.VendorOrmus = r.Form.Has("shoppingVendorOrmus")
+	cfg.Shopping.VendorMalah = r.Form.Has("shoppingVendorMalah")
+	cfg.Shopping.VendorAnya = r.Form.Has("shoppingVendorAnya")
 }
