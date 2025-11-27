@@ -77,6 +77,7 @@ func (s BarbLeveling) KillMonsterSequence(
 	var lastHowlCast time.Time
 	var lastDoubleSwingCast time.Time
 	var lastWarCryCast time.Time
+	var lastBerserkCast time.Time
 	leapAttackExecuted := false
 
 	for {
@@ -139,6 +140,17 @@ func (s BarbLeveling) KillMonsterSequence(
 		monster, found := s.Data.Monsters.FindByID(id)
 		if !found || monster.Stats[stat.Life] <= 0 {
 			return nil
+		}
+
+		isBoss := monster.Name == npc.Andariel || monster.Name == npc.Duriel || monster.Name == npc.Mephisto ||
+			monster.Name == npc.Diablo || monster.Name == npc.Izual || monster.Name == npc.BaalCrab
+		if isBoss {
+			hasDualOneHand := s.hasDualOneHand()
+			s.executeAttackBoss(id, monster.Name, hasDualOneHand, &lastHowlCast, &lastBattleCryCast, &lastWarCryCast, &lastBerserkCast, &leapAttackExecuted)
+			completedAttackLoops++
+			previousUnitID = int(id)
+			time.Sleep(time.Millisecond * 100)
+			continue
 		}
 
 		isImmuneToAll := monster.IsImmune(stat.FireImmune) &&
