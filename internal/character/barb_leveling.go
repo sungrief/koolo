@@ -196,7 +196,7 @@ func (s BarbLeveling) killBoss(bossNPC npc.ID) error {
 
 	timeout := time.Now().Add(30 * time.Second)
 	notFoundCount := 0
-	const maxNotFoundChecks = 3
+	const maxNotFoundChecks = 10
 
 	for {
 		context.Get().PauseIfNotPriority()
