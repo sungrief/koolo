@@ -338,8 +338,8 @@ func shouldKeepRecipeItem(i data.Item) bool {
 	// Count existing magic jewels and detect if there is a magic item of the same base name already in stash
 	// that does not match a pickit rule.
 	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
-		// Count how many magic-quality jewels we already have in stash
-		if string(it.Name) == "Jewel" && it.Quality == item.QualityMagic {
+		// Count how many magic or rare quality jewels we already have in stash
+		if string(it.Name) == "Jewel" && it.Quality == item.QualityMagic || it.Quality == item.QualityRare {
 			if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); res != nip.RuleResultFullMatch {
 				jewelCount++
 			}

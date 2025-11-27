@@ -417,7 +417,7 @@ func ItemsToBeSold(lockConfig ...[][]int) (items []data.Item) {
 		}
 		// NEW: skip jewels needed for crafting (non-NIP jewels) until quota is met
 		if craftingEnabled && string(itm.Name) == "Jewel" &&
-			itm.Quality == item.QualityMagic {
+			itm.Quality == item.QualityMagic || itm.Quality == item.QualityRare {
 			// Only consider jewels that are not covered by a NIP rule
 			if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); res != nip.RuleResultFullMatch {
 				if jewelCount < maxJewelsToKeep {
