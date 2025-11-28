@@ -71,8 +71,18 @@ func AutoEquip() error {
 		return nil
 	}
 
+	// Safety mechanism to prevent infinite loops
+	maxIterations := 30
+	currentIteration := 0
+
 	for { // Use an infinite loop that we can break from
-		ctx.Logger.Debug("Evaluating items for equip...")
+		currentIteration++
+		if currentIteration > maxIterations {
+			ctx.Logger.Warn("AutoEquip loop exceeded max iterations. Breaking to prevent freeze.")
+			return nil
+		}
+
+		ctx.Logger.Debug(fmt.Sprintf("Evaluating items for equip... (Iteration %d/%d)", currentIteration, maxIterations))
 		locations := []item.LocationType{
 			item.LocationStash,
 			item.LocationInventory,
