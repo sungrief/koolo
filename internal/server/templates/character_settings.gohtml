@@ -59,6 +59,7 @@
                         <option value="javazon" {{ if eq .Config.Character.Class "javazon" }}selected{{ end }}>Javazon</option>
                         <option value="amazon_leveling" {{ if eq .Config.Character.Class "amazon_leveling" }}selected{{ end }}>Amazon (Leveling)</option>
                         <option value="berserker" {{ if eq .Config.Character.Class "berserker" }}selected{{ end }}>Berserk Barbarian</option>
+                        <option value="warcry_barb" {{ if eq .Config.Character.Class "warcry_barb" }}selected{{ end }}>Warcry Barbarian</option>
                     </select>
                 </label>
                 <label>
@@ -172,6 +173,70 @@
                             document.getElementById('barbLevelingBattleCryOptions').style.display = isChecked ? 'block' : 'none';
                         });
                     </script>
+                </div>
+                <div class="warcry-barb-options" style="display: none;">
+                    <div style="background-color: #ff9800; color: #000; padding: 10px; margin-bottom: 15px; border-radius: 5px; font-size: 0.9em;">
+                        <strong>⚠️ Important:</strong> The Warcry Barbarian needs F9–F12 keybindings for optional skills (Howl, Battle Cry, Grim Ward)!
+                        Please set this in the controller settings (Diablo 2): F9 for Skill 9, F10 for Skill 10, F11 for Skill 11, F12 for Skill 12.
+                        <br><br>
+                        Make sure to assign keybindings for any skills you enable below (Howl, Battle Cry, Grim Ward).
+                    </div>
+                    <fieldset class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                        <label>
+                            <input type="checkbox" name="warcryBarbFindItemSwitch" {{ if .Config.Character.WarcryBarb.FindItemSwitch }}checked{{ end }}/>
+                            Find Item Switch
+                        </label>
+                        <label>
+                            <input type="checkbox" name="warcryBarbSkipPotionPickupInTravincal" {{ if .Config.Character.WarcryBarb.SkipPotionPickupInTravincal }}checked{{ end }}/>
+                            Skip potion pickup during Travincal
+                        </label>
+                    </fieldset>
+                    <fieldset style="margin-top: 15px;">
+                        <label>
+                            <input type="checkbox" name="warcryBarbUseGrimWard" {{ if .Config.Character.WarcryBarb.UseGrimWard }}checked{{ end }}/>
+                            Use Grim Ward
+                        </label>
+                    </fieldset>
+                    <fieldset style="margin-top: 15px;">
+                        <label>
+                            <input type="checkbox" name="warcryBarbHorkNormalMonsters" {{ if .Config.Character.WarcryBarb.HorkNormalMonsters }}checked{{ end }}/>
+                            Hork Normal Monsters Too (unchecked: excludes normal and minions)
+                        </label>
+                        <label>
+                            Monster Check Range (yards)
+                            <input type="number" name="warcryBarbHorkMonsterCheckRange" min="1" max="20" step="1" value="{{ if .Config.Character.WarcryBarb.HorkMonsterCheckRange }}{{ .Config.Character.WarcryBarb.HorkMonsterCheckRange }}{{ else }}7{{ end }}">
+                        </label>
+                    </fieldset>
+                    <fieldset class="grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                        <div>
+                            <label style="font-weight: bold; margin-bottom: 10px; display: block;">
+                                <input type="checkbox" name="warcryBarbUseHowl" {{ if .Config.Character.WarcryBarb.UseHowl }}checked{{ end }}/>
+                                Use Howl
+                            </label>
+                            <label>
+                                Cooldown (seconds)
+                                <input type="number" name="warcryBarbHowlCooldown" min="1" max="60" step="1" value="{{ if .Config.Character.WarcryBarb.HowlCooldown }}{{ .Config.Character.WarcryBarb.HowlCooldown }}{{ else }}8{{ end }}">
+                            </label>
+                            <label>
+                                Monsters in Range
+                                <input type="number" name="warcryBarbHowlMinMonsters" min="1" max="20" step="1" value="{{ if .Config.Character.WarcryBarb.HowlMinMonsters }}{{ .Config.Character.WarcryBarb.HowlMinMonsters }}{{ else }}4{{ end }}">
+                            </label>
+                        </div>
+                        <div>
+                            <label style="font-weight: bold; margin-bottom: 10px; display: block;">
+                                <input type="checkbox" name="warcryBarbUseBattleCry" {{ if .Config.Character.WarcryBarb.UseBattleCry }}checked{{ end }}/>
+                                Use Battle Cry
+                            </label>
+                            <label>
+                                Cooldown (seconds)
+                                <input type="number" name="warcryBarbBattleCryCooldown" min="1" max="60" step="1" value="{{ if .Config.Character.WarcryBarb.BattleCryCooldown }}{{ .Config.Character.WarcryBarb.BattleCryCooldown }}{{ else }}6{{ end }}">
+                            </label>
+                            <label>
+                                Monsters in Range
+                                <input type="number" name="warcryBarbBattleCryMinMonsters" min="1" max="20" step="1" value="{{ if .Config.Character.WarcryBarb.BattleCryMinMonsters }}{{ .Config.Character.WarcryBarb.BattleCryMinMonsters }}{{ else }}1{{ end }}">
+                            </label>
+                        </div>
+                    </fieldset>
                 </div>
                 <div class="nova-sorceress-options" style="display: none;">
                     <fieldset class="grid">

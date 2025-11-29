@@ -162,6 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const selectedClass = characterClassSelect.value;
         const noSettingsMessage = document.getElementById('no-settings-message');
         const berserkerBarbOptions = document.querySelector('.berserker-barb-options');
+        const warcryBarbOptions = document.querySelector('.warcry-barb-options');
         const barbLevelingOptions = document.querySelector('.barb-leveling-options');
         const novaSorceressOptions = document.querySelector('.nova-sorceress-options');
         const mosaicAssassinOptions = document.querySelector('.mosaic-assassin-options');
@@ -169,6 +170,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const sorceressLevelingOptions = document.querySelector('.sorceress_leveling-options');
         // Hide all options first
         berserkerBarbOptions.style.display = 'none';
+        warcryBarbOptions.style.display = 'none';
         barbLevelingOptions.style.display = 'none';
         novaSorceressOptions.style.display = 'none';
         mosaicAssassinOptions.style.display = 'none';
@@ -179,6 +181,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Show relevant options based on class
         if (selectedClass === 'berserker') {
             berserkerBarbOptions.style.display = 'block';
+        } else if (selectedClass === 'warcry_barb') {
+            warcryBarbOptions.style.display = 'block';
         } else if (selectedClass === 'barb_leveling') {
             barbLevelingOptions.style.display = 'block';
         } else if (selectedClass === 'nova' || selectedClass === 'lightsorc') {

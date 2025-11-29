@@ -63,6 +63,8 @@ func BuildCharacter(ctx *context.Context) (context.Character, error) {
 		return Javazon{BaseCharacter: bc}, nil
 	case "berserker":
 		return &Berserker{BaseCharacter: bc}, nil // Return a pointer to Berserker
+	case "warcry_barb":
+		return &WarcryBarb{BaseCharacter: bc}, nil
 	case "development":
 		return DevelopmentCharacter{BaseCharacter: bc}, nil
 	}
