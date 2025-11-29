@@ -86,10 +86,37 @@
                             <input type="checkbox" name="barbSkipPotionPickupInTravincal" {{ if .Config.Character.BerserkerBarb.SkipPotionPickupInTravincal }}checked{{ end }}/>
                             Skip potion pickup during Travincal
                         </label>
-                        <label>
-                            <input type="checkbox" name="barbUseHowl" {{ if .Config.Character.BerserkerBarb.UseHowl }}checked{{ end }}/>
-                            Use Howl
-                        </label>
+                    </fieldset>
+                    <div style="margin: 20px 0;"></div>
+                    <fieldset class="grid" style="grid-template-columns: 1fr 1fr;">
+                        <div>
+                            <label>
+                                <input type="checkbox" name="barbUseHowl" {{ if .Config.Character.BerserkerBarb.UseHowl }}checked{{ end }}/>
+                                Use Howl
+                            </label>
+                            <label>
+                                Cooldown (seconds)
+                                <input type="number" name="barbHowlCooldown" min="0" max="60" step="1" value="{{ if .Config.Character.BerserkerBarb.HowlCooldown }}{{ .Config.Character.BerserkerBarb.HowlCooldown }}{{ else }}6{{ end }}">
+                            </label>
+                            <label>
+                                Monster Range
+                                <input type="number" name="barbHowlMinMonsters" min="1" max="20" step="1" value="{{ if .Config.Character.BerserkerBarb.HowlMinMonsters }}{{ .Config.Character.BerserkerBarb.HowlMinMonsters }}{{ else }}4{{ end }}">
+                            </label>
+                        </div>
+                        <div>
+                            <label>
+                                <input type="checkbox" name="barbUseBattleCry" {{ if .Config.Character.BerserkerBarb.UseBattleCry }}checked{{ end }}/>
+                                Use BattleCry
+                            </label>
+                            <label>
+                                Cooldown (seconds)
+                                <input type="number" name="barbBattleCryCooldown" min="0" max="60" step="1" value="{{ if .Config.Character.BerserkerBarb.BattleCryCooldown }}{{ .Config.Character.BerserkerBarb.BattleCryCooldown }}{{ else }}6{{ end }}">
+                            </label>
+                            <label>
+                                Monster Range
+                                <input type="number" name="barbBattleCryMinMonsters" min="1" max="20" step="1" value="{{ if .Config.Character.BerserkerBarb.BattleCryMinMonsters }}{{ .Config.Character.BerserkerBarb.BattleCryMinMonsters }}{{ else }}4{{ end }}">
+                            </label>
+                        </div>
                     </fieldset>
                 </div>
                 <div class="barb-leveling-options" style="display: none;">

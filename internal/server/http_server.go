@@ -1215,6 +1215,35 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.BerserkerBarb.SkipPotionPickupInTravincal = r.Form.Has("barbSkipPotionPickupInTravincal")
 			cfg.Character.BerserkerBarb.FindItemSwitch = r.Form.Has("characterFindItemSwitch")
 			cfg.Character.BerserkerBarb.UseHowl = r.Form.Has("barbUseHowl")
+			if cfg.Character.BerserkerBarb.UseHowl {
+				howlCooldown, err := strconv.Atoi(r.Form.Get("barbHowlCooldown"))
+				if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+					cfg.Character.BerserkerBarb.HowlCooldown = howlCooldown
+				} else {
+					cfg.Character.BerserkerBarb.HowlCooldown = 6
+				}
+				howlMinMonsters, err := strconv.Atoi(r.Form.Get("barbHowlMinMonsters"))
+				if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+					cfg.Character.BerserkerBarb.HowlMinMonsters = howlMinMonsters
+				} else {
+					cfg.Character.BerserkerBarb.HowlMinMonsters = 4
+				}
+			}
+			cfg.Character.BerserkerBarb.UseBattleCry = r.Form.Has("barbUseBattleCry")
+			if cfg.Character.BerserkerBarb.UseBattleCry {
+				battleCryCooldown, err := strconv.Atoi(r.Form.Get("barbBattleCryCooldown"))
+				if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+					cfg.Character.BerserkerBarb.BattleCryCooldown = battleCryCooldown
+				} else {
+					cfg.Character.BerserkerBarb.BattleCryCooldown = 6
+				}
+				battleCryMinMonsters, err := strconv.Atoi(r.Form.Get("barbBattleCryMinMonsters"))
+				if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+					cfg.Character.BerserkerBarb.BattleCryMinMonsters = battleCryMinMonsters
+				} else {
+					cfg.Character.BerserkerBarb.BattleCryMinMonsters = 4
+				}
+			}
 		}
 
 		// Barb Leveling specific options

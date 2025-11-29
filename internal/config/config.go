@@ -141,6 +141,11 @@ type CharacterCfg struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
 			UseHowl                     bool `yaml:"use_howl"`
+			HowlCooldown                int  `yaml:"howl_cooldown"`
+			HowlMinMonsters             int  `yaml:"howl_min_monsters"`
+			UseBattleCry                bool `yaml:"use_battlecry"`
+			BattleCryCooldown            int  `yaml:"battlecry_cooldown"`
+			BattleCryMinMonsters         int  `yaml:"battlecry_min_monsters"`
 		} `yaml:"berserker_barb"`
 		BlizzardSorceress struct {
 			UseMoatTrick        bool `yaml:"use_moat_trick"`
