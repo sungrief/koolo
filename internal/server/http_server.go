@@ -1217,6 +1217,50 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.BerserkerBarb.UseHowl = r.Form.Has("barbUseHowl")
 		}
 
+		// Warcry Barb specific options
+		if cfg.Character.Class == "warcry_barb" {
+			cfg.Character.WarcryBarb.FindItemSwitch = r.Form.Has("warcryBarbFindItemSwitch")
+			cfg.Character.WarcryBarb.SkipPotionPickupInTravincal = r.Form.Has("warcryBarbSkipPotionPickupInTravincal")
+			cfg.Character.WarcryBarb.UseHowl = r.Form.Has("warcryBarbUseHowl")
+			if cfg.Character.WarcryBarb.UseHowl {
+				howlCooldown, err := strconv.Atoi(r.Form.Get("warcryBarbHowlCooldown"))
+				if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+					cfg.Character.WarcryBarb.HowlCooldown = howlCooldown
+				} else {
+					cfg.Character.WarcryBarb.HowlCooldown = 8
+				}
+				howlMinMonsters, err := strconv.Atoi(r.Form.Get("warcryBarbHowlMinMonsters"))
+				if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+					cfg.Character.WarcryBarb.HowlMinMonsters = howlMinMonsters
+				} else {
+					cfg.Character.WarcryBarb.HowlMinMonsters = 4
+				}
+			}
+			cfg.Character.WarcryBarb.UseBattleCry = r.Form.Has("warcryBarbUseBattleCry")
+			if cfg.Character.WarcryBarb.UseBattleCry {
+				battleCryCooldown, err := strconv.Atoi(r.Form.Get("warcryBarbBattleCryCooldown"))
+				if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+					cfg.Character.WarcryBarb.BattleCryCooldown = battleCryCooldown
+				} else {
+					cfg.Character.WarcryBarb.BattleCryCooldown = 6
+				}
+				battleCryMinMonsters, err := strconv.Atoi(r.Form.Get("warcryBarbBattleCryMinMonsters"))
+				if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+					cfg.Character.WarcryBarb.BattleCryMinMonsters = battleCryMinMonsters
+				} else {
+					cfg.Character.WarcryBarb.BattleCryMinMonsters = 1
+				}
+			}
+			cfg.Character.WarcryBarb.UseGrimWard = r.Form.Has("warcryBarbUseGrimWard")
+			cfg.Character.WarcryBarb.HorkNormalMonsters = r.Form.Has("warcryBarbHorkNormalMonsters")
+			horkRange, err := strconv.Atoi(r.Form.Get("warcryBarbHorkMonsterCheckRange"))
+			if err == nil && horkRange > 0 {
+				cfg.Character.WarcryBarb.HorkMonsterCheckRange = horkRange
+			} else {
+				cfg.Character.WarcryBarb.HorkMonsterCheckRange = 7
+			}
+		}
+
 		// Nova Sorceress specific options
 		if cfg.Character.Class == "nova" || cfg.Character.Class == "lightsorc" {
 			bossStaticThreshold, err := strconv.Atoi(r.Form.Get("novaBossStaticThreshold"))
@@ -1735,6 +1779,7 @@ func buildTZGroups() []TZGroup {
 
 	return result
 }
+
 // Wire Shopping: parse shopping-specific fields (explicit field setting)
 func (s *HttpServer) applyShoppingFromForm(r *http.Request, cfg *config.CharacterCfg) {
 	// Enable/disable
