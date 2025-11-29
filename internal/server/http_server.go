@@ -1217,6 +1217,40 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.BerserkerBarb.UseHowl = r.Form.Has("barbUseHowl")
 		}
 
+		// Barb Leveling specific options
+		if cfg.Character.Class == "barb_leveling" {
+			cfg.Character.BarbLeveling.UseHowl = r.Form.Has("barbLevelingUseHowl")
+			if cfg.Character.BarbLeveling.UseHowl {
+				howlCooldown, err := strconv.Atoi(r.Form.Get("barbLevelingHowlCooldown"))
+				if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+					cfg.Character.BarbLeveling.HowlCooldown = howlCooldown
+				} else {
+					cfg.Character.BarbLeveling.HowlCooldown = 8
+				}
+				howlMinMonsters, err := strconv.Atoi(r.Form.Get("barbLevelingHowlMinMonsters"))
+				if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+					cfg.Character.BarbLeveling.HowlMinMonsters = howlMinMonsters
+				} else {
+					cfg.Character.BarbLeveling.HowlMinMonsters = 4
+				}
+			}
+			cfg.Character.BarbLeveling.UseBattleCry = r.Form.Has("barbLevelingUseBattleCry")
+			if cfg.Character.BarbLeveling.UseBattleCry {
+				battleCryCooldown, err := strconv.Atoi(r.Form.Get("barbLevelingBattleCryCooldown"))
+				if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+					cfg.Character.BarbLeveling.BattleCryCooldown = battleCryCooldown
+				} else {
+					cfg.Character.BarbLeveling.BattleCryCooldown = 6
+				}
+				battleCryMinMonsters, err := strconv.Atoi(r.Form.Get("barbLevelingBattleCryMinMonsters"))
+				if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+					cfg.Character.BarbLeveling.BattleCryMinMonsters = battleCryMinMonsters
+				} else {
+					cfg.Character.BarbLeveling.BattleCryMinMonsters = 1
+				}
+			}
+		}
+
 		// Nova Sorceress specific options
 		if cfg.Character.Class == "nova" || cfg.Character.Class == "lightsorc" {
 			bossStaticThreshold, err := strconv.Atoi(r.Form.Get("novaBossStaticThreshold"))
@@ -1735,6 +1769,7 @@ func buildTZGroups() []TZGroup {
 
 	return result
 }
+
 // Wire Shopping: parse shopping-specific fields (explicit field setting)
 func (s *HttpServer) applyShoppingFromForm(r *http.Request, cfg *config.CharacterCfg) {
 	// Enable/disable
