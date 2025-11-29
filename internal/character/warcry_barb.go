@@ -105,11 +105,7 @@ func (s *WarcryBarb) KillMonsterSequence(
 
 		id, found = monsterSelector(*s.Data)
 		if !found {
-			horkRange := s.CharacterCfg.Character.WarcryBarb.HorkMonsterCheckRange
-			if horkRange <= 0 {
-				horkRange = 7
-			}
-			monstersNearby := s.countInRange(horkRange)
+			monstersNearby := s.countInRange(s.horkRange())
 			if monstersNearby == 0 && !s.isKillingCouncil.Load() {
 				s.FindItemOnNearbyCorpses(warcryBarbHorkRange)
 			}
@@ -148,11 +144,7 @@ func (s *WarcryBarb) KillMonsterSequence(
 		time.Sleep(time.Millisecond * 100)
 
 		if !s.isKillingCouncil.Load() {
-			horkRange := s.CharacterCfg.Character.WarcryBarb.HorkMonsterCheckRange
-			if horkRange <= 0 {
-				horkRange = 7
-			}
-			monstersNearby := s.countInRange(horkRange)
+			monstersNearby := s.countInRange(s.horkRange())
 			if monstersNearby <= 3 {
 				s.FindItemOnNearbyCorpses(warcryBarbHorkRange)
 			}
@@ -189,6 +181,14 @@ func (s *WarcryBarb) countInRange(rangeYards int) int {
 		}
 	}
 	return count
+}
+
+func (s *WarcryBarb) horkRange() int {
+	r := s.CharacterCfg.Character.WarcryBarb.HorkMonsterCheckRange
+	if r <= 0 {
+		return 7
+	}
+	return r
 }
 
 func (s *WarcryBarb) tryHowl(id data.UnitID, lastHowlCast *time.Time) bool {
@@ -627,8 +627,6 @@ func (s *WarcryBarb) KillDiablo() error {
 		}
 
 		diabloFound = true
-		s.Logger.Info("Diablo detected, attacking")
-
 		return s.killMonster(npc.Diablo, data.MonsterTypeUnique)
 	}
 }
@@ -666,7 +664,6 @@ func (s *WarcryBarb) killAllCouncilMembers() error {
 	context.Get().DisableItemPickup()
 	for {
 		if !s.anyCouncilMemberAlive() {
-			s.Logger.Info("All council members have been defeated!!!!")
 			return nil
 		}
 
