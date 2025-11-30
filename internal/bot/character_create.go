@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"syscall"
 	"unicode"
+	"unsafe"
 
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
@@ -21,41 +23,47 @@ var classCoords = map[string][2]int{
 	"druid": {ui.CharDruidX, ui.CharDruidY},
 }
 
+const (
+	INPUT_KEYBOARD    = 1
+	KEYEVENTF_UNICODE = 0x0004
+	KEYEVENTF_KEYUP   = 0x0002
+)
+
+type KEYBDINPUT struct {
+	wVk, wScan  uint16
+	dwFlags     uint32
+	time        uint32
+	dwExtraInfo uintptr
+}
+
+type INPUT struct {
+	inputType uint32
+	ki        KEYBDINPUT
+	padding   [8]byte
+}
+
+var (
+	user32        = syscall.NewLazyDLL("user32.dll")
+	procSendInput = user32.NewProc("SendInput")
+)
+
 func AutoCreateCharacter(class, name string) error {
 	ctx := context.Get()
 	ctx.Logger.Info("[AutoCreate] Processing", slog.String("class", class), slog.String("name", name))
 
 	// 1. Enter character creation screen
 	if !ctx.GameReader.IsInCharacterCreationScreen() {
-		opened := false
-		for i := 0; i < 5; i++ {
-			ctx.HID.Click(game.LeftButton, ui.CharCreateNewBtnX, ui.CharCreateNewBtnY)
-			utils.Sleep(180)
-			ctx.HID.Click(game.LeftButton, ui.CharCreateNewBtnX, ui.CharCreateNewBtnY)
-			utils.Sleep(1500)
-			if ctx.GameReader.IsInCharacterCreationScreen() {
-				opened = true
-				break
-			}
-		}
-		if !opened {
-			return errors.New("failed to enter creation screen")
+		if err := enterCreationScreen(ctx); err != nil {
+			return err
 		}
 	}
 
 	ctx.SetLastAction("CreateCharacter")
 
 	// 2. Select Class
-	classPos := [2]int{0, 0}
-	lowerClass := strings.ToLower(class)
-	for k, pos := range classCoords {
-		if strings.Contains(lowerClass, k) {
-			classPos = pos
-			break
-		}
-	}
-	if classPos[0] == 0 {
-		return fmt.Errorf("unknown class: %s", class)
+	classPos, err := getClassPosition(class)
+	if err != nil {
+		return err
 	}
 	ctx.HID.Click(game.LeftButton, classPos[0], classPos[1])
 	utils.Sleep(500)
@@ -67,41 +75,9 @@ func AutoCreateCharacter(class, name string) error {
 	}
 
 	// 4. Input Name
-	ctx.HID.Click(game.LeftButton, ui.CharNameInputX, ui.CharNameInputY)
-	utils.Sleep(300)
-	// Clear existing text
-	for i := 0; i < 16; i++ {
-		ctx.HID.PressKey(win.VK_BACK)
-		utils.Sleep(20)
+	if err := inputCharacterName(ctx, name); err != nil {
+		return err
 	}
-
-	// Support special chars (-, _) and English
-	nonAsciiDetected := false
-	for _, c := range name {
-		switch c {
-		case '-':
-			ctx.HID.PressKey(win.VK_OEM_MINUS)
-		case '_':
-			win.PostMessage(ctx.GameReader.HWND, win.WM_KEYDOWN, win.VK_LSHIFT, 0)
-			utils.Sleep(20)
-			ctx.HID.PressKey(win.VK_OEM_MINUS)
-			utils.Sleep(20)
-			win.PostMessage(ctx.GameReader.HWND, win.WM_KEYUP, win.VK_LSHIFT, 0)
-		default:
-			if c < 128 {
-				ctx.HID.PressKey(byte(unicode.ToUpper(c)))
-			} else {
-				nonAsciiDetected = true
-			}
-		}
-		utils.Sleep(60)
-	}
-
-	if nonAsciiDetected {
-		ctx.Logger.Warn("[AutoCreate] Non-English characters detected (skipped).", slog.String("name", name))
-	}
-
-	utils.Sleep(500)
 
 	// 5. Click Create Button
 	ctx.HID.Click(game.LeftButton, ui.CharCreateBtnX, ui.CharCreateBtnY)
@@ -116,4 +92,105 @@ func AutoCreateCharacter(class, name string) error {
 	}
 
 	return errors.New("creation timeout or failed")
+}
+
+func enterCreationScreen(ctx *context.Status) error {
+	for i := 0; i < 5; i++ {
+		ctx.HID.Click(game.LeftButton, ui.CharCreateNewBtnX, ui.CharCreateNewBtnY)
+		utils.Sleep(180)
+		ctx.HID.Click(game.LeftButton, ui.CharCreateNewBtnX, ui.CharCreateNewBtnY)
+		utils.Sleep(1500)
+		if ctx.GameReader.IsInCharacterCreationScreen() {
+			return nil
+		}
+	}
+	return errors.New("failed to enter creation screen")
+}
+
+func getClassPosition(class string) ([2]int, error) {
+	lowerClass := strings.ToLower(class)
+	for k, pos := range classCoords {
+		if strings.Contains(lowerClass, k) {
+			return pos, nil
+		}
+	}
+	return [2]int{}, fmt.Errorf("unknown class: %s", class)
+}
+
+func inputCharacterName(ctx *context.Status, name string) error {
+	ctx.HID.Click(game.LeftButton, ui.CharNameInputX, ui.CharNameInputY)
+	utils.Sleep(300)
+
+	// Clear existing text
+	for i := 0; i < 16; i++ {
+		ctx.HID.PressKey(win.VK_BACK)
+		utils.Sleep(20)
+	}
+	utils.Sleep(200)
+
+	// Check for non-ASCII
+	hasNonASCII := false
+	for _, r := range name {
+		if r > 127 {
+			hasNonASCII = true
+			break
+		}
+	}
+
+	if hasNonASCII {
+		return inputNonASCIIName(ctx, name)
+	}
+	return inputASCIIName(ctx, name)
+}
+
+func inputASCIIName(ctx *context.Status, name string) error {
+	for _, r := range name {
+		switch r {
+		case '-':
+			ctx.HID.PressKey(win.VK_OEM_MINUS)
+		case '_':
+			win.PostMessage(ctx.GameReader.HWND, win.WM_KEYDOWN, win.VK_LSHIFT, 0)
+			utils.Sleep(20)
+			ctx.HID.PressKey(win.VK_OEM_MINUS)
+			utils.Sleep(20)
+			win.PostMessage(ctx.GameReader.HWND, win.WM_KEYUP, win.VK_LSHIFT, 0)
+		default:
+			ctx.HID.PressKey(byte(unicode.ToUpper(r)))
+		}
+		utils.Sleep(60)
+	}
+	utils.Sleep(500)
+	return nil
+}
+
+func inputNonASCIIName(ctx *context.Status, name string) error {
+	ctx.Logger.Info("[AutoCreate] Using SendInput for non-ASCII name", slog.String("name", name))
+
+	for _, r := range name {
+		if err := sendUnicodeChar(r); err != nil {
+			ctx.Logger.Error("Failed to send unicode char", slog.String("char", string(r)), slog.Any("error", err))
+			return err
+		}
+		utils.Sleep(100)
+	}
+	utils.Sleep(500)
+	return nil
+}
+
+func sendUnicodeChar(char rune) error {
+	inputs := []INPUT{
+		{INPUT_KEYBOARD, KEYBDINPUT{0, uint16(char), KEYEVENTF_UNICODE, 0, 0}, [8]byte{}},
+		{INPUT_KEYBOARD, KEYBDINPUT{0, uint16(char), KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0, 0}, [8]byte{}},
+	}
+
+	ret, _, err := procSendInput.Call(
+		uintptr(len(inputs)),
+		uintptr(unsafe.Pointer(&inputs[0])),
+		unsafe.Sizeof(inputs[0]),
+	)
+
+	if ret == 0 {
+		return fmt.Errorf("SendInput failed: %v", err)
+	}
+	return nil
 }
