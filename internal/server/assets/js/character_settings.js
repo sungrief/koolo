@@ -44,7 +44,7 @@ window.onload = function () {
     const buildSelectElement = document.querySelector('select[name="characterClass"]');
     buildSelectElement.addEventListener('change', function () {
         const selectedBuild = buildSelectElement.value;
-        const levelingBuilds = ['paladin', 'sorceress_leveling', 'druid_leveling', 'amazon_leveling', 'necromancer', 'assassin'];
+        const levelingBuilds = ['paladin', 'sorceress_leveling', 'druid_leveling', 'amazon_leveling', 'necromancer', 'assassin', 'barb_leveling'];
 
         const enabledRunListElement = document.getElementById('enabled_runs');
         if (!enabledRunListElement) return;
@@ -87,7 +87,8 @@ function checkLevelingProfile() {
         "druid_leveling",
         "amazon_leveling",
         "necromancer",
-        "assassin"
+        "assassin",
+        "barb_leveling"
     ];
 
     const characterClass = document.getElementById('characterClass').value;
@@ -161,6 +162,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const selectedClass = characterClassSelect.value;
         const noSettingsMessage = document.getElementById('no-settings-message');
         const berserkerBarbOptions = document.querySelector('.berserker-barb-options');
+        const warcryBarbOptions = document.querySelector('.warcry-barb-options');
+        const barbLevelingOptions = document.querySelector('.barb-leveling-options');
         const novaSorceressOptions = document.querySelector('.nova-sorceress-options');
         const mosaicAssassinOptions = document.querySelector('.mosaic-assassin-options');
         const blizzardSorceressOptions = document.querySelector('.blizzard-sorceress-options');
@@ -195,6 +198,24 @@ document.addEventListener('DOMContentLoaded', function () {
             if (berserkerBarbOptions) berserkerBarbOptions.style.display = 'block';
         } else if (selectedClass === 'nova') {
             if (novaSorceressOptions) novaSorceressOptions.style.display = 'block';
+        berserkerBarbOptions.style.display = 'none';
+        warcryBarbOptions.style.display = 'none';
+        barbLevelingOptions.style.display = 'none';
+        novaSorceressOptions.style.display = 'none';
+        mosaicAssassinOptions.style.display = 'none';
+        blizzardSorceressOptions.style.display = 'none';
+        sorceressLevelingOptions.style.display = 'none';
+        noSettingsMessage.style.display = 'none';
+
+        // Show relevant options based on class
+        if (selectedClass === 'berserker') {
+            berserkerBarbOptions.style.display = 'block';
+        } else if (selectedClass === 'warcry_barb') {
+            warcryBarbOptions.style.display = 'block';
+        } else if (selectedClass === 'barb_leveling') {
+            barbLevelingOptions.style.display = 'block';
+        } else if (selectedClass === 'nova' || selectedClass === 'lightsorc') {
+            novaSorceressOptions.style.display = 'block';
             updateNovaSorceressOptions();
         } else if (selectedClass === 'lightsorc') {
             if (lightningSorceressOptions) lightningSorceressOptions.style.display = 'block';
@@ -363,6 +384,12 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target.closest('.remove-time-range')) {
             e.target.closest('.time-range').remove();
         }
+    });
+
+    document.getElementById('tzTrackAll').addEventListener('change', function (e) {
+        document.querySelectorAll('.tzTrackCheckbox').forEach(checkbox => {
+            checkbox.checked = e.target.checked;
+        });
     });
 
     function filterRunewords(searchTerm = '') { // Default parameter to ensure previously checked runewords show before searching
