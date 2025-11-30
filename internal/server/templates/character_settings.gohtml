@@ -64,7 +64,7 @@
                 </label>
                 <label>
                     Character name
-                    <input name="characterName" placeholder="{{ .Config.CharacterName }}" value="{{ .Config.CharacterName }}"/>
+                    <input name="characterName" placeholder="{{ .Config.CharacterName }}" value="{{ .Config.CharacterName }}" minlength="2" maxlength="16" oninput="if(this.value.length > 15) this.value = this.value.slice(0, 15);"/>
                 </label>
                 <label>
                     <input type="checkbox" name="isNonLadderChar" {{ if .Config.Game.IsNonLadderChar }}checked{{ end }}/>
