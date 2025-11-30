@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"embed"
 	"encoding/json"
@@ -36,6 +37,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/remote/droplog"
+	terrorzones "github.com/hectorgimenez/koolo/internal/terrorzone"
 	"github.com/hectorgimenez/koolo/internal/utils"
 	"github.com/hectorgimenez/koolo/internal/utils/winproc"
 	"github.com/lxn/win"
@@ -215,6 +217,11 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager) (*HttpServer, erro
 			}
 			return result
 		},
+		"allImmunities": func() []string {
+			return []string{"f", "c", "l", "p", "ph", "m"}
+		},
+		"upper": strings.ToUpper,
+		"trim":  strings.TrimSpace,
 	}
 	templates, err := template.New("").Funcs(helperFuncs).ParseFS(templatesFS, "templates/*.gohtml")
 	if err != nil {
@@ -1208,6 +1215,113 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Character.BerserkerBarb.SkipPotionPickupInTravincal = r.Form.Has("barbSkipPotionPickupInTravincal")
 			cfg.Character.BerserkerBarb.FindItemSwitch = r.Form.Has("characterFindItemSwitch")
 			cfg.Character.BerserkerBarb.UseHowl = r.Form.Has("barbUseHowl")
+			if cfg.Character.BerserkerBarb.UseHowl {
+				howlCooldown, err := strconv.Atoi(r.Form.Get("barbHowlCooldown"))
+				if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+					cfg.Character.BerserkerBarb.HowlCooldown = howlCooldown
+				} else {
+					cfg.Character.BerserkerBarb.HowlCooldown = 6
+				}
+				howlMinMonsters, err := strconv.Atoi(r.Form.Get("barbHowlMinMonsters"))
+				if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+					cfg.Character.BerserkerBarb.HowlMinMonsters = howlMinMonsters
+				} else {
+					cfg.Character.BerserkerBarb.HowlMinMonsters = 4
+				}
+			}
+			cfg.Character.BerserkerBarb.UseBattleCry = r.Form.Has("barbUseBattleCry")
+			if cfg.Character.BerserkerBarb.UseBattleCry {
+				battleCryCooldown, err := strconv.Atoi(r.Form.Get("barbBattleCryCooldown"))
+				if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+					cfg.Character.BerserkerBarb.BattleCryCooldown = battleCryCooldown
+				} else {
+					cfg.Character.BerserkerBarb.BattleCryCooldown = 6
+				}
+				battleCryMinMonsters, err := strconv.Atoi(r.Form.Get("barbBattleCryMinMonsters"))
+				if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+					cfg.Character.BerserkerBarb.BattleCryMinMonsters = battleCryMinMonsters
+				} else {
+					cfg.Character.BerserkerBarb.BattleCryMinMonsters = 4
+				}
+			}
+		}
+
+		// Barb Leveling specific options
+		if cfg.Character.Class == "barb_leveling" {
+			cfg.Character.BarbLeveling.UseHowl = r.Form.Has("barbLevelingUseHowl")
+			if cfg.Character.BarbLeveling.UseHowl {
+				howlCooldown, err := strconv.Atoi(r.Form.Get("barbLevelingHowlCooldown"))
+				if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+					cfg.Character.BarbLeveling.HowlCooldown = howlCooldown
+				} else {
+					cfg.Character.BarbLeveling.HowlCooldown = 8
+				}
+				howlMinMonsters, err := strconv.Atoi(r.Form.Get("barbLevelingHowlMinMonsters"))
+				if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+					cfg.Character.BarbLeveling.HowlMinMonsters = howlMinMonsters
+				} else {
+					cfg.Character.BarbLeveling.HowlMinMonsters = 4
+				}
+			}
+			cfg.Character.BarbLeveling.UseBattleCry = r.Form.Has("barbLevelingUseBattleCry")
+			if cfg.Character.BarbLeveling.UseBattleCry {
+				battleCryCooldown, err := strconv.Atoi(r.Form.Get("barbLevelingBattleCryCooldown"))
+				if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+					cfg.Character.BarbLeveling.BattleCryCooldown = battleCryCooldown
+				} else {
+					cfg.Character.BarbLeveling.BattleCryCooldown = 6
+				}
+				battleCryMinMonsters, err := strconv.Atoi(r.Form.Get("barbLevelingBattleCryMinMonsters"))
+				if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+					cfg.Character.BarbLeveling.BattleCryMinMonsters = battleCryMinMonsters
+				} else {
+					cfg.Character.BarbLeveling.BattleCryMinMonsters = 1
+				}
+			}
+		}
+
+		// Warcry Barb specific options
+		if cfg.Character.Class == "warcry_barb" {
+			cfg.Character.WarcryBarb.FindItemSwitch = r.Form.Has("warcryBarbFindItemSwitch")
+			cfg.Character.WarcryBarb.SkipPotionPickupInTravincal = r.Form.Has("warcryBarbSkipPotionPickupInTravincal")
+			cfg.Character.WarcryBarb.UseHowl = r.Form.Has("warcryBarbUseHowl")
+			if cfg.Character.WarcryBarb.UseHowl {
+				howlCooldown, err := strconv.Atoi(r.Form.Get("warcryBarbHowlCooldown"))
+				if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+					cfg.Character.WarcryBarb.HowlCooldown = howlCooldown
+				} else {
+					cfg.Character.WarcryBarb.HowlCooldown = 8
+				}
+				howlMinMonsters, err := strconv.Atoi(r.Form.Get("warcryBarbHowlMinMonsters"))
+				if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+					cfg.Character.WarcryBarb.HowlMinMonsters = howlMinMonsters
+				} else {
+					cfg.Character.WarcryBarb.HowlMinMonsters = 4
+				}
+			}
+			cfg.Character.WarcryBarb.UseBattleCry = r.Form.Has("warcryBarbUseBattleCry")
+			if cfg.Character.WarcryBarb.UseBattleCry {
+				battleCryCooldown, err := strconv.Atoi(r.Form.Get("warcryBarbBattleCryCooldown"))
+				if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+					cfg.Character.WarcryBarb.BattleCryCooldown = battleCryCooldown
+				} else {
+					cfg.Character.WarcryBarb.BattleCryCooldown = 6
+				}
+				battleCryMinMonsters, err := strconv.Atoi(r.Form.Get("warcryBarbBattleCryMinMonsters"))
+				if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+					cfg.Character.WarcryBarb.BattleCryMinMonsters = battleCryMinMonsters
+				} else {
+					cfg.Character.WarcryBarb.BattleCryMinMonsters = 1
+				}
+			}
+			cfg.Character.WarcryBarb.UseGrimWard = r.Form.Has("warcryBarbUseGrimWard")
+			cfg.Character.WarcryBarb.HorkNormalMonsters = r.Form.Has("warcryBarbHorkNormalMonsters")
+			horkRange, err := strconv.Atoi(r.Form.Get("warcryBarbHorkMonsterCheckRange"))
+			if err == nil && horkRange > 0 {
+				cfg.Character.WarcryBarb.HorkMonsterCheckRange = horkRange
+			} else {
+				cfg.Character.WarcryBarb.HorkMonsterCheckRange = 7
+			}
 		}
 
 		// Nova Sorceress specific options
@@ -1488,13 +1602,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(disabledRuns)
 
-	availableTZs := make(map[int]string)
-	for _, tz := range area.Areas {
-		if tz.CanBeTerrorized() {
-			availableTZs[int(tz.ID)] = tz.Name
-		}
-	}
-
 	if len(cfg.Scheduler.Days) == 0 {
 		cfg.Scheduler.Days = make([]config.Day, 7)
 		for i := 0; i < 7; i++ {
@@ -1536,7 +1643,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		DayNames:              dayNames,
 		EnabledRuns:           enabledRuns,
 		DisabledRuns:          disabledRuns,
-		AvailableTZs:          availableTZs,
+		TerrorZoneGroups:      buildTZGroups(),
 		RecipeList:            config.AvailableRecipes,
 		RunewordRecipeList:    config.AvailableRunewordRecipes,
 		AvailableProfiles:     muleProfiles,
@@ -1698,6 +1805,41 @@ func (s *HttpServer) getIntFromForm(r *http.Request, param string, min int, max 
 	} else {
 		result = int(math.Max(math.Min(float64(paramValue), float64(max)), float64(min)))
 	}
+	return result
+}
+
+func buildTZGroups() []TZGroup {
+	groups := make(map[string][]area.ID)
+	for id, info := range terrorzones.Zones() {
+		groupName := info.Group
+		if groupName == "" {
+			groupName = id.Area().Name
+		}
+		groups[groupName] = append(groups[groupName], id)
+	}
+
+	var result []TZGroup
+	for name, ids := range groups {
+		zone := terrorzones.Zones()[ids[0]]
+
+		result = append(result, TZGroup{
+			Act:           zone.Act,
+			Name:          name,
+			PrimaryAreaID: int(ids[0]),
+			Immunities:    zone.Immunities,
+			BossPacks:     zone.BossPack,
+			ExpTier:       string(zone.ExpTier),
+			LootTier:      string(zone.LootTier),
+		})
+	}
+
+	slices.SortStableFunc(result, func(a, b TZGroup) int {
+		if a.Act != b.Act {
+			return cmp.Compare(a.Act, b.Act)
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
+
 	return result
 }
 
