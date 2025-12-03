@@ -195,20 +195,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Show relevant options based on class
         if (selectedClass === 'berserker') {
-            if (berserkerBarbOptions) berserkerBarbOptions.style.display = 'block';
-        } else if (selectedClass === 'nova') {
-            if (novaSorceressOptions) novaSorceressOptions.style.display = 'block';
-        berserkerBarbOptions.style.display = 'none';
-        warcryBarbOptions.style.display = 'none';
-        barbLevelingOptions.style.display = 'none';
-        novaSorceressOptions.style.display = 'none';
-        mosaicAssassinOptions.style.display = 'none';
-        blizzardSorceressOptions.style.display = 'none';
-        sorceressLevelingOptions.style.display = 'none';
-        noSettingsMessage.style.display = 'none';
-
-        // Show relevant options based on class
-        if (selectedClass === 'berserker') {
             berserkerBarbOptions.style.display = 'block';
         } else if (selectedClass === 'warcry_barb') {
             warcryBarbOptions.style.display = 'block';
