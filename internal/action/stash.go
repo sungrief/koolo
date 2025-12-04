@@ -327,8 +327,9 @@ func shouldKeepRecipeItem(i data.Item) bool {
 	ctx := context.Get()
 	ctx.SetLastStep("shouldKeepRecipeItem")
 
-	// No items with quality higher than magic can be part of a recipe
-	if i.Quality > item.QualityMagic {
+	// No items with quality higher than magic can be part of a recipe,
+	// except jewels, which are used in crafting recipes at any quality.
+	if string(i.Name) != "Jewel" && i.Quality > item.QualityMagic {
 		return false
 	}
 
@@ -339,7 +340,7 @@ func shouldKeepRecipeItem(i data.Item) bool {
 	// that does not match a pickit rule.
 	for _, it := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
 		// Count how many magic or rare quality jewels we already have in stash
-		if string(it.Name) == "Jewel" && it.Quality == item.QualityMagic || it.Quality == item.QualityRare {
+		if string(it.Name) == "Jewel" {
 			if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(it); res != nip.RuleResultFullMatch {
 				jewelCount++
 			}

@@ -366,7 +366,7 @@ func ItemsToBeSold(lockConfig ...[][]int) (items []data.Item) {
 	// Count non-NIP jewels already in stash
 	jewelCount := 0
 	for _, stashed := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
-		if string(stashed.Name) == "Jewel" && stashed.Quality == item.QualityMagic {
+		if string(stashed.Name) == "Jewel" {
 			// Only count jewels that are not kept by a NIP rule
 			if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashed); res != nip.RuleResultFullMatch {
 				jewelCount++
@@ -416,8 +416,7 @@ func ItemsToBeSold(lockConfig ...[][]int) (items []data.Item) {
 			continue
 		}
 		// NEW: skip jewels needed for crafting (non-NIP jewels) until quota is met
-		if craftingEnabled && string(itm.Name) == "Jewel" &&
-			itm.Quality == item.QualityMagic || itm.Quality == item.QualityRare {
+		if craftingEnabled && string(itm.Name) == "Jewel" {
 			// Only consider jewels that are not covered by a NIP rule
 			if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); res != nip.RuleResultFullMatch {
 				if jewelCount < maxJewelsToKeep {
