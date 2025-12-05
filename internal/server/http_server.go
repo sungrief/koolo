@@ -1277,7 +1277,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				} else {
 					cfg.Character.BarbLeveling.BattleCryMinMonsters = 1
 				}
-				cfg.Character.BarbLeveling.UsePacketLearning = r.Form.Has("levelingUsePacketLearning")
+				cfg.Character.BarbLeveling.UsePacketLearning = r.Form.Has("usePacketLearning")
 			}
 		}
 
