@@ -133,7 +133,7 @@ func (pf *PathFinder) moveThroughPathTeleport(p Path) {
 			usePacket := pf.cfg.PacketCasting.UseForTeleport && pf.packetSender != nil
 
 			if usePacket {
-				nearBoundary := pf.isNearAreaBoundary(worldPos, 40)
+				nearBoundary := pf.isNearAreaBoundary(worldPos, 50)
 				if nearBoundary {
 					slog.Debug("Near area boundary detected, using mouse click instead of packet",
 						slog.Int("x", worldPos.X),
