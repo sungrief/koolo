@@ -163,6 +163,12 @@
                             </div>
                         </div>
                     </fieldset>
+                    <fieldset class="grid">
+                        <label>
+                            <input type="checkbox" id="levelingUsePacketLearning" name="usePacketLearning" {{ if .Config.Character.BarbLeveling.UsePacketLearning }}checked{{ end }}/>
+                            Use Packet Learning (faster skill/stat allocation)
+                        </label>
+                    </fieldset>
                     <script>
                         document.getElementById('barbLevelingUseHowl')?.addEventListener('change', function() {
                             const isChecked = this.checked;
