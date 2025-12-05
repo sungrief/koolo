@@ -1277,8 +1277,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				} else {
 					cfg.Character.BarbLeveling.BattleCryMinMonsters = 1
 				}
-					cfg.Character.SorceressLeveling.UsePacketLearning = r.Form.Has("levelingUsePacketLearning")
-				}
+				cfg.Character.BarbLeveling.UsePacketLearning = r.Form.Has("levelingUsePacketLearning")
 			}
 		}
 
@@ -1441,7 +1440,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		copy(cfg.Inventory.BeltColumns[:], r.Form["inventoryBeltColumns[]"])
-
 
 		cfg.Inventory.HealingPotionCount, _ = strconv.Atoi(r.Form.Get("healingPotionCount"))
 		cfg.Inventory.ManaPotionCount, _ = strconv.Atoi(r.Form.Get("manaPotionCount"))
