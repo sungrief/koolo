@@ -101,11 +101,13 @@ type CharacterCfg struct {
 
 	ConfigFolderName string `yaml:"-"`
 
-	// Packet casting options (disabled by default for safety)
 	PacketCasting struct {
 		UseForEntranceInteraction bool `yaml:"useForEntranceInteraction"`
 		UseForItemPickup          bool `yaml:"useForItemPickup"`
 		UseForTpInteraction       bool `yaml:"useForTpInteraction"`
+		UseForTeleport            bool `yaml:"useForTeleport"`
+		UseForEntitySkills        bool `yaml:"useForEntitySkills"`
+		UseForSkillSelection      bool `yaml:"useForSkillSelection"`
 	} `yaml:"packetCasting"`
 
 	Scheduler Scheduler `yaml:"scheduler"`
@@ -150,12 +152,19 @@ type CharacterCfg struct {
 			HorkMonsterCheckRange       int  `yaml:"hork_monster_check_range"`
 		} `yaml:"berserker_barb"`
 		BlizzardSorceress struct {
-			UseMoatTrick        bool `yaml:"use_moat_trick"`
-			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
+			UseMoatTrick          bool `yaml:"use_moat_trick"`
+			UseStaticOnMephisto   bool `yaml:"use_static_on_mephisto"`
+			UseTelekinesis        bool `yaml:"use_telekinesis"`
+			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+			UseBlizzardPackets    bool `yaml:"use_blizzard_packets"`
 		} `yaml:"blizzard_sorceress"`
 		SorceressLeveling struct {
-			UseMoatTrick        bool `yaml:"use_moat_trick"`
-			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
+			UseMoatTrick          bool `yaml:"use_moat_trick"`
+			UseStaticOnMephisto   bool `yaml:"use_static_on_mephisto"`
+			UseTelekinesis        bool `yaml:"use_telekinesis"`
+			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+			UseBlizzardPackets    bool `yaml:"use_blizzard_packets"`
+			UsePacketLearning     bool `yaml:"use_packet_learning"`
 		} `yaml:"sorceress_leveling"`
 		BarbLeveling struct {
 			UseHowl              bool `yaml:"use_howl"`
@@ -164,10 +173,25 @@ type CharacterCfg struct {
 			UseBattleCry         bool `yaml:"use_battlecry"`
 			BattleCryCooldown    int  `yaml:"battlecry_cooldown"`
 			BattleCryMinMonsters int  `yaml:"battlecry_min_monsters"`
+			UsePacketLearning    bool `yaml:"use_packet_learning"`
 		} `yaml:"barb_leveling"`
 		NovaSorceress struct {
-			BossStaticThreshold int `yaml:"boss_static_threshold"`
+			BossStaticThreshold   int  `yaml:"boss_static_threshold"`
+			UseTelekinesis        bool `yaml:"use_telekinesis"`
+			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
 		} `yaml:"nova_sorceress"`
+		LightningSorceress struct {
+			UseTelekinesis        bool `yaml:"use_telekinesis"`
+			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+		} `yaml:"lightning_sorceress"`
+		HydraOrbSorceress struct {
+			UseTelekinesis        bool `yaml:"use_telekinesis"`
+			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+		} `yaml:"hydraorb_sorceress"`
+		FireballSorceress struct {
+			UseTelekinesis        bool `yaml:"use_telekinesis"`
+			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+		} `yaml:"fireball_sorceress"`
 		MosaicSin struct {
 			UseTigerStrike    bool `yaml:"useTigerStrike"`
 			UseCobraStrike    bool `yaml:"useCobraStrike"`
@@ -175,6 +199,21 @@ type CharacterCfg struct {
 			UseBladesOfIce    bool `yaml:"useBladesOfIce"`
 			UseFistsOfFire    bool `yaml:"useFistsOfFire"`
 		} `yaml:"mosaic_sin"`
+		AssassinLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"assassin_leveling"`
+		AmazonLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"amazon_leveling"`
+		DruidLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"druid_leveling"`
+		NecromancerLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"necromancer_leveling"`
+		PaladinLeveling struct {
+			UsePacketLearning bool `yaml:"use_packet_learning"`
+		} `yaml:"paladin_leveling"`
 		WarcryBarb struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
@@ -187,6 +226,7 @@ type CharacterCfg struct {
 			UseGrimWard                 bool `yaml:"use_grim_ward"`
 			HorkNormalMonsters          bool `yaml:"hork_normal_monsters"`
 			HorkMonsterCheckRange       int  `yaml:"hork_monster_check_range"`
+			UsePacketLearning           bool `yaml:"use_packet_learning"`
 		} `yaml:"warcry_barb"`
 	} `yaml:"character"`
 
