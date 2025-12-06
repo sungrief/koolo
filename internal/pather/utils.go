@@ -133,13 +133,20 @@ func (pf *PathFinder) moveThroughPathTeleport(p Path) {
 			usePacket := pf.cfg.PacketCasting.UseForTeleport && pf.packetSender != nil
 
 			if usePacket {
-				nearBoundary := pf.isNearAreaBoundary(worldPos, 280)
-				if nearBoundary {
-					slog.Debug("Near area boundary detected, using mouse click instead of packet",
-						slog.Int("x", worldPos.X),
-						slog.Int("y", worldPos.Y),
+				if pf.isMouseClickTeleportZone() {
+					slog.Debug("Mouse click teleport zone detected, using mouse click instead of packet",
+						slog.String("area", pf.data.PlayerUnit.Area.Area().Name),
 					)
 					usePacket = false
+				} else {
+					nearBoundary := pf.isNearAreaBoundary(worldPos, 60)
+					if nearBoundary {
+						slog.Debug("Near area boundary detected, using mouse click instead of packet",
+							slog.Int("x", worldPos.X),
+							slog.Int("y", worldPos.Y),
+						)
+						usePacket = false
+					}
 				}
 			}
 
@@ -197,6 +204,15 @@ func (pf *PathFinder) isNearAreaBoundary(pos data.Position, threshold int) bool 
 	}
 
 	return minDistance <= threshold
+}
+
+func (pf *PathFinder) isMouseClickTeleportZone() bool {
+	currentArea := pf.data.PlayerUnit.Area
+	switch currentArea {
+	case area.FlayerJungle, area.LowerKurast, area.RiverOfFlame:
+		return true
+	}
+	return false
 }
 
 func (pf *PathFinder) MoveCharacter(x, y int, gamePos ...data.Position) {
