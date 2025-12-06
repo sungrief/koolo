@@ -10,10 +10,12 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
+	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/pather"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 const (
@@ -31,7 +33,7 @@ func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
 }
 
 func (s Javazon) CheckKeyBindings() []skill.ID {
-	requireKeybindings := []skill.ID{skill.LightningFury, skill.TomeOfTownPortal}
+	requireKeybindings := []skill.ID{skill.LightningFury, skill.ChargedStrike, skill.TomeOfTownPortal}
 	missingKeybindings := []skill.ID{}
 
 	for _, cskill := range requireKeybindings {
@@ -96,7 +98,13 @@ func (s Javazon) KillMonsterSequence(
 		if closeMonsters >= 3 {
 			step.SecondaryAttack(skill.LightningFury, id, numOfAttacks, step.Distance(minJavazonDistance, maxJavazonDistance))
 		} else {
-			step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 1))
+			if s.Data.PlayerUnit.Skills[skill.ChargedStrike].Level > 0 {
+				for i := 0; i < numOfAttacks; i++ {
+					s.chargedStrike(id)
+				}
+			} else {
+				step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 1))
+			}
 		}
 
 		completedAttackLoops++
@@ -131,11 +139,46 @@ func (s Javazon) KillBossSequence(
 			return nil
 		}
 
+		if s.Data.PlayerUnit.Skills[skill.ChargedStrike].Level > 0 {
+			for i := 0; i < numOfAttacks; i++ {
+				s.chargedStrike(id)
+			}
+		} else {
+			step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 1))
+		}
+
 		completedAttackLoops++
 		previousUnitID = int(id)
-
-		step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 1))
 	}
+}
+
+func (s Javazon) chargedStrike(monsterID data.UnitID) {
+	ctx := context.Get()
+	ctx.PauseIfNotPriority()
+
+	monster, found := s.Data.Monsters.FindByID(monsterID)
+	if !found {
+		return
+	}
+
+	distance := ctx.PathFinder.DistanceFromMe(monster.Position)
+	if distance > 5 {
+		_ = action.MoveToCoords(monster.Position, step.WithDistanceToFinish(3))
+		ctx.RefreshGameData()
+		monster, found = s.Data.Monsters.FindByID(monsterID)
+		if !found {
+			return
+		}
+	}
+
+	csKey, found := s.Data.KeyBindings.KeyBindingForSkill(skill.ChargedStrike)
+	if found && s.Data.PlayerUnit.RightSkill != skill.ChargedStrike {
+		ctx.HID.PressKeyBinding(csKey)
+		utils.Sleep(50)
+	}
+
+	screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(monster.Position.X, monster.Position.Y)
+	ctx.HID.Click(game.RightButton, screenX, screenY)
 }
 
 func (s Javazon) killMonster(npc npc.ID, t data.MonsterType) error {
@@ -161,14 +204,13 @@ func (s Javazon) killBoss(npc npc.ID, t data.MonsterType) error {
 }
 
 func (s Javazon) PreCTABuffSkills() []skill.ID {
-	if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.Valkyrie); found {
-		return []skill.ID{skill.Valkyrie}
-	} else {
-		return []skill.ID{}
-	}
+	return []skill.ID{}
 }
 
 func (s Javazon) BuffSkills() []skill.ID {
+	if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.Valkyrie); found {
+		return []skill.ID{skill.Valkyrie}
+	}
 	return []skill.ID{}
 }
 
@@ -253,7 +295,13 @@ func (s Javazon) KillDiablo() error {
 }
 
 func (s Javazon) KillPindle() error {
-	return s.killBoss(npc.DefiledWarrior, data.MonsterTypeSuperUnique)
+	return s.KillMonsterSequence(func(d game.Data) (data.UnitID, bool) {
+		m, found := d.Monsters.FindOne(npc.DefiledWarrior, data.MonsterTypeSuperUnique)
+		if !found {
+			return 0, false
+		}
+		return m.UnitID, true
+	}, nil)
 }
 
 func (s Javazon) KillNihlathak() error {
