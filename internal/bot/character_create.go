@@ -83,15 +83,25 @@ func AutoCreateCharacter(class, name string) error {
 	ctx.HID.Click(game.LeftButton, ui.CharCreateBtnX, ui.CharCreateBtnY)
 	utils.Sleep(1500)
 
-	// Wait for character selection screen
+	// Wait for character selection screen and confirm the new character is visible/selected
 	for i := 0; i < 5; i++ {
 		if ctx.GameReader.IsInCharacterSelectionScreen() {
-			return nil
+			// Give it a moment to update selection state
+			utils.Sleep(500)
+			selected := ctx.GameReader.GameReader.GetSelectedCharacterName()
+			ctx.Logger.Info("[AutoCreate] Back at selection screen",
+				slog.String("selected", selected),
+				slog.String("expected", name))
+
+			if strings.EqualFold(selected, name) {
+				ctx.Logger.Info("[AutoCreate] Character successfully created and selected")
+				return nil
+			}
 		}
-		utils.Sleep(300)
+		utils.Sleep(500)
 	}
 
-	return errors.New("creation timeout or failed")
+	return errors.New("creation timeout or character not found after creation")
 }
 
 func enterCreationScreen(ctx *context.Status) error {
