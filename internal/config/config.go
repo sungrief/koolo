@@ -146,8 +146,10 @@ type CharacterCfg struct {
 			HowlCooldown                int  `yaml:"howl_cooldown"`
 			HowlMinMonsters             int  `yaml:"howl_min_monsters"`
 			UseBattleCry                bool `yaml:"use_battlecry"`
-			BattleCryCooldown           int  `yaml:"battlecry_cooldown"`
-			BattleCryMinMonsters        int  `yaml:"battlecry_min_monsters"`
+			BattleCryCooldown            int  `yaml:"battlecry_cooldown"`
+			BattleCryMinMonsters         int  `yaml:"battlecry_min_monsters"`
+			HorkNormalMonsters          bool `yaml:"hork_normal_monsters"`
+			HorkMonsterCheckRange       int  `yaml:"hork_monster_check_range"`
 		} `yaml:"berserker_barb"`
 		BlizzardSorceress struct {
 			UseMoatTrick          bool `yaml:"use_moat_trick"`

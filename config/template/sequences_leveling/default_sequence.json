@@ -83,7 +83,7 @@
         "beforeQuests": [
             {
                 "run": "tristram_early_gold_farm",
-                "maxLevel": 7,
+                "maxLevel": 24,
                 "lowGoldRun": true
             },
             {

@@ -3,6 +3,7 @@ package town
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -362,6 +363,28 @@ func ItemsToBeSold(lockConfig ...[][]int) (items []data.Item) {
 	} else {
 		currentLockConfig = ctx.CharacterCfg.Inventory.InventoryLock
 	}
+	// Count non-NIP jewels already in stash
+	jewelCount := 0
+	for _, stashed := range ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash) {
+		if string(stashed.Name) == "Jewel" {
+			// Only count jewels that are not kept by a NIP rule
+			if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(stashed); res != nip.RuleResultFullMatch {
+				jewelCount++
+			}
+		}
+	}
+	// Determine whether any jewel-using recipes are enabled
+	maxJewelsToKeep := ctx.CharacterCfg.CubeRecipes.JewelsToKeep
+	craftingEnabled := false
+	for _, r := range ctx.CharacterCfg.CubeRecipes.EnabledRecipes {
+		if strings.HasPrefix(r, "Caster ") ||
+			strings.HasPrefix(r, "Blood ") ||
+			strings.HasPrefix(r, "Safety ") ||
+			strings.HasPrefix(r, "Hitpower ") {
+			craftingEnabled = true
+			break
+		}
+	}
 
 	for _, itm := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
 		// Check if the item is in a locked slot, and if so, skip it.
@@ -391,6 +414,17 @@ func ItemsToBeSold(lockConfig ...[][]int) (items []data.Item) {
 
 		if _, result := ctx.Data.CharacterCfg.Runtime.Rules.EvaluateAllIgnoreTiers(itm); result == nip.RuleResultFullMatch && !itm.IsPotion() {
 			continue
+		}
+		// NEW: skip jewels needed for crafting (non-NIP jewels) until quota is met
+		if craftingEnabled && string(itm.Name) == "Jewel" {
+			// Only consider jewels that are not covered by a NIP rule
+			if _, res := ctx.CharacterCfg.Runtime.Rules.EvaluateAll(itm); res != nip.RuleResultFullMatch {
+				if jewelCount < maxJewelsToKeep {
+					jewelCount++
+					// do not add this jewel to the sell list
+					continue
+				}
+			}
 		}
 
 		if itm.IsHealingPotion() {
