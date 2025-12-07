@@ -182,6 +182,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (berserkerBarbOptions) berserkerBarbOptions.style.display = 'none';
         if (warcryBarbOptions) warcryBarbOptions.style.display = 'none';
         if (barbLevelingOptions) barbLevelingOptions.style.display = 'none';
+
+        // Hide all options first
+        if (berserkerBarbOptions) berserkerBarbOptions.style.display = 'none';
         if (novaSorceressOptions) novaSorceressOptions.style.display = 'none';
         if (mosaicAssassinOptions) mosaicAssassinOptions.style.display = 'none';
         if (blizzardSorceressOptions) blizzardSorceressOptions.style.display = 'none';
