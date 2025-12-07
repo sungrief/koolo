@@ -34,8 +34,8 @@
             </label>
             <fieldset class="grid">
                 <label>
-                    Class
-                    <select name="characterClass">
+                    Build
+                    <select name="characterClass" id="characterClass" data-current-build="{{ .Config.Character.Class }}">
                         {{ if eq .Version "dev" }}
                         <option value="development" {{ if eq .Config.Character.Class "development" }}selected{{ end }}>Development</option>
                         {{ end }}
