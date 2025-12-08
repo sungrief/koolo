@@ -177,6 +177,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { value: 'paladin', label: 'Paladin (Leveling)' },
             { value: 'hammerdin', label: 'Hammer Paladin' },
             { value: 'foh', label: 'FOH Paladin' },
+            { value: 'smiter', label: 'Smiter (Ubers)' },
         ],
         sorceress: [
             { value: 'sorceress', label: 'Blizzard Sorceress' },

@@ -616,3 +616,18 @@ func moveItemToPosition(ctx *context.Status, itm data.Item, targetPos data.Posit
 	ctx.RefreshGameData()
 	return nil
 }
+
+func standardofHeros(ctx *context.Status) error {
+	for _, invItem := range ctx.Data.Inventory.ByLocation(item.LocationInventory) {
+		if invItem.Name == "StandardOfHeroes" || invItem.IdentifiedName == "Standard of Heroes" {
+			if _, err := stashToSharedStash(ctx, invItem); err != nil {
+				return fmt.Errorf("failed to stash Standard of Heroes: %w", err)
+			}
+			ctx.Logger.Info("Stashed Standard of Heroes before torch swap")
+			utils.Sleep(300)
+			ctx.RefreshGameData()
+			return nil
+		}
+	}
+	return nil
+}

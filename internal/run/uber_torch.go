@@ -674,6 +674,10 @@ func (t *Torch) restoreTorch() error {
 	}
 
 	if newTorchFound {
+		if err := standardofHeros(t.ctx); err != nil {
+			t.ctx.Logger.Warn(fmt.Sprintf("Failed to stash Standard of Heroes: %v", err))
+		}
+
 		if _, err := stashToSharedStash(t.ctx, newTorch); err != nil {
 			t.ctx.Logger.Warn(fmt.Sprintf("Failed to stash new torch: %v", err))
 		}
