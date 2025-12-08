@@ -48,6 +48,7 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 	ctx := context.Get()
 	ctx.SetLastAction("InteractObject")
 
+	originalArea := ctx.Data.PlayerUnit.Area
 	pos := o.Position
 	distFinish := step.DistanceToFinishMoving
 	if ctx.Data.PlayerUnit.Area == area.RiverOfFlame && o.IsWaypoint() {
@@ -60,6 +61,10 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 
 	var err error
 	for range 5 {
+		if !ctx.Data.AreaData.IsInside(pos) && ctx.Data.PlayerUnit.Area != originalArea {
+			// we probably changed area, ignore this interaction attempt
+			return nil
+		}
 		// For waypoints, check if we should use telekinesis
 		if o.IsWaypoint() {
 			// Check if telekinesis is enabled and available
