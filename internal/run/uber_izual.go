@@ -48,11 +48,13 @@ func (u UberIzual) Run(parameters *RunParameters) error {
 		return []data.Monster{}
 	}
 
+	bossFound := false
 	err := action.ClearCurrentLevelEx(false, exploreFilter, func() bool {
 		if boss, found := u.ctx.Data.Monsters.FindOne(npc.UberIzual, data.MonsterTypeUnique); found {
 			if err := action.MoveToCoords(boss.Position, step.WithIgnoreMonsters()); err != nil {
 				u.ctx.Logger.Warn(fmt.Sprintf("Failed to teleport to boss: %v", err))
 			}
+			bossFound = true
 			return true
 		}
 		return false
@@ -61,9 +63,16 @@ func (u UberIzual) Run(parameters *RunParameters) error {
 		return err
 	}
 
+	if !bossFound {
+		u.ctx.Logger.Warn("Uber Izual not found during exploration")
+		return fmt.Errorf("UberIzual not found during exploration")
+	}
+
+	u.ctx.Logger.Info("Found Uber Izual, starting fight")
 	if err := u.ctx.Char.KillUberIzual(); err != nil {
 		return err
 	}
 
+	u.ctx.Logger.Info("Successfully killed Uber Izual")
 	return nil
 }

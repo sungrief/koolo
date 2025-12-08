@@ -67,7 +67,6 @@ const (
 	LilithRun                Run = "lilith"
 	// Development / Utility runs
 	DevelopmentRun Run = "development"
-	IdleRun        Run = "idle"
 )
 
 type LevelingRunInfo struct {
@@ -113,7 +112,6 @@ var AvailableRuns = map[Run]interface{}{
 	OrgansRun:           nil,
 	PandemoniumRun:      nil,
 	DevelopmentRun:      nil,
-	IdleRun:             nil,
 }
 
 var SequencerQuests = []LevelingRunInfo{
@@ -205,5 +203,4 @@ var SequencerRuns = []Run{
 	UberIzualRun,
 	UberDurielRun,
 	LilithRun,
-	IdleRun,
 }

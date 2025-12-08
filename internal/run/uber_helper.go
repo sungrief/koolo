@@ -631,3 +631,53 @@ func standardofHeros(ctx *context.Status) error {
 	}
 	return nil
 }
+
+func openUT(ctx *context.Status, organs []data.Item) (data.Object, error) {
+	torchPortalPos := data.Position{X: 5135, Y: 5061}
+	if err := action.CubeAddItems(organs[0], organs[1], organs[2]); err != nil {
+		return data.Object{}, fmt.Errorf("failed to add organs to cube: %w", err)
+	}
+
+	if err := step.CloseAllMenus(); err != nil {
+		return data.Object{}, fmt.Errorf("failed to close menus: %w", err)
+	}
+
+	if err := action.MoveToCoords(torchPortalPos); err != nil {
+		return data.Object{}, fmt.Errorf("failed to move to portal position: %w", err)
+	}
+
+	if !ctx.Data.OpenMenus.Inventory {
+		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+		utils.Sleep(300)
+		ctx.RefreshGameData()
+		if !ctx.Data.OpenMenus.Inventory {
+			return data.Object{}, errors.New("failed to open inventory window")
+		}
+	}
+
+	if err := action.CubeTransmute(); err != nil {
+		return data.Object{}, fmt.Errorf("failed to transmute organs: %w", err)
+	}
+
+	if err := step.CloseAllMenus(); err != nil {
+		return data.Object{}, fmt.Errorf("failed to close menus after transmute: %w", err)
+	}
+
+	utils.Sleep(500)
+	ctx.RefreshGameData()
+	var portal data.Object
+	portalFound := false
+	for _, obj := range ctx.Data.Objects {
+		if obj.IsRedPortal() && obj.PortalData.DestArea == area.UberTristram {
+			portal = obj
+			portalFound = true
+			break
+		}
+	}
+
+	if !portalFound {
+		return data.Object{}, errors.New("failed to find newly created Uber Tristram portal")
+	}
+
+	return portal, nil
+}

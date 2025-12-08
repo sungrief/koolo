@@ -86,9 +86,12 @@ func (o Organs) Run(parameters *RunParameters) error {
 			continue
 		}
 
+		o.ctx.Logger.Info(fmt.Sprintf("Starting %s dungeon", areaName))
 		dungeonErr := o.runDungeon(areaName, parameters)
 		if dungeonErr != nil {
 			o.ctx.Logger.Warn(fmt.Sprintf("Failed to complete %s: %v", areaName, dungeonErr))
+		} else {
+			o.ctx.Logger.Info(fmt.Sprintf("Successfully completed %s", areaName))
 		}
 
 		if err := action.ReturnTown(); err != nil {

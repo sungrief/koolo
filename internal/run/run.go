@@ -184,8 +184,6 @@ func BuildRun(run string) Run {
 	// Development / Utility runs
 	case string(config.DevelopmentRun):
 		return NewDevRun()
-	case string(config.IdleRun):
-		return NewIdle()
 	}
 
 	return nil

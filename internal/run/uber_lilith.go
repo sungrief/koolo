@@ -64,12 +64,15 @@ func (l Lilith) Run(parameters *RunParameters) error {
 	}
 
 	if !bossFound {
+		l.ctx.Logger.Warn("Lilith not found during exploration")
 		return fmt.Errorf("Lilith not found during exploration")
 	}
 
+	l.ctx.Logger.Info("Found Lilith, starting fight")
 	if err := l.ctx.Char.KillLilith(); err != nil {
 		return err
 	}
 
+	l.ctx.Logger.Info("Successfully killed Lilith")
 	return nil
 }

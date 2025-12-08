@@ -64,12 +64,15 @@ func (u UberDuriel) Run(parameters *RunParameters) error {
 	}
 
 	if !bossFound {
+		u.ctx.Logger.Warn("Uber Duriel not found during exploration")
 		return fmt.Errorf("UberDuriel not found during exploration")
 	}
 
+	u.ctx.Logger.Info("Found Uber Duriel, starting fight")
 	if err := u.ctx.Char.KillUberDuriel(); err != nil {
 		return err
 	}
 
+	u.ctx.Logger.Info("Successfully killed Uber Duriel")
 	return nil
 }

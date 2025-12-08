@@ -83,23 +83,9 @@ func (t Torch) Run(parameters *RunParameters) error {
 		return fmt.Errorf("failed to get organs: %w", err)
 	}
 
-	if err := action.CubeAddItems(organs[0], organs[1], organs[2]); err != nil {
-		return fmt.Errorf("failed to add organs to cube: %w", err)
-	}
-
-	if err := action.CubeTransmute(); err != nil {
-		return fmt.Errorf("failed to transmute organs: %w", err)
-	}
-
-	if err := step.CloseAllMenus(); err != nil {
-		return fmt.Errorf("failed to close menus: %w", err)
-	}
-
-	utils.Sleep(500)
-
-	portal, err := findUberTristramPortal(t.ctx)
+	portal, err := openUT(t.ctx, organs)
 	if err != nil {
-		return fmt.Errorf("failed to find portal: %w", err)
+		return fmt.Errorf("failed to open Uber Tristram portal: %w", err)
 	}
 
 	if err := enterUberTristramPortal(t.ctx, portal); err != nil {
@@ -108,9 +94,11 @@ func (t Torch) Run(parameters *RunParameters) error {
 
 	action.Buff()
 
+	t.ctx.Logger.Info("Starting Uber Tristram run")
 	if err := t.runUberTristram(parameters); err != nil {
 		return fmt.Errorf("failed to complete Uber Tristram: %w", err)
 	}
+	t.ctx.Logger.Info("Successfully completed Uber Tristram run")
 
 	if err := action.ReturnTown(); err != nil {
 		t.ctx.Logger.Warn(fmt.Sprintf("Failed to return to town: %v", err))
@@ -166,6 +154,7 @@ func (t Torch) runUberTristram(parameters *RunParameters) error {
 }
 
 func (t Torch) mephisto() error {
+	t.ctx.Logger.Info("Starting Uber Mephisto fight")
 	for _, p := range mephPath() {
 		if err := action.MoveToCoords(p); err != nil {
 			return fmt.Errorf("failed to reach coordinate: %w", err)
@@ -193,17 +182,21 @@ func (t Torch) mephisto() error {
 	for retryCount < maxRetries {
 		found, _, _ := isUberMephistoNearby(t.ctx, maxDistance)
 		if found {
+			t.ctx.Logger.Info("Found Uber Mephisto, starting fight")
 			if err := t.ctx.Char.KillUberMephisto(); err != nil {
 				return fmt.Errorf("failed to kill Uber Mephisto: %w", err)
 			}
+			t.ctx.Logger.Info("Successfully killed Uber Mephisto")
 			break
 		}
 
 		retryCount++
 		if retryCount >= maxRetries {
+			t.ctx.Logger.Info("Uber Mephisto not found nearby, attempting kill anyway")
 			if err := t.ctx.Char.KillUberMephisto(); err != nil {
 				return fmt.Errorf("failed to kill Uber Mephisto: %w", err)
 			}
+			t.ctx.Logger.Info("Successfully killed Uber Mephisto")
 			break
 		}
 
@@ -248,6 +241,7 @@ func (t Torch) mephisto() error {
 }
 
 func (t Torch) baal() error {
+	t.ctx.Logger.Info("Starting Uber Diablo/Baal fight")
 	t.ctx.DisableItemPickup()
 
 	for _, p := range diaPath() {
@@ -289,22 +283,30 @@ func (t Torch) baal() error {
 		if diabloFound || baalFound {
 			if diabloFound && baalFound {
 				if diabloDistanceUnits <= baalDistanceUnits {
+					t.ctx.Logger.Info("Found both bosses, killing Uber Diablo first (closer)")
 					if err := t.ctx.Char.KillUberDiablo(); err != nil {
 						return fmt.Errorf("failed to kill Uber Diablo: %w", err)
 					}
+					t.ctx.Logger.Info("Successfully killed Uber Diablo")
 				} else {
+					t.ctx.Logger.Info("Found both bosses, killing Uber Baal first (closer)")
 					if err := t.ctx.Char.KillUberBaal(); err != nil {
 						return fmt.Errorf("failed to kill Uber Baal: %w", err)
 					}
+					t.ctx.Logger.Info("Successfully killed Uber Baal")
 				}
 			} else if diabloFound {
+				t.ctx.Logger.Info("Found Uber Diablo, starting fight")
 				if err := t.ctx.Char.KillUberDiablo(); err != nil {
 					return fmt.Errorf("failed to kill Uber Diablo: %w", err)
 				}
+				t.ctx.Logger.Info("Successfully killed Uber Diablo")
 			} else if baalFound {
+				t.ctx.Logger.Info("Found Uber Baal, starting fight")
 				if err := t.ctx.Char.KillUberBaal(); err != nil {
 					return fmt.Errorf("failed to kill Uber Baal: %w", err)
 				}
+				t.ctx.Logger.Info("Successfully killed Uber Baal")
 			}
 			break
 		}
@@ -315,18 +317,25 @@ func (t Torch) baal() error {
 			baalFoundAny, _, _ := isUberBaalNearby(t.ctx, 999)
 
 			if diabloFoundAny && baalFoundAny {
+				t.ctx.Logger.Info("Found both bosses after retries, killing Uber Diablo")
 				if err := t.ctx.Char.KillUberDiablo(); err != nil {
 					return fmt.Errorf("failed to kill Uber Diablo: %w", err)
 				}
+				t.ctx.Logger.Info("Successfully killed Uber Diablo")
 			} else if diabloFoundAny {
+				t.ctx.Logger.Info("Found Uber Diablo after retries, starting fight")
 				if err := t.ctx.Char.KillUberDiablo(); err != nil {
 					return fmt.Errorf("failed to kill Uber Diablo: %w", err)
 				}
+				t.ctx.Logger.Info("Successfully killed Uber Diablo")
 			} else if baalFoundAny {
+				t.ctx.Logger.Info("Found Uber Baal after retries, starting fight")
 				if err := t.ctx.Char.KillUberBaal(); err != nil {
 					return fmt.Errorf("failed to kill Uber Baal: %w", err)
 				}
+				t.ctx.Logger.Info("Successfully killed Uber Baal")
 			} else {
+				t.ctx.Logger.Warn(fmt.Sprintf("Neither Uber Diablo nor Uber Baal found after %d retries", maxRetries))
 				return fmt.Errorf("neither Uber Diablo nor Uber Baal found after %d retries", maxRetries)
 			}
 			break
@@ -373,6 +382,7 @@ func (t Torch) baal() error {
 }
 
 func (t *Torch) diablo() error {
+	t.ctx.Logger.Info("Checking for remaining bosses in Uber Tristram")
 	t.ctx.DisableItemPickup()
 
 	t.ctx.RefreshGameData()
@@ -398,6 +408,10 @@ func (t *Torch) diablo() error {
 		t.ctx.EnableItemPickup()
 	}
 
+	utils.Sleep(200)
+	t.ctx.RefreshGameData()
+	utils.Sleep(200)
+
 	diabloAlive := false
 	baalAlive := false
 	var uberDiablo data.Monster
@@ -415,6 +429,7 @@ func (t *Torch) diablo() error {
 	}
 
 	if baalAlive && !diabloAlive {
+		t.ctx.Logger.Info("Only Uber Baal remaining, starting fight")
 		if err := t.searchAndKillBoss(npc.UberBaal, "Baal"); err != nil {
 			return err
 		}
@@ -425,6 +440,7 @@ func (t *Torch) diablo() error {
 	}
 
 	if diabloAlive && !baalAlive {
+		t.ctx.Logger.Info("Only Uber Diablo remaining, starting fight")
 		if err := t.searchAndKillBoss(npc.UberDiablo, "Diablo"); err != nil {
 			return err
 		}
@@ -435,6 +451,7 @@ func (t *Torch) diablo() error {
 	}
 
 	if !diabloAlive && !baalAlive {
+		t.ctx.Logger.Info("All bosses defeated, proceeding to torch search")
 		if err := vendorRefillOrHeal(t.ctx); err != nil {
 			t.ctx.Logger.Warn(fmt.Sprintf("Failed to visit vendor/heal: %v", err))
 		}
@@ -447,6 +464,7 @@ func (t *Torch) diablo() error {
 		baalDistance := t.ctx.PathFinder.DistanceFromMe(uberBaal.Position)
 
 		if diabloDistance <= baalDistance {
+			t.ctx.Logger.Info("Both bosses alive, killing Uber Diablo (closer)")
 			if err := t.searchAndKillBoss(npc.UberDiablo, "Diablo"); err != nil {
 				return err
 			}
@@ -455,6 +473,7 @@ func (t *Torch) diablo() error {
 			}
 			return t.townTorch()
 		}
+		t.ctx.Logger.Info("Both bosses alive, killing Uber Baal (closer)")
 		if err := t.searchAndKillBoss(npc.UberBaal, "Baal"); err != nil {
 			return err
 		}
@@ -490,16 +509,20 @@ func (t *Torch) searchAndKillBoss(bossNPC npc.ID, bossName string) error {
 
 	t.ctx.RefreshGameData()
 	if boss, found := t.ctx.Data.Monsters.FindOne(bossNPC, data.MonsterTypeUnique); found && boss.Stats[stat.Life] > 0 {
+		t.ctx.Logger.Info(fmt.Sprintf("Found Uber %s, starting fight", bossName))
 		if bossNPC == npc.UberDiablo {
 			if err := t.ctx.Char.KillUberDiablo(); err != nil {
 				return fmt.Errorf("failed to kill Uber Diablo: %w", err)
 			}
+			t.ctx.Logger.Info("Successfully killed Uber Diablo")
 		} else if bossNPC == npc.UberBaal {
 			if err := t.ctx.Char.KillUberBaal(); err != nil {
 				return fmt.Errorf("failed to kill Uber Baal: %w", err)
 			}
+			t.ctx.Logger.Info("Successfully killed Uber Baal")
 		}
 	} else {
+		t.ctx.Logger.Warn(fmt.Sprintf("Uber %s not found after search", bossName))
 		return fmt.Errorf("uber %s not found after search", bossName)
 	}
 
