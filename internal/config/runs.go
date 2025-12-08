@@ -60,6 +60,11 @@ const (
 	AncientsRun              Run = "ancients"
 	FrozenAuraMercRun        Run = "frozen_aura_merc"
 	TristramEarlyGoldfarmRun Run = "tristram_early_gold_farm"
+	OrgansRun                Run = "uber_organs"
+	PandemoniumRun           Run = "uber_torch"
+	UberIzualRun             Run = "uber_izual"
+	UberDurielRun            Run = "uber_duriel"
+	LilithRun                Run = "lilith"
 	// Development / Utility runs
 	DevelopmentRun Run = "development"
 )
@@ -104,6 +109,8 @@ var AvailableRuns = map[Run]interface{}{
 	UtilityRun:          nil,
 	FireEyeRun:          nil,
 	ShoppingRun:         nil,
+	OrgansRun:           nil,
+	PandemoniumRun:      nil,
 	DevelopmentRun:      nil,
 }
 
@@ -192,4 +199,8 @@ var SequencerRuns = []Run{
 	TravincalRun,
 	TristramEarlyGoldfarmRun,
 	TristramRun,
+	OrgansRun,
+	UberIzualRun,
+	UberDurielRun,
+	LilithRun,
 }
