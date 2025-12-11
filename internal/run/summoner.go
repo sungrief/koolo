@@ -6,9 +6,9 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
-	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
+	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -103,13 +103,11 @@ func (s Summoner) runTerrorZone() error {
 // ---------------- NORMAL SUMMONER RUN ----------------
 
 func (s Summoner) runStandard(parameters *RunParameters) error {
-	// currently unused, kept for future sequencing tweaks
-	_ = parameters
-
 	s.ctx.Logger.Info("Starting normal Summoner run (Quest/Key)")
+	isQuestRun := IsQuestRun(parameters)
 
 	// Use the waypoint / Fire Eye portal to get to Arcane Sanctuary
-	if s.ctx.CharacterCfg.Game.Summoner.KillFireEye {
+	if s.ctx.CharacterCfg.Game.Summoner.KillFireEye && !isQuestRun {
 		NewFireEye().Run(parameters) // same pattern as other quest runs
 
 		obj, _ := s.ctx.Data.Objects.FindOne(object.ArcaneSanctuaryPortal)
@@ -140,6 +138,11 @@ func (s Summoner) runStandard(parameters *RunParameters) error {
 		if err := action.WayPoint(area.ArcaneSanctuary); err != nil {
 			return err
 		}
+
+		// This prevents us being blocked from getting into Palace
+		if s.ctx.Data.PlayerUnit.Area != area.ArcaneSanctuary && isQuestRun {
+			action.InteractNPC(npc.Drognan)
+		}
 	}
 
 	action.Buff()
@@ -161,7 +164,7 @@ func (s Summoner) runStandard(parameters *RunParameters) error {
 		return err
 	}
 
-	if IsQuestRun(parameters) {
+	if isQuestRun {
 		if err := s.goToCanyon(); err != nil {
 			return err
 		}
