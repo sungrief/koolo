@@ -177,6 +177,7 @@ document.addEventListener('DOMContentLoaded', function () {
             { value: 'paladin', label: 'Paladin (Leveling)' },
             { value: 'hammerdin', label: 'Hammer Paladin' },
             { value: 'foh', label: 'FOH Paladin' },
+            { value: 'smiter', label: 'Smiter (Ubers)' },
         ],
         sorceress: [
             { value: 'sorceress', label: 'Blizzard Sorceress' },
@@ -267,6 +268,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const druidLevelingOptions = document.querySelector('.druid_leveling-options');
         const necromancerLevelingOptions = document.querySelector('.necromancer-options');
         const paladinLevelingOptions = document.querySelector('.paladin-options');
+        const smiterOptions = document.querySelector('.smiter-options');
+
+        // Hide all options first
+        if (berserkerBarbOptions) berserkerBarbOptions.style.display = 'none';
+        if (warcryBarbOptions) warcryBarbOptions.style.display = 'none';
+        if (barbLevelingOptions) barbLevelingOptions.style.display = 'none';
 
         // Hide all options first
         if (berserkerBarbOptions) berserkerBarbOptions.style.display = 'none';
@@ -282,6 +289,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (druidLevelingOptions) druidLevelingOptions.style.display = 'none';
         if (necromancerLevelingOptions) necromancerLevelingOptions.style.display = 'none';
         if (paladinLevelingOptions) paladinLevelingOptions.style.display = 'none';
+        if (smiterOptions) smiterOptions.style.display = 'none';
         if (noSettingsMessage) noSettingsMessage.style.display = 'none';
 
         // Show relevant options based on class
@@ -316,6 +324,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (necromancerLevelingOptions) necromancerLevelingOptions.style.display = 'block';
         } else if (selectedClass === 'paladin') {
             if (paladinLevelingOptions) paladinLevelingOptions.style.display = 'block';
+        } else if (selectedClass === 'smiter') {
+            if (smiterOptions) smiterOptions.style.display = 'block';
         } else {
             if (noSettingsMessage) noSettingsMessage.style.display = 'block';
         }
