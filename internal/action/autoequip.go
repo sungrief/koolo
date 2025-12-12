@@ -283,8 +283,9 @@ func isEquippable(newItem data.Item, bodyloc item.LocationType, target item.Loca
 			return false
 		}
 	}
-
-	if _, isTwoHanded := newItem.FindStat(stat.TwoHandedMinDamage, 0); isTwoHanded {
+	// Only apply two-handed checks if this is actually a weapon
+	isWeapon := bodyloc == item.LocLeftArm || bodyloc == item.LocRightArm
+	if _, isTwoHanded := newItem.FindStat(stat.TwoHandedMinDamage, 0); isTwoHanded && isWeapon {
 		// We need to fetch the level stat safely.
 		playerLevel := 0
 		if lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); found {
@@ -300,7 +301,6 @@ func isEquippable(newItem data.Item, bodyloc item.LocationType, target item.Loca
 			return false
 		}
 	}
-
 	// Class specific item type checks
 	for class, items := range classItems {
 		if ctx.Data.PlayerUnit.Class != class && slices.Contains(items, newItem.Desc().Type) {
