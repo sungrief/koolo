@@ -76,6 +76,10 @@ export class QuestSectionRenderer {
       if (!groupedByAct.has(actKey)) {
         groupedByAct.set(actKey, []);
       }
+
+      // Special case: Frozen Aura mercenary only available in Nightmare difficulty
+      if (quest.run === "frozen_aura_merc" && difficulty !== "nightmare") return;
+
       groupedByAct.get(actKey).push(quest);
     });
 

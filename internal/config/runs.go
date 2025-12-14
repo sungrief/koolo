@@ -123,6 +123,7 @@ var SequencerQuests = []LevelingRunInfo{
 	{Run: RetrieveHammerRun, Act: 1, IsMandatory: false},
 	{Run: AndarielRun, Act: 1, IsMandatory: true},
 	// Act 2
+	{Run: FrozenAuraMercRun, Act: 2, IsMandatory: false},
 	{Run: RadamentRun, Act: 2, IsMandatory: false},
 	{Run: CubeRun, Act: 2, IsMandatory: true},
 	{Run: StaffRun, Act: 2, IsMandatory: true},
