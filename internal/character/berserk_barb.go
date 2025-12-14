@@ -65,10 +65,16 @@ func (s *Berserker) IsKillingCouncil() bool {
 	return s.isKillingCouncil.Load()
 }
 
+const safeMonstersForHork = 1 // allow up to 1 stray mob nearby
+
+// Call this at the start of KillMonsterSequence to ensure we're not stuck
 func (s *Berserker) KillMonsterSequence(
 	monsterSelector func(d game.Data) (data.UnitID, bool),
 	skipOnImmunities []stat.Resist,
 ) error {
+	// Safety check: ensure we're on primary weapon before fighting
+	s.EnsurePrimaryWeaponEquipped()
+
 	monsterDetected := false
 	var previousEnemyId data.UnitID
 	var lastHowlCast time.Time
@@ -79,13 +85,18 @@ func (s *Berserker) KillMonsterSequence(
 	}
 
 	for attackAttempts := 0; attackAttempts < maxAttackAttempts; attackAttempts++ {
-		context.Get().PauseIfNotPriority()
+		ctx := context.Get()
+		ctx.PauseIfNotPriority()
 
 		id, found := monsterSelector(*s.Data)
 		if !found {
-			monstersNearby := s.countInRange(s.horkRange())
-			if monstersNearby == 0 && !s.isKillingCouncil.Load() && monsterDetected {
-				s.FindItemOnNearbyCorpses(maxHorkRange)
+			if monsterDetected && !s.isKillingCouncil.Load() {
+				monstersNearby := s.countInRange(s.horkRange())
+				if monstersNearby <= safeMonstersForHork {
+					s.FindItemOnNearbyCorpses(maxHorkRange)
+					// Verify we're back on primary weapon after horking
+					s.EnsurePrimaryWeaponEquipped()
+				}
 			}
 			return nil
 		}
@@ -96,6 +107,7 @@ func (s *Berserker) KillMonsterSequence(
 		}
 
 		monsterDetected = true
+
 		if !s.preBattleChecks(id, skipOnImmunities) {
 			return nil
 		}
@@ -107,8 +119,7 @@ func (s *Berserker) KillMonsterSequence(
 
 		distance := s.PathFinder.DistanceFromMe(monster.Position)
 		if distance > meleeRange {
-			err := step.MoveTo(monster.Position, step.WithIgnoreMonsters())
-			if err != nil {
+			if err := step.MoveTo(monster.Position, step.WithIgnoreMonsters()); err != nil {
 				s.Logger.Warn("Failed to move to monster", slog.String("error", err.Error()))
 				continue
 			}
@@ -126,16 +137,17 @@ func (s *Berserker) KillMonsterSequence(
 
 		s.PerformBerserkAttack(monster.UnitID)
 		time.Sleep(50 * time.Millisecond)
+	}
 
-		if !s.isKillingCouncil.Load() {
-			monstersNearby := s.countInRange(s.horkRange())
-			if monstersNearby <= 3 {
-				s.FindItemOnNearbyCorpses(maxHorkRange)
-			}
+	if monsterDetected && !s.isKillingCouncil.Load() {
+		monstersNearby := s.countInRange(s.horkRange())
+		if monstersNearby <= safeMonstersForHork {
+			s.FindItemOnNearbyCorpses(maxHorkRange)
+			// Verify we're back on primary weapon after horking
+			s.EnsurePrimaryWeaponEquipped()
 		}
 	}
 
-	s.FindItemOnNearbyCorpses(maxHorkRange)
 	return nil
 }
 
@@ -284,6 +296,7 @@ func (s *Berserker) PerformBattleCry(monsterID data.UnitID, lastBattleCryCast *t
 	return false
 }
 
+// Improved FindItemOnNearbyCorpses with better swap handling
 func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	ctx := context.Get()
 	ctx.PauseIfNotPriority()
@@ -294,35 +307,65 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	}
 
 	corpses := s.getHorkableCorpses(s.Data.Corpses, maxRange)
+	if len(corpses) == 0 {
+		return
+	}
 
-	if len(corpses) > 0 {
-		swapped := false
-		for _, corpse := range corpses {
-			if s.horkedCorpses[corpse.UnitID] {
-				continue
+	if s.horkedCorpses == nil {
+		s.horkedCorpses = make(map[data.UnitID]bool)
+	}
+
+	originalSlot := ctx.Data.ActiveWeaponSlot
+	swapped := false
+
+	// Swap to hork slot if configured
+	if ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
+		if s.SwapToSlot(1) {
+			swapped = true
+		} else {
+			// If swap fails, log warning but continue with current weapon
+			s.Logger.Warn("Failed to swap to secondary weapon for horking, continuing with current weapon")
+		}
+	}
+
+	// Use defer to ALWAYS ensure we swap back, even if panic or early return
+	if swapped {
+		defer func() {
+			if !s.SwapToSlot(originalSlot) {
+				s.Logger.Error("CRITICAL: Failed to swap back to original weapon slot",
+					"original", originalSlot,
+					"current", ctx.Data.ActiveWeaponSlot)
+				// Force multiple swap attempts as last resort
+				for i := 0; i < 10; i++ {
+					ctx.HID.PressKey('W')
+					time.Sleep(200 * time.Millisecond)
+					ctx.RefreshGameData()
+					if ctx.Data.ActiveWeaponSlot == originalSlot {
+						s.Logger.Info("Successfully recovered weapon swap after multiple attempts")
+						return
+					}
+				}
 			}
+		}()
+	}
 
-			if !swapped {
-				s.SwapToSlot(1)
-				swapped = true
-			}
-
-			if s.Data.PlayerUnit.RightSkill != skill.FindItem {
-				ctx.HID.PressKeyBinding(findItemKey)
-				time.Sleep(time.Millisecond * 50)
-			}
-
-			clickPos := s.getOptimalClickPosition(corpse)
-			screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(clickPos.X, clickPos.Y)
-			ctx.HID.Click(game.RightButton, screenX, screenY)
-
-			s.horkedCorpses[corpse.UnitID] = true
-			time.Sleep(time.Millisecond * 200)
+	for _, corpse := range corpses {
+		if s.horkedCorpses[corpse.UnitID] {
+			continue
 		}
 
-		if swapped {
-			s.SwapToSlot(0)
+		// Make sure Find Item is on right-click
+		if s.Data.PlayerUnit.RightSkill != skill.FindItem {
+			ctx.HID.PressKeyBinding(findItemKey)
+			time.Sleep(50 * time.Millisecond)
 		}
+
+		clickPos := s.getOptimalClickPosition(corpse)
+		screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(clickPos.X, clickPos.Y)
+		ctx.HID.Click(game.RightButton, screenX, screenY)
+
+		s.horkedCorpses[corpse.UnitID] = true
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
@@ -420,25 +463,74 @@ func (s *Berserker) horkRange() int {
 }
 
 // slot 0 = primary weapon, slot 1 = secondary weapon
-func (s *Berserker) SwapToSlot(slot int) {
+// Improved SwapToSlot with more robust retry logic
+func (s *Berserker) SwapToSlot(slot int) bool {
 	ctx := context.Get()
+
+	// If we don't want to switch for find item, just say "no-op"
 	if !ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
-		return
+		return false
 	}
 
-	const maxAttempts = 3
-	const retryDelay = 150 * time.Millisecond
-	if ctx.Data.ActiveWeaponSlot != slot {
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			if ctx.Data.ActiveWeaponSlot != slot {
-				ctx.HID.PressKey('W')
-				time.Sleep(retryDelay)
-				ctx.RefreshGameData()
-			}
+	// Already on desired slot
+	if ctx.Data.ActiveWeaponSlot == slot {
+		return true
+	}
+
+	const maxAttempts = 6                     // Increased from 4
+	const retryDelay = 200 * time.Millisecond // Increased from 150ms
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		// Refresh data before checking to ensure we have current state
+		ctx.RefreshGameData()
+
+		// Check if we're already on the desired slot (in case previous attempt worked)
+		if ctx.Data.ActiveWeaponSlot == slot {
+			return true
+		}
+
+		ctx.HID.PressKey('W')
+		time.Sleep(retryDelay)
+		ctx.RefreshGameData()
+
+		if ctx.Data.ActiveWeaponSlot == slot {
+			s.Logger.Debug("Successfully swapped weapon slot",
+				"slot", slot,
+				"attempts", attempt+1)
+			return true
+		}
+
+		// If we're not on the right slot after multiple attempts, add extra delay
+		if attempt >= 2 {
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
+
+	s.Logger.Error("Failed to swap weapon slot after all attempts",
+		"desired", slot,
+		"current", ctx.Data.ActiveWeaponSlot,
+		"attempts", maxAttempts)
+
+	return false
 }
 
+// Alternative: Add a safety check function to call periodically
+func (s *Berserker) EnsurePrimaryWeaponEquipped() bool {
+	ctx := context.Get()
+
+	// If not using weapon switch feature, nothing to check
+	if !ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
+		return true
+	}
+
+	// If we're on slot 1 (secondary) when we shouldn't be, swap back
+	if ctx.Data.ActiveWeaponSlot == 1 {
+		s.Logger.Warn("Detected stuck on secondary weapon, attempting to fix")
+		return s.SwapToSlot(0)
+	}
+
+	return true
+}
 func (s *Berserker) BuffSkills() []skill.ID {
 
 	skillsList := make([]skill.ID, 0)

@@ -3,6 +3,7 @@ package action
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -11,6 +12,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/game"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 func InteractNPC(npc npc.ID) error {
@@ -48,6 +50,13 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 	ctx := context.Get()
 	ctx.SetLastAction("InteractObject")
 
+	// Track starting area to detect transitions (e.g., portals)
+	startingArea := ctx.Data.PlayerUnit.Area
+
+	ctx.Logger.Debug("InteractObject called",
+		"object", o.Name,
+		"startArea", startingArea)
+
 	pos := o.Position
 	distFinish := step.DistanceToFinishMoving
 	if ctx.Data.PlayerUnit.Area == area.RiverOfFlame && o.IsWaypoint() {
@@ -60,6 +69,19 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 
 	var err error
 	for range 5 {
+		// Ensure collision data is loaded before attempting to move
+		// This prevents "path couldn't be calculated" errors when area has changed but collision grid isn't ready
+		if ctx.Data.AreaData.Grid == nil ||
+			ctx.Data.AreaData.Grid.CollisionGrid == nil ||
+			len(ctx.Data.AreaData.Grid.CollisionGrid) == 0 {
+			ctx.Logger.Debug("Waiting for collision grid to load before InteractObject movement",
+				"object", o.Name,
+				"area", ctx.Data.PlayerUnit.Area)
+			utils.Sleep(200)
+			ctx.RefreshGameData()
+			continue
+		}
+
 		// For waypoints, check if we should use telekinesis
 		if o.IsWaypoint() {
 			// Check if telekinesis is enabled and available
@@ -120,7 +142,59 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 		break
 	}
 
-	return err
+	if err != nil {
+		ctx.Logger.Debug("InteractObject step.InteractObject returned error",
+			"object", o.Name,
+			"error", err)
+		return err
+	}
+
+	// Refresh game data to get the final area state after interaction
+	ctx.RefreshGameData()
+
+	ctx.Logger.Debug("InteractObject step.InteractObject succeeded",
+		"object", o.Name,
+		"startArea", startingArea,
+		"currentArea", ctx.Data.PlayerUnit.Area)
+
+	// If we transitioned to a new area (portal interaction), ensure collision data is loaded
+	if ctx.Data.PlayerUnit.Area != startingArea {
+		ctx.Logger.Debug("Area transition detected via portal, waiting for collision data",
+			"from", startingArea,
+			"to", ctx.Data.PlayerUnit.Area)
+
+		// Initial delay to allow server to fully sync area data
+		utils.Sleep(500)
+		ctx.RefreshGameData()
+
+		// Wait up to 3 seconds for collision grid to load and be valid
+		deadline := time.Now().Add(3 * time.Second)
+		gridLoaded := false
+		for time.Now().Before(deadline) {
+			ctx.RefreshGameData()
+
+			// Verify collision grid exists, is not nil, and has valid dimensions
+			if ctx.Data.AreaData.Grid != nil &&
+				ctx.Data.AreaData.Grid.CollisionGrid != nil &&
+				len(ctx.Data.AreaData.Grid.CollisionGrid) > 0 {
+				gridLoaded = true
+				ctx.Logger.Debug("Collision grid loaded successfully after portal transition",
+					"area", ctx.Data.PlayerUnit.Area,
+					"gridWidth", ctx.Data.AreaData.Grid.Width,
+					"gridHeight", ctx.Data.AreaData.Grid.Height)
+				break
+			}
+			utils.Sleep(100)
+		}
+
+		if !gridLoaded {
+			ctx.Logger.Warn("Collision grid did not load within timeout",
+				"area", ctx.Data.PlayerUnit.Area,
+				"timeout", "3s")
+		}
+	}
+
+	return nil
 }
 
 func InteractObjectByID(id data.UnitID, isCompletedFn func() bool) error {
