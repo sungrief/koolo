@@ -24,6 +24,7 @@ const (
 	grimWardRange            = 8
 	grimWardCooldown         = 15 * time.Second
 	grimWardMaxAttempts      = 3
+	corpseRange              = 5
 )
 
 type WarcryBarb struct {
@@ -463,6 +464,18 @@ func (s *WarcryBarb) FindItemOnNearbyCorpses(maxRange int) {
 			if !swapped {
 				s.SwapToSlot(1)
 				swapped = true
+			}
+			distance := s.PathFinder.DistanceFromMe(corpse.Position)
+			if distance > corpseRange {
+				err := step.MoveTo(corpse.Position, step.WithIgnoreMonsters(), step.WithDistanceToFinish(corpseRange))
+				if err != nil {
+					continue
+				}
+				time.Sleep(time.Millisecond * 100)
+				distance = s.PathFinder.DistanceFromMe(corpse.Position)
+				if distance > corpseRange {
+					continue
+				}
 			}
 
 			if s.Data.PlayerUnit.RightSkill != skill.FindItem {
