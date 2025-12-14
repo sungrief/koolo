@@ -207,6 +207,16 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager) (*HttpServer, erro
 			tmpl.Execute(&buf, data)
 			return template.HTML(buf.String())
 		},
+		"runDisplayName": func(run string) string {
+			switch run {
+			case string(config.OrgansRun):
+				return "Uber (Organs)"
+			case string(config.PandemoniumRun):
+				return "Uber (Torch)"
+			default:
+				return run
+			}
+		},
 		"qualityClass": qualityClass,
 		"statIDToText": statIDToText,
 		"contains":     containss,
@@ -1105,11 +1115,24 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 				return
 			}
+			// Reload the newly created configuration to get a non-nil pointer
+			cfg, found = config.GetCharacter(supervisorName)
+			if !found || cfg == nil {
+				s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
+					Version:               config.Version,
+					ErrorMessage:          "failed to load newly created configuration",
+					Supervisor:            supervisorName,
+					LevelingSequenceFiles: sequenceFiles,
+				})
+
+				return
+			}
 		}
 
 		cfg.MaxGameLength, _ = strconv.Atoi(r.Form.Get("maxGameLength"))
 		cfg.CharacterName = r.Form.Get("characterName")
 		cfg.CommandLineArgs = r.Form.Get("commandLineArgs")
+		cfg.AutoCreateCharacter = r.Form.Has("autoCreateCharacter")
 		cfg.KillD2OnStop = r.Form.Has("kill_d2_process")
 		cfg.ClassicMode = r.Form.Has("classic_mode")
 		cfg.CloseMiniPanel = r.Form.Has("close_mini_panel")
@@ -1208,6 +1231,14 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			cfg.Character.ClearPathDist = 7
+		}
+
+		// Smiter specific options
+		if cfg.Character.Class == "smiter" {
+			cfg.Character.Smiter.UberMephAura = r.Form.Get("smiterUberMephAura")
+			if cfg.Character.Smiter.UberMephAura == "" {
+				cfg.Character.Smiter.UberMephAura = "resist_lightning"
+			}
 		}
 
 		// Berserker Barb specific options
@@ -1659,10 +1690,16 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	enabledRuns := make([]string, 0)
 	// Let's iterate cfg.Game.Runs to preserve current order
 	for _, run := range cfg.Game.Runs {
+		if run == config.UberIzualRun || run == config.UberDurielRun || run == config.LilithRun {
+			continue
+		}
 		enabledRuns = append(enabledRuns, string(run))
 	}
 	disabledRuns := make([]string, 0)
 	for run := range config.AvailableRuns {
+		if run == config.UberIzualRun || run == config.UberDurielRun || run == config.LilithRun {
+			continue
+		}
 		if !slices.Contains(cfg.Game.Runs, run) {
 			disabledRuns = append(disabledRuns, string(run))
 		}

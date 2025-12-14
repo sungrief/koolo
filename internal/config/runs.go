@@ -60,6 +60,11 @@ const (
 	AncientsRun              Run = "ancients"
 	FrozenAuraMercRun        Run = "frozen_aura_merc"
 	TristramEarlyGoldfarmRun Run = "tristram_early_gold_farm"
+	OrgansRun                Run = "uber_organs"
+	PandemoniumRun           Run = "uber_torch"
+	UberIzualRun             Run = "uber_izual"
+	UberDurielRun            Run = "uber_duriel"
+	LilithRun                Run = "lilith"
 	// Development / Utility runs
 	DevelopmentRun Run = "development"
 )
@@ -104,6 +109,8 @@ var AvailableRuns = map[Run]interface{}{
 	UtilityRun:          nil,
 	FireEyeRun:          nil,
 	ShoppingRun:         nil,
+	OrgansRun:           nil,
+	PandemoniumRun:      nil,
 	DevelopmentRun:      nil,
 }
 
@@ -116,6 +123,7 @@ var SequencerQuests = []LevelingRunInfo{
 	{Run: RetrieveHammerRun, Act: 1, IsMandatory: false},
 	{Run: AndarielRun, Act: 1, IsMandatory: true},
 	// Act 2
+	{Run: FrozenAuraMercRun, Act: 2, IsMandatory: false},
 	{Run: RadamentRun, Act: 2, IsMandatory: false},
 	{Run: CubeRun, Act: 2, IsMandatory: true},
 	{Run: StaffRun, Act: 2, IsMandatory: true},
@@ -192,4 +200,8 @@ var SequencerRuns = []Run{
 	TravincalRun,
 	TristramEarlyGoldfarmRun,
 	TristramRun,
+	OrgansRun,
+	UberIzualRun,
+	UberDurielRun,
+	LilithRun,
 }

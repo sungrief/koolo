@@ -92,6 +92,7 @@ type CharacterCfg struct {
 	AuthToken            string `yaml:"authToken"`
 	Realm                string `yaml:"realm"`
 	CharacterName        string `yaml:"characterName"`
+	AutoCreateCharacter  bool   `yaml:"autoCreateCharacter"`
 	CommandLineArgs      string `yaml:"commandLineArgs"`
 	KillD2OnStop         bool   `yaml:"killD2OnStop"`
 	ClassicMode          bool   `yaml:"classicMode"`
@@ -214,6 +215,9 @@ type CharacterCfg struct {
 		PaladinLeveling struct {
 			UsePacketLearning bool `yaml:"use_packet_learning"`
 		} `yaml:"paladin_leveling"`
+		Smiter struct {
+			UberMephAura string `yaml:"uber_meph_aura"`
+		} `yaml:"smiter"`
 		WarcryBarb struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`

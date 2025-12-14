@@ -32,10 +32,24 @@
                 <span>Supervisor name</span>
                 <input name="name" placeholder="SuperSorc" value="{{ .Supervisor }}" required/>
             </label>
-            <fieldset class="grid">
+            <fieldset class="grid" style="margin-bottom: 0px;">
                 <label>
-                    Class
-                    <select name="characterClass">
+                    Main Class
+                    <select id="mainCharacterClass" name="mainCharacterClass">
+                        <option value="">-- Select main class --</option>
+                        <option value="amazon">Amazon</option>
+                        <option value="assassin">Assassin</option>
+                        <option value="barbarian">Barbarian</option>
+                        <option value="druid">Druid</option>
+                        <option value="necromancer">Necromancer</option>
+                        <option value="paladin">Paladin</option>
+                        <option value="sorceress">Sorceress</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+                <label>
+                    Build
+                    <select name="characterClass" id="characterClass" data-current-build="{{ .Config.Character.Class }}">
                         {{ if eq .Version "dev" }}
                         <option value="development" {{ if eq .Config.Character.Class "development" }}selected{{ end }}>Development</option>
                         {{ end }}
@@ -47,6 +61,7 @@
                         <option value="mule" {{ if eq .Config.Character.Class "mule" }}selected{{ end }}>Mule</option>
                         <option value="hammerdin" {{ if eq .Config.Character.Class "hammerdin" }}selected{{ end }}>Hammer Paladin</option>
                         <option value="foh" {{ if eq .Config.Character.Class "foh" }}selected{{ end }}>FOH Paladin</option>
+                        <option value="smiter" {{ if eq .Config.Character.Class "smiter" }}selected{{ end }}>Smiter (Ubers)</option>
                         <option value="paladin" {{ if eq .Config.Character.Class "paladin" }}selected{{ end }}>Paladin (Leveling)</option>
                         <option value="barb_leveling" {{ if eq .Config.Character.Class "barb_leveling" }}selected{{ end }}>Barbarian (Leveling)</option>
                         <option value="assassin" {{ if eq .Config.Character.Class "assassin" }}selected{{ end }}>Assassin (Leveling)</option>
@@ -64,13 +79,17 @@
                 </label>
                 <label>
                     Character name
-                    <input name="characterName" placeholder="{{ .Config.CharacterName }}" value="{{ .Config.CharacterName }}"/>
-                </label>
+                   <input name="characterName" placeholder="{{ .Config.CharacterName }}" value="{{ .Config.CharacterName }}" minlength="2" maxlength="16" oninput="this.value = this.value.replace(/[0-9]/g, ''); if(this.value.length > 15) this.value = this.value.slice(0, 15);"/>                </label>
                 <label>
                     <input type="checkbox" name="isNonLadderChar" {{ if .Config.Game.IsNonLadderChar }}checked{{ end }}/>
                     Non-Ladder
                 </label>
             </fieldset>
+                <label style="margin-top: 0px; margin-bottom: 5px;">
+                    <input type="checkbox" name="autoCreateCharacter" {{ if .Config.AutoCreateCharacter }}checked{{ end }}/>
+                    Auto-create character (one-time)
+                    <br><small>If enabled, Koolo will automatically create this character once when no character with this name exists, using the selected class and ladder type.</small>
+                </label>
             <article style="margin-top: 20px; margin-bottom: 20px; padding: 15px; border: 2px solid #444;">
                 <h5>Class-Specific Settings</h5>
                 <div id="class-specific-settings">
@@ -252,6 +271,18 @@
                                 <input type="number" name="warcryBarbBattleCryMinMonsters" min="1" max="20" step="1" value="{{ if .Config.Character.WarcryBarb.BattleCryMinMonsters }}{{ .Config.Character.WarcryBarb.BattleCryMinMonsters }}{{ else }}1{{ end }}">
                             </label>
                         </div>
+                    </fieldset>
+                </div>
+                <div class="smiter-options" style="display: none;">
+                    <fieldset class="grid">
+                        <label>
+                            UberMeph Aura
+                            <select name="smiterUberMephAura" required>
+                                <option value="fanaticism" {{ if eq .Config.Character.Smiter.UberMephAura "fanaticism" }}selected{{ end }}>Fanaticism</option>
+                                <option value="resist_lightning" {{ if or (eq .Config.Character.Smiter.UberMephAura "resist_lightning") (eq .Config.Character.Smiter.UberMephAura "") }}selected{{ end }}>Resist Lightning</option>
+                                <option value="salvation" {{ if eq .Config.Character.Smiter.UberMephAura "salvation" }}selected{{ end }}>Salvation</option>
+                            </select>
+                        </label>
                     </fieldset>
                 </div>
                 <div class="nova-sorceress-options" style="display: none;">
@@ -772,7 +803,7 @@
                         <li value="{{ $run }}">
                             <details>
                                 <summary role="button" class="outline secondary">
-                                    <span>{{ $run }}</span>
+                                    <span>{{ runDisplayName $run }}</span>
                                     <button type="button" class="remove-run" title="Remove run"><i class="bi bi-dash"></i></button>
                                 </summary>
                                 {{ executeTemplateByName $run $topLevelContext }}
@@ -791,7 +822,7 @@
                         <li value="{{ $run }}">
                             <details>
                                 <summary role="button" class="outline secondary">
-                                    <span>{{ $run }}</span>
+                                    <span>{{ runDisplayName $run }}</span>
                                     <button type="button" class="add-run" title="Add run"><i class="bi bi-plus"></i></button>
                                 </summary>
                                 {{ executeTemplateByName $run $topLevelContext }}

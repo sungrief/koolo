@@ -423,6 +423,9 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 	ctx := context.Get()
 	ctx.SetLastStep("InteractObjectMouse")
 
+	// Track starting area to detect portal transitions
+	startingArea := ctx.Data.PlayerUnit.Area
+
 	// If there is no completion check, just assume the interaction is completed after clicking
 	if isCompletedFn == nil {
 		isCompletedFn = func() bool {
@@ -471,6 +474,19 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		}
 
 		ctx.RefreshGameData()
+
+		// If we've transitioned areas (portal interaction), the object no longer exists in current area
+		// Stop trying to interact and let the completion function handle success
+		if ctx.Data.PlayerUnit.Area != startingArea {
+			ctx.Logger.Debug("Area changed during InteractObjectMouse, stopping interaction attempts",
+				slog.String("from", startingArea.Area().Name),
+				slog.String("to", ctx.Data.PlayerUnit.Area.Area().Name),
+				slog.Any("object", obj.Name),
+			)
+			// Don't return error - area transition is expected for portals
+			// The isCompletedFn will determine if this was successful
+			continue
+		}
 
 		// Check distance first, before any cooldown checks
 		// This ensures we can detect "stuck far away" situations even during cooldowns
