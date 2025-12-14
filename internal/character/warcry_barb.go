@@ -93,12 +93,7 @@ func (s *WarcryBarb) KillMonsterSequence(
 
 	for {
 		context.Get().PauseIfNotPriority()
-		ctx := context.Get()
-
-		if ctx.Data.ActiveWeaponSlot != 0 {
-			s.SwapToSlot(0)
-		}
-
+		s.primaryWeapon()
 		s.tryGrimWard()
 
 		var id data.UnitID
@@ -106,9 +101,12 @@ func (s *WarcryBarb) KillMonsterSequence(
 
 		id, found = monsterSelector(*s.Data)
 		if !found {
-			monstersNearby := s.countInRange(s.horkRange())
-			if monstersNearby == 0 && !s.isKillingCouncil.Load() {
-				s.FindItemOnNearbyCorpses(warcryBarbHorkRange)
+			if !s.isKillingCouncil.Load() {
+				monstersNearby := s.countInRange(s.horkRange())
+				if monstersNearby == 0 {
+					s.horkCorpses(warcryBarbHorkRange)
+					s.primaryWeapon()
+				}
 			}
 			return nil
 		}
@@ -147,7 +145,8 @@ func (s *WarcryBarb) KillMonsterSequence(
 		if !s.isKillingCouncil.Load() {
 			monstersNearby := s.countInRange(s.horkRange())
 			if monstersNearby <= 3 {
-				s.FindItemOnNearbyCorpses(warcryBarbHorkRange)
+				s.horkCorpses(warcryBarbHorkRange)
+				s.primaryWeapon()
 			}
 		}
 	}
@@ -344,7 +343,7 @@ func (s *WarcryBarb) tryGrimWard() {
 			continue
 		}
 
-		if !s.isGrimWardValid(corpse) {
+		if !s.grimWardValid(corpse) {
 			continue
 		}
 
@@ -388,7 +387,7 @@ func (s *WarcryBarb) tryGrimWard() {
 	s.lastGrimWardCast = time.Now()
 }
 
-func (s *WarcryBarb) isUndead(corpse data.Monster) bool {
+func (s *WarcryBarb) undead(corpse data.Monster) bool {
 	undeadNPCs := []npc.ID{
 		npc.Zombie, npc.Skeleton, npc.SkeletonArcher,
 		npc.BoneWarrior, npc.BoneArcher, npc.BoneMage,
@@ -403,8 +402,8 @@ func (s *WarcryBarb) isUndead(corpse data.Monster) bool {
 	return slices.Contains(undeadNPCs, corpse.Name)
 }
 
-func (s *WarcryBarb) isGrimWardValid(corpse data.Monster) bool {
-	if s.isUndead(corpse) {
+func (s *WarcryBarb) grimWardValid(corpse data.Monster) bool {
+	if s.undead(corpse) {
 		return false
 	}
 
@@ -443,7 +442,7 @@ func (s *WarcryBarb) clickPos(corpse data.Monster) data.Position {
 	return data.Position{X: corpse.Position.X, Y: corpse.Position.Y + 1}
 }
 
-func (s *WarcryBarb) FindItemOnNearbyCorpses(maxRange int) {
+func (s *WarcryBarb) horkCorpses(maxRange int) {
 	ctx := context.Get()
 	ctx.PauseIfNotPriority()
 
@@ -452,52 +451,77 @@ func (s *WarcryBarb) FindItemOnNearbyCorpses(maxRange int) {
 		return
 	}
 
-	corpses := s.getHorkableCorpses(s.Data.Corpses, maxRange)
+	corpses := s.horkableCorpses(s.Data.Corpses, maxRange)
+	if len(corpses) == 0 {
+		return
+	}
 
-	if len(corpses) > 0 {
-		swapped := false
-		for _, corpse := range corpses {
-			if s.horkedCorpses[corpse.UnitID] {
+	if s.horkedCorpses == nil {
+		s.horkedCorpses = make(map[data.UnitID]bool)
+	}
+	originalSlot := ctx.Data.ActiveWeaponSlot
+	swapped := false
+
+	if ctx.CharacterCfg.Character.WarcryBarb.FindItemSwitch {
+		if s.SwapToSlot(1) {
+			swapped = true
+		} else {
+			s.Logger.Warn("Failed to swap to secondary weapon for horking, continuing with current weapon")
+		}
+	}
+
+	if swapped {
+		defer func() {
+			if !s.SwapToSlot(originalSlot) {
+				s.Logger.Error("CRITICAL: Failed to swap back to original weapon slot",
+					"original", originalSlot,
+					"current", ctx.Data.ActiveWeaponSlot)
+				for i := 0; i < 10; i++ {
+					ctx.HID.PressKey('W')
+					time.Sleep(200 * time.Millisecond)
+					ctx.RefreshGameData()
+					if ctx.Data.ActiveWeaponSlot == originalSlot {
+						s.Logger.Info("Successfully recovered weapon swap after multiple attempts")
+						return
+					}
+				}
+			}
+		}()
+	}
+
+	for _, corpse := range corpses {
+		if s.horkedCorpses[corpse.UnitID] {
+			continue
+		}
+
+		distance := s.PathFinder.DistanceFromMe(corpse.Position)
+		if distance > corpseRange {
+			err := step.MoveTo(corpse.Position, step.WithIgnoreMonsters(), step.WithDistanceToFinish(corpseRange))
+			if err != nil {
 				continue
 			}
-
-			if !swapped {
-				s.SwapToSlot(1)
-				swapped = true
-			}
-			distance := s.PathFinder.DistanceFromMe(corpse.Position)
+			time.Sleep(time.Millisecond * 100)
+			distance = s.PathFinder.DistanceFromMe(corpse.Position)
 			if distance > corpseRange {
-				err := step.MoveTo(corpse.Position, step.WithIgnoreMonsters(), step.WithDistanceToFinish(corpseRange))
-				if err != nil {
-					continue
-				}
-				time.Sleep(time.Millisecond * 100)
-				distance = s.PathFinder.DistanceFromMe(corpse.Position)
-				if distance > corpseRange {
-					continue
-				}
+				continue
 			}
-
-			if s.Data.PlayerUnit.RightSkill != skill.FindItem {
-				ctx.HID.PressKeyBinding(findItemKey)
-				time.Sleep(time.Millisecond * 50)
-			}
-
-			clickPos := s.clickPos(corpse)
-			screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(clickPos.X, clickPos.Y)
-			ctx.HID.Click(game.RightButton, screenX, screenY)
-
-			s.horkedCorpses[corpse.UnitID] = true
-			time.Sleep(time.Millisecond * 200)
 		}
 
-		if swapped {
-			s.SwapToSlot(0)
+		if s.Data.PlayerUnit.RightSkill != skill.FindItem {
+			ctx.HID.PressKeyBinding(findItemKey)
+			time.Sleep(time.Millisecond * 50)
 		}
+
+		clickPos := s.clickPos(corpse)
+		screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(clickPos.X, clickPos.Y)
+		ctx.HID.Click(game.RightButton, screenX, screenY)
+
+		s.horkedCorpses[corpse.UnitID] = true
+		time.Sleep(time.Millisecond * 200)
 	}
 }
 
-func (s *WarcryBarb) getHorkableCorpses(corpses data.Monsters, maxRange int) []data.Monster {
+func (s *WarcryBarb) horkableCorpses(corpses data.Monsters, maxRange int) []data.Monster {
 	type corpseWithDistance struct {
 		corpse   data.Monster
 		distance int
@@ -564,23 +588,61 @@ func (s *WarcryBarb) isHorkable(corpse data.Monster) bool {
 	return false
 }
 
-func (s *WarcryBarb) SwapToSlot(slot int) {
+func (s *WarcryBarb) SwapToSlot(slot int) bool {
 	ctx := context.Get()
 	if !ctx.CharacterCfg.Character.WarcryBarb.FindItemSwitch {
-		return
+		return false
+	}
+	if ctx.Data.ActiveWeaponSlot == slot {
+		return true
 	}
 
-	const maxAttempts = 3
-	const retryDelay = 150 * time.Millisecond
-	if ctx.Data.ActiveWeaponSlot != slot {
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			if ctx.Data.ActiveWeaponSlot != slot {
-				ctx.HID.PressKey('W')
-				time.Sleep(retryDelay)
-				ctx.RefreshGameData()
-			}
+	const maxAttempts = 6
+	const retryDelay = 200 * time.Millisecond
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		ctx.RefreshGameData()
+		if ctx.Data.ActiveWeaponSlot == slot {
+			return true
+		}
+
+		ctx.HID.PressKey('W')
+		time.Sleep(retryDelay)
+		ctx.RefreshGameData()
+
+		if ctx.Data.ActiveWeaponSlot == slot {
+			s.Logger.Debug("Successfully swapped weapon slot",
+				"slot", slot,
+				"attempts", attempt+1)
+			return true
+		}
+
+		if attempt >= 2 {
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
+
+	s.Logger.Error("Failed to swap weapon slot after all attempts",
+		"desired", slot,
+		"current", ctx.Data.ActiveWeaponSlot,
+		"attempts", maxAttempts)
+
+	return false
+}
+
+func (s *WarcryBarb) primaryWeapon() bool {
+	ctx := context.Get()
+
+	if !ctx.CharacterCfg.Character.WarcryBarb.FindItemSwitch {
+		return true
+	}
+
+	if ctx.Data.ActiveWeaponSlot == 1 {
+		s.Logger.Warn("Detected stuck on secondary weapon, attempting to fix")
+		return s.SwapToSlot(0)
+	}
+
+	return true
 }
 
 func (s *WarcryBarb) BuffSkills() []skill.ID {
@@ -660,7 +722,7 @@ func (s *WarcryBarb) KillCouncil() error {
 	s.isKillingCouncil.Store(true)
 	defer s.isKillingCouncil.Store(false)
 
-	err := s.killAllCouncilMembers()
+	err := s.killCouncil()
 	if err != nil {
 		return err
 	}
@@ -669,7 +731,7 @@ func (s *WarcryBarb) KillCouncil() error {
 
 	time.Sleep(500 * time.Millisecond)
 	for i := 0; i < 2; i++ {
-		s.FindItemOnNearbyCorpses(warcryBarbHorkRange)
+		s.horkCorpses(warcryBarbHorkRange)
 		time.Sleep(300 * time.Millisecond)
 		context.Get().RefreshGameData()
 	}
@@ -685,10 +747,10 @@ func (s *WarcryBarb) KillCouncil() error {
 	return nil
 }
 
-func (s *WarcryBarb) killAllCouncilMembers() error {
+func (s *WarcryBarb) killCouncil() error {
 	context.Get().DisableItemPickup()
 	for {
-		if !s.anyCouncilMemberAlive() {
+		if !s.councilAlive() {
 			return nil
 		}
 
@@ -707,7 +769,7 @@ func (s *WarcryBarb) killAllCouncilMembers() error {
 	}
 }
 
-func (s *WarcryBarb) anyCouncilMemberAlive() bool {
+func (s *WarcryBarb) councilAlive() bool {
 	for _, m := range s.Data.Monsters.Enemies() {
 		if (m.Name == npc.CouncilMember || m.Name == npc.CouncilMember2 || m.Name == npc.CouncilMember3) && m.Stats[stat.Life] > 0 {
 			return true
