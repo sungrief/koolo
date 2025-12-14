@@ -28,6 +28,7 @@ const (
 	maxHorkRange      = 40
 	meleeRange        = 5
 	maxAttackAttempts = 20
+	findItemRange     = 5
 )
 
 func (s Berserker) ShouldIgnoreMonster(m data.Monster) bool {
@@ -352,6 +353,19 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	for _, corpse := range corpses {
 		if s.horkedCorpses[corpse.UnitID] {
 			continue
+		}
+
+		distance := s.PathFinder.DistanceFromMe(corpse.Position)
+		if distance > findItemRange {
+			err := step.MoveTo(corpse.Position, step.WithIgnoreMonsters(), step.WithDistanceToFinish(findItemRange))
+			if err != nil {
+				continue
+			}
+			time.Sleep(time.Millisecond * 100)
+			distance = s.PathFinder.DistanceFromMe(corpse.Position)
+			if distance > findItemRange {
+				continue
+			}
 		}
 
 		// Make sure Find Item is on right-click
