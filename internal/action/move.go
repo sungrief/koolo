@@ -79,11 +79,6 @@ func checkPlayerDeath(ctx *context.Status) error {
 }
 
 func ensureAreaSync(ctx *context.Status, expectedArea area.ID) error {
-	// Skip sync check if we're already in the expected area and have valid area data
-	if ctx.Data.PlayerUnit.Area == expectedArea {
-		return nil
-	}
-
 	// Wait for area data to sync
 	for attempts := 0; attempts < maxAreaSyncAttempts; attempts++ {
 		ctx.RefreshGameData()
@@ -94,7 +89,18 @@ func ensureAreaSync(ctx *context.Status, expectedArea area.ID) error {
 		}
 
 		if ctx.Data.PlayerUnit.Area == expectedArea {
-			return nil
+			// Area ID matches, now verify collision data is loaded
+			if ctx.Data.AreaData.Grid != nil && 
+				ctx.Data.AreaData.Grid.CollisionGrid != nil && 
+				len(ctx.Data.AreaData.Grid.CollisionGrid) > 0 {
+				// Additional check: ensure we have adjacent level data if this is a cross-area operation
+				// Give it one more refresh cycle to ensure all data is populated
+				if attempts > 0 {
+					time.Sleep(100 * time.Millisecond)
+					ctx.RefreshGameData()
+				}
+				return nil
+			}
 		}
 
 		time.Sleep(areaSyncDelay)
@@ -349,7 +355,10 @@ func getPathOffsets(to data.Position) (int, int) {
 
 	if !ctx.Data.AreaData.IsInside(to) {
 		for _, otherArea := range ctx.Data.AreaData.AdjacentLevels {
-			destination := ctx.Data.Areas[otherArea.Area]
+			destination, exists := ctx.Data.Areas[otherArea.Area]
+			if !exists {
+				continue
+			}
 			if destination.IsInside(to) {
 				minOffsetX = min(minOffsetX, destination.OffsetX)
 				minOffsetY = min(minOffsetY, destination.OffsetY)

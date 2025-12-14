@@ -2,6 +2,8 @@ package run
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -118,53 +120,77 @@ func (s *Baal) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	lastWave := false
+	// Process waves until Baal leaves throne
+	s.ctx.Logger.Info("Starting Baal waves...")
 	waveTimeout := time.Now().Add(7 * time.Minute)
 
-	for !lastWave && time.Now().Before(waveTimeout) {
+	for !s.hasBaalLeftThrone() && time.Now().Before(waveTimeout) {
 		s.ctx.PauseIfNotPriority()
 		s.ctx.RefreshGameData()
 
-		if s.lastWaveCheck() {
-			lastWave = true
+		// Detect last wave for logging
+		if _, found := s.ctx.Data.Monsters.FindOne(npc.BaalsMinion, data.MonsterTypeMinion); found {
+			s.ctx.Logger.Info("Last wave (Baal's Minion) detected")
 		}
 
-		// Return to throne position between waves
-		err = action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter())
-		if err != nil {
-			return err
-		}
-
+		// Clear throne area and preattack
+		action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter())
 		action.MoveToCoords(baalThronePosition)
 
-		// Preattack between waves (inspired by kolbot baal.js)
 		s.preAttackBaalWaves()
+
+		utils.Sleep(500) // Prevent excessive checking
 	}
 
-	// Check if we timed out
-	if !lastWave {
-		return errors.New("baal waves timeout - portal never appeared or minions never detected")
+	if !s.hasBaalLeftThrone() {
+		return errors.New("baal waves timeout - portal never appeared")
 	}
 
-	// Let's be sure everything is dead
-	if err = action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter()); err != nil {
+	// Baal has entered the chamber
+	s.ctx.Logger.Info("Baal has entered the Worldstone Chamber")
+
+	// Final cleanup
+	err = action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter())
+	if err != nil {
 		return err
 	}
 
+	// Kill Baal if configured
 	_, isLevelingChar := s.ctx.Char.(context.LevelingCharacter)
 	if s.ctx.CharacterCfg.Game.Baal.KillBaal || isLevelingChar {
-		utils.Sleep(15000)
+		utils.Sleep(3000) // Wait for portal to stabilize
 		action.Buff()
-		// Exception: Baal portal has no destination in memory
-		baalPortal, _ := s.ctx.Data.Objects.FindOne(object.BaalsPortal)
+
+		// Find Baal portal
+		baalPortal, found := s.ctx.Data.Objects.FindOne(object.BaalsPortal)
+		if !found {
+			return errors.New("baal portal not found after waves completed")
+		}
+
+		s.ctx.Logger.Info("Entering Baal portal...")
+
+		// Enter portal
 		err = action.InteractObject(baalPortal, func() bool {
 			return s.ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber
 		})
-		if err != nil {
-			return err
+
+		// Verify entry
+		if s.ctx.Data.PlayerUnit.Area == area.TheWorldstoneChamber {
+			s.ctx.Logger.Info("Successfully entered Worldstone Chamber")
+		} else if err != nil {
+			return fmt.Errorf("failed to enter baal portal: %w", err)
 		}
 
-		_ = action.MoveToCoords(data.Position{X: 15136, Y: 5943})
+		// Move to Baal (may fail due to tentacles)
+		s.ctx.Logger.Info("Moving to Baal...")
+		moveErr := action.MoveToCoords(data.Position{X: 15136, Y: 5943})
+		if moveErr != nil {
+			if strings.Contains(moveErr.Error(), "path could not be calculated") {
+				s.ctx.Logger.Info("Path blocked by tentacles, attacking from current position")
+			} else {
+				s.ctx.Logger.Warn("Failed to move to Baal", "error", moveErr)
+			}
+		}
 
 		return s.ctx.Char.KillBaal()
 	}
@@ -172,16 +198,10 @@ func (s *Baal) Run(parameters *RunParameters) error {
 	return nil
 }
 
-func (s Baal) lastWaveCheck() bool {
-	if _, found := s.ctx.Data.Monsters.FindOne(npc.BaalsMinion, data.MonsterTypeNone); found {
-		return true
-	}
-
-	if _, found := s.ctx.Data.Corpses.FindOne(npc.BaalsMinion, data.MonsterTypeNone); found {
-		return true
-	}
-
-	return false
+// hasBaalLeftThrone checks if Baal has left the throne and entered the Worldstone Chamber
+func (s *Baal) hasBaalLeftThrone() bool {
+	_, found := s.ctx.Data.Monsters.FindOne(npc.BaalThrone, data.MonsterTypeNone)
+	return !found
 }
 
 func (s Baal) checkForSoulsOrDolls() bool {
