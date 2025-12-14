@@ -139,8 +139,10 @@ func ShouldBuyTPs() bool {
 func ShouldBuyIDs() bool {
 	ctx := context.Get()
 
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
+
 	// Respect end-game setting: completely disable ID tome purchasing
-	if ctx.CharacterCfg.Game.DisableIdentifyTome {
+	if ctx.CharacterCfg.Game.DisableIdentifyTome && !isLevelingChar {
 		// Do not buy Tome of Identify nor ID scrolls at all
 		ctx.Logger.Debug("DisableIdentifyTome enabled – skipping ID tome/scroll purchases.")
 		return false
