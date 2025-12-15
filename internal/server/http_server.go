@@ -1423,8 +1423,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		if cfg.Character.Class == "sorceress" {
 			cfg.Character.BlizzardSorceress.UseMoatTrick = r.Form.Has("blizzardUseMoatTrick")
 			cfg.Character.BlizzardSorceress.UseStaticOnMephisto = r.Form.Has("blizzardUseStaticOnMephisto")
-			cfg.Character.BlizzardSorceress.UseTelekinesis = r.Form.Has("blizzardUseTelekinesis")
-			cfg.Character.BlizzardSorceress.UseTelekinesisPackets = r.Form.Has("blizzardUseTelekinesisPackets")
 			cfg.Character.BlizzardSorceress.UseBlizzardPackets = r.Form.Has("blizzardUseBlizzardPackets")
 		}
 
@@ -1432,8 +1430,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		if cfg.Character.Class == "sorceress_leveling" {
 			cfg.Character.SorceressLeveling.UseMoatTrick = r.Form.Has("levelingUseMoatTrick")
 			cfg.Character.SorceressLeveling.UseStaticOnMephisto = r.Form.Has("levelingUseStaticOnMephisto")
-			cfg.Character.SorceressLeveling.UseTelekinesis = r.Form.Has("levelingUseTelekinesis")
-			cfg.Character.SorceressLeveling.UseTelekinesisPackets = r.Form.Has("levelingUseTelekinesisPackets")
 			cfg.Character.SorceressLeveling.UseBlizzardPackets = r.Form.Has("levelingUseBlizzardPackets")
 			cfg.Character.SorceressLeveling.UsePacketLearning = r.Form.Has("levelingUsePacketLearning")
 		}
@@ -1465,27 +1461,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 		// Nova Sorceress specific options
 		if cfg.Character.Class == "nova" {
-			cfg.Character.NovaSorceress.UseTelekinesis = r.Form.Has("useTelekinesis")
-			cfg.Character.NovaSorceress.UseTelekinesisPackets = r.Form.Has("useTelekinesisPackets")
 			cfg.Character.NovaSorceress.AggressiveNovaPositioning = r.Form.Has("aggressiveNovaPositioning")
-		}
-
-		// Lightning Sorceress specific options
-		if cfg.Character.Class == "lightsorc" {
-			cfg.Character.LightningSorceress.UseTelekinesis = r.Form.Has("useTelekinesis")
-			cfg.Character.LightningSorceress.UseTelekinesisPackets = r.Form.Has("useTelekinesisPackets")
-		}
-
-		// Hydra Orb Sorceress specific options
-		if cfg.Character.Class == "hydraorb" {
-			cfg.Character.HydraOrbSorceress.UseTelekinesis = r.Form.Has("useTelekinesis")
-			cfg.Character.HydraOrbSorceress.UseTelekinesisPackets = r.Form.Has("useTelekinesisPackets")
-		}
-
-		// Fireball Sorceress specific options
-		if cfg.Character.Class == "fireballsorc" {
-			cfg.Character.FireballSorceress.UseTelekinesis = r.Form.Has("useTelekinesis")
-			cfg.Character.FireballSorceress.UseTelekinesisPackets = r.Form.Has("useTelekinesisPackets")
 		}
 
 		for y, row := range cfg.Inventory.InventoryLock {

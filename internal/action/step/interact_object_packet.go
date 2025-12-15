@@ -2,7 +2,6 @@ package step
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -83,11 +82,6 @@ func InteractObjectPacket(obj data.Object, isCompletedFn func() bool) error {
 		// If we've transitioned areas (portal interaction), the object no longer exists in current area
 		// Stop trying to interact and let the completion function handle success
 		if ctx.Data.PlayerUnit.Area != startingArea {
-			ctx.Logger.Debug("Area changed during InteractObjectPacket, stopping interaction attempts",
-				slog.String("from", startingArea.Area().Name),
-				slog.String("to", ctx.Data.PlayerUnit.Area.Area().Name),
-				slog.Any("object", obj.Name),
-			)
 			// Don't return error - area transition is expected for portals
 			// The isCompletedFn will determine if this was successful
 			continue
