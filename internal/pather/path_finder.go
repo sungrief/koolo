@@ -166,7 +166,10 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 
 func (pf *PathFinder) mergeGrids(to data.Position, canTeleport bool) (*game.Grid, error) {
 	for _, a := range pf.data.AreaData.AdjacentLevels {
-		destination := pf.data.Areas[a.Area]
+		destination, exists := pf.data.Areas[a.Area]
+		if !exists || destination.Grid == nil || destination.Grid.CollisionGrid == nil {
+			continue
+		}
 		if destination.IsInside(to) {
 			origin := pf.data.AreaData
 

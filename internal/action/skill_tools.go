@@ -32,6 +32,17 @@ func EnsureSkillPoints() error {
 	ctx := context.Get()
 
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
+	if !isLevelingChar {
+		return nil
+	}
+
+	// New: avoid opening skill UI on a brand-new character; this is where crashes happen.
+	clvl, _ := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+	if clvl.Value <= 1 {
+		ctx.Logger.Debug("Level 1 character detected, skipping EnsureSkillBindings for now.")
+		return nil
+	}
+
 	skillPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.SkillPoints, 0)
 	remainingPoints := skillPoints.Value
 
@@ -147,7 +158,12 @@ func EnsureSkillBindings() error {
 	if !isLevelingChar {
 		return nil
 	}
-
+	// New: avoid opening skill UI on a brand-new character; this is where crashes happen.
+	clvl, _ := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+	if clvl.Value <= 1 {
+		ctx.Logger.Debug("Level 1 character detected, skipping EnsureSkillBindings for now.")
+		return nil
+	}
 	mainSkill, skillsToBind := char.SkillsToBind()
 
 	notBoundSkills := make([]skill.ID, 0)
@@ -161,12 +177,8 @@ func EnsureSkillBindings() error {
 		}
 	}
 
-	clvl, _ := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
-	// Hacky way to find if we're lvling a sorc at clvl 1
-	str, _ := ctx.Data.PlayerUnit.FindStat(stat.Strength, 0)
-
 	// This block handles binding skills to F-keys if they are not already bound.
-	if len(notBoundSkills) > 0 || (clvl.Value == 1 && str.Value == 10) {
+	if len(notBoundSkills) > 0 {
 		ctx.Logger.Debug("Unbound skills found, trying to bind")
 		if ctx.GameReader.LegacyGraphics() {
 			ctx.HID.Click(game.LeftButton, ui.SecondarySkillButtonXClassic, ui.SecondarySkillButtonYClassic)
@@ -251,7 +263,7 @@ func EnsureSkillBindings() error {
 		ctx.Logger.Error(fmt.Sprintf("Failed to find UI position for main skill %v (ID: %d)", skill.SkillNames[mainSkill], mainSkill))
 	}
 
-	return step.CloseAllMenus()
+	return nil
 }
 
 func calculateSkillPositionInUI(mainSkill bool, skillID skill.ID) (data.Position, bool) {

@@ -156,6 +156,8 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 		overrideClearPathDist = true
 	}
 
+	startArea := ctx.Data.PlayerUnit.Area
+
 	for {
 		ctx.PauseIfNotPriority()
 
@@ -166,6 +168,26 @@ func MoveTo(dest data.Position, options ...MoveOption) error {
 			return err
 		}
 		ctx.RefreshGameData()
+
+		// If area changed during movement, the destination is no longer valid
+		// This happens during portal interactions - area transition means objective achieved
+		if ctx.Data.PlayerUnit.Area != startArea {
+			// Wait for collision data to be loaded for the new area before returning
+			deadline := time.Now().Add(2 * time.Second)
+			for time.Now().Before(deadline) {
+				if ctx.Data.AreaData.Grid != nil &&
+					ctx.Data.AreaData.Grid.CollisionGrid != nil &&
+					len(ctx.Data.AreaData.Grid.CollisionGrid) > 0 {
+					// Area transitioned and collision data loaded - movement objective achieved
+					return nil
+				}
+				utils.Sleep(100)
+				ctx.RefreshGameData()
+			}
+			// If we timeout waiting for collision data, return error
+			return fmt.Errorf("area transition detected but collision data failed to load for area %s", ctx.Data.PlayerUnit.Area.Area().Name)
+		}
+
 		currentDest := dest
 
 		//Compute distance to destination

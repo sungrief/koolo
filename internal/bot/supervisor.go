@@ -144,8 +144,7 @@ func (s *baseSupervisor) waitUntilCharacterSelectionScreen() error {
 		return err
 	}
 
-	if s.bot.ctx.CharacterCfg.CharacterName != "" {
-
+	if s.bot.ctx.CharacterCfg.CharacterName != "" && !s.bot.ctx.ManualModeActive {
 		s.bot.ctx.Logger.Info("Selecting character...")
 
 		// If we've lost connection it bugs out and we need to select another character and the first one again.
@@ -154,9 +153,8 @@ func (s *baseSupervisor) waitUntilCharacterSelectionScreen() error {
 			time.Sleep(250 * time.Millisecond)
 			s.bot.ctx.HID.PressKey(win.VK_UP)
 		}
-		
+
 		// Auto-create: scan character list first, select if exists, create only if not found
-		
 		if s.bot.ctx.CharacterCfg.AutoCreateCharacter {
 			targetName := s.bot.ctx.CharacterCfg.CharacterName
 			currentName := s.bot.ctx.GameReader.GameReader.GetSelectedCharacterName()
