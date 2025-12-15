@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/context"
 )
@@ -107,6 +108,32 @@ func (bc BaseCharacter) preBattleChecks(id data.UnitID, skipOnImmunities []stat.
 	if !found {
 		return false
 	}
+
+	// Skip dead targets early.
+	if monster.Stats[stat.Life] <= 0 {
+		return false
+	}
+
+	// Special case: Vizier can spawn on weird/off-grid tiles in Chaos Sanctuary.
+	isVizier := monster.Type == data.MonsterTypeSuperUnique && monster.Name == npc.StormCaster
+
+	// Filter "underwater/off-grid" targets that exist in data but are not actually attackable/reachable.
+	// Apply only for nearby targets to avoid changing long-range targeting behavior.
+	const sanityRangeYards = 60
+	if !isVizier && bc.PathFinder.DistanceFromMe(monster.Position) <= sanityRangeYards {
+		if !bc.Data.AreaData.IsWalkable(monster.Position) {
+			return false
+		}
+
+		// If we cannot teleport, ensure the target is reachable by pathing.
+		if !bc.Data.CanTeleport() {
+			_, _, pathFound := bc.PathFinder.GetPath(monster.Position)
+			if !pathFound {
+				return false
+			}
+		}
+	}
+
 	for _, i := range skipOnImmunities {
 		if monster.IsImmune(i) {
 			bc.Logger.Info("Monster is immune! skipping", slog.String("immuneTo", string(i)))

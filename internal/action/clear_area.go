@@ -78,16 +78,34 @@ func ClearAreaAroundPosition(pos data.Position, radius int, filters ...data.Mons
 
 		for _, m := range enemies {
 			distanceToTarget := pather.DistanceFromPoint(pos, m.Position)
-			if ctx.Data.AreaData.IsWalkable(m.Position) && distanceToTarget <= radius {
-				validEnemy := true
-				if !ctx.Data.CanTeleport() {
-					if hasDoorBetween, _ := ctx.PathFinder.HasDoorBetween(ctx.Data.PlayerUnit.Position, m.Position); hasDoorBetween {
-						validEnemy = false
-					}
+			if distanceToTarget > radius {
+				continue
+			}
+
+			// Special case: Vizier can spawn on weird/off-grid tiles in Chaos Sanctuary.
+			isVizier := m.Type == data.MonsterTypeSuperUnique && m.Name == npc.StormCaster
+
+			// Skip monsters that exist in data but are placed on non-walkable tiles (often "underwater/off-grid").
+			if !isVizier && !ctx.Data.AreaData.IsWalkable(m.Position) {
+				continue
+			}
+
+			validEnemy := true
+			if !ctx.Data.CanTeleport() {
+				// If no path exists, do not target it (prevents chasing "ghost" monsters).
+				_, _, pathFound := ctx.PathFinder.GetPath(m.Position)
+				if !pathFound {
+					validEnemy = false
 				}
-				if validEnemy {
-					return m.UnitID, true
+
+				// Keep the door check to avoid targeting monsters behind closed doors.
+				if hasDoorBetween, _ := ctx.PathFinder.HasDoorBetween(ctx.Data.PlayerUnit.Position, m.Position); hasDoorBetween {
+					validEnemy = false
 				}
+			}
+
+			if validEnemy {
+				return m.UnitID, true
 			}
 		}
 
