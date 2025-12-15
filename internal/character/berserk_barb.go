@@ -29,6 +29,8 @@ const (
 	meleeRange        = 5
 	maxAttackAttempts = 20
 	findItemRange     = 5
+
+	combatScreenRangeYards = 25
 )
 
 func (s Berserker) ShouldIgnoreMonster(m data.Monster) bool {
@@ -73,13 +75,13 @@ func (s *Berserker) KillMonsterSequence(
 	monsterSelector func(d game.Data) (data.UnitID, bool),
 	skipOnImmunities []stat.Resist,
 ) error {
-	// Safety check: ensure we're on primary weapon before fighting
-	s.EnsurePrimaryWeaponEquipped()
-
 	monsterDetected := false
 	var previousEnemyId data.UnitID
 	var lastHowlCast time.Time
 	var lastBattleCryCast time.Time
+
+	// Tracks current desired weapon slot to avoid ping-pong switching.
+	desiredSlot := -1
 
 	if s.horkedCorpses == nil {
 		s.horkedCorpses = make(map[data.UnitID]bool)
@@ -89,16 +91,38 @@ func (s *Berserker) KillMonsterSequence(
 		ctx := context.Get()
 		ctx.PauseIfNotPriority()
 
+		// Enforce weapon slot based on current "combat on screen" state.
+		// Main slot (0) only when enemies are in range, otherwise stay on swap slot (1).
+		wantCombat := s.hasLivingEnemiesInRange(combatScreenRangeYards)
+
+		newDesiredSlot := 1
+		if wantCombat {
+			newDesiredSlot = 0
+		}
+
+		// Switch only on state change to avoid flipping every loop.
+		if newDesiredSlot != desiredSlot {
+			if newDesiredSlot == 0 {
+				s.EnsureCombatWeaponEquipped()
+			} else {
+				s.EnsureMFWeaponEquipped()
+			}
+			desiredSlot = newDesiredSlot
+		}
+
 		id, found := monsterSelector(*s.Data)
 		if !found {
 			if monsterDetected && !s.isKillingCouncil.Load() {
 				monstersNearby := s.countInRange(s.horkRange())
 				if monstersNearby <= safeMonstersForHork {
 					s.FindItemOnNearbyCorpses(maxHorkRange)
-					// Verify we're back on primary weapon after horking
-					s.EnsurePrimaryWeaponEquipped()
+					// After horking, stay on MF/GF weapon (swap).
+					s.EnsureMFWeaponEquipped()
 				}
 			}
+
+			// No monsters: ensure we remain on MF/GF weapon.
+			s.EnsureMFWeaponEquipped()
 			return nil
 		}
 
@@ -144,17 +168,23 @@ func (s *Berserker) KillMonsterSequence(
 		monstersNearby := s.countInRange(s.horkRange())
 		if monstersNearby <= safeMonstersForHork {
 			s.FindItemOnNearbyCorpses(maxHorkRange)
-			// Verify we're back on primary weapon after horking
-			s.EnsurePrimaryWeaponEquipped()
+			// After horking, stay on MF/GF weapon (swap).
+			s.EnsureMFWeaponEquipped()
 		}
 	}
 
+	// End of sequence: default to MF/GF weapon if not actively in combat.
+	s.EnsureMFWeaponEquipped()
 	return nil
 }
 
 func (s *Berserker) PerformBerserkAttack(monsterID data.UnitID) {
 	ctx := context.Get()
 	ctx.PauseIfNotPriority()
+
+	// Berserk combat should always be performed from main weapon slot (0).
+	s.EnsureCombatWeaponEquipped()
+
 	monster, found := s.Data.Monsters.FindByID(monsterID)
 	if !found {
 		return
@@ -319,6 +349,22 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	originalSlot := ctx.Data.ActiveWeaponSlot
 	swapped := false
 
+	ensureHorkWeaponSlot := func() {
+		// Enforce configured weapon source for horking:
+		// FindItemSwitch=true => always hork from secondary weapon slot (1).
+		if !ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
+			return
+		}
+
+		ctx.RefreshGameData()
+		if ctx.Data.ActiveWeaponSlot != 1 {
+			s.Logger.Debug("Weapon slot changed during hork, swapping back to hork slot",
+				"current", ctx.Data.ActiveWeaponSlot,
+				"desired", 1)
+			s.SwapToSlot(1)
+		}
+	}
+
 	// Swap to hork slot if configured
 	if ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
 		if s.SwapToSlot(1) {
@@ -351,6 +397,9 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	}
 
 	for _, corpse := range corpses {
+		ctx.PauseIfNotPriority()
+		ensureHorkWeaponSlot()
+
 		if s.horkedCorpses[corpse.UnitID] {
 			continue
 		}
@@ -368,11 +417,15 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 			}
 		}
 
+		ensureHorkWeaponSlot()
+
 		// Make sure Find Item is on right-click
 		if s.Data.PlayerUnit.RightSkill != skill.FindItem {
 			ctx.HID.PressKeyBinding(findItemKey)
 			time.Sleep(50 * time.Millisecond)
 		}
+
+		ensureHorkWeaponSlot()
 
 		clickPos := s.getOptimalClickPosition(corpse)
 		screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(clickPos.X, clickPos.Y)
@@ -476,6 +529,50 @@ func (s *Berserker) horkRange() int {
 	return r
 }
 
+func (s *Berserker) hasLivingEnemiesInRange(rangeYards int) bool {
+	for _, m := range s.Data.Monsters.Enemies() {
+		if m.Stats[stat.Life] <= 0 {
+			continue
+		}
+		if s.PathFinder.DistanceFromMe(m.Position) <= rangeYards {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Berserker) EnsureCombatWeaponEquipped() bool {
+	ctx := context.Get()
+
+	// If weapon switching is disabled, do nothing.
+	if !ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
+		return true
+	}
+
+	// Combat uses main slot (0).
+	if ctx.Data.ActiveWeaponSlot != 0 {
+		return s.SwapToSlot(0)
+	}
+
+	return true
+}
+
+func (s *Berserker) EnsureMFWeaponEquipped() bool {
+	ctx := context.Get()
+
+	// If weapon switching is disabled, do nothing.
+	if !ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
+		return true
+	}
+
+	// Non-combat uses swap slot (1) for MF/GF.
+	if ctx.Data.ActiveWeaponSlot != 1 {
+		return s.SwapToSlot(1)
+	}
+
+	return true
+}
+
 // slot 0 = primary weapon, slot 1 = secondary weapon
 // Improved SwapToSlot with more robust retry logic
 func (s *Berserker) SwapToSlot(slot int) bool {
@@ -545,8 +642,8 @@ func (s *Berserker) EnsurePrimaryWeaponEquipped() bool {
 
 	return true
 }
-func (s *Berserker) BuffSkills() []skill.ID {
 
+func (s *Berserker) BuffSkills() []skill.ID {
 	skillsList := make([]skill.ID, 0)
 	if _, found := s.Data.KeyBindings.KeyBindingForSkill(skill.BattleCommand); found {
 		skillsList = append(skillsList, skill.BattleCommand)
@@ -659,6 +756,9 @@ func (s *Berserker) KillCouncil() error {
 	// Wait a moment to ensure all items are picked up
 	time.Sleep(300 * time.Millisecond)
 
+	// After council routine, default to MF/GF weapon (swap) when not fighting.
+	s.EnsureMFWeaponEquipped()
+
 	return nil
 }
 
@@ -690,7 +790,6 @@ func (s *Berserker) anyCouncilMemberAlive() bool {
 		if (m.Name == npc.CouncilMember || m.Name == npc.CouncilMember2 || m.Name == npc.CouncilMember3) && m.Stats[stat.Life] > 0 {
 			return true
 		}
-
 	}
 	return false
 }
