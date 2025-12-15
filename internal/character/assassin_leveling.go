@@ -104,6 +104,14 @@ func (s AssassinLeveling) KillMonsterSequence(
 			mainAttackSkill = skill.WakeOfFire
 		}
 
+		// use standard attack if fire immune and under lvl 15
+		if lvl.Value < 15 && monster.IsImmune(stat.FireImmune) {
+			step.PrimaryAttack(id, 1, true, step.Distance(1, 3))
+			completedAttackLoops++
+			previousUnitID = int(id)
+			continue
+		}
+
 		if lvl.Value < 48 {
 			if s.Data.PlayerUnit.Skills[mainAttackSkill].Level > 0 && mana.Value > 2 {
 				step.SecondaryAttack(mainAttackSkill, id, 5, step.Distance(levelingminDistance, levelingmaxDistance))
