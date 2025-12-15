@@ -462,6 +462,17 @@ func (s *WarcryBarb) horkCorpses(maxRange int) {
 	originalSlot := ctx.Data.ActiveWeaponSlot
 	swapped := false
 
+	keepHorkSlot := func() {
+		if !ctx.CharacterCfg.Character.WarcryBarb.FindItemSwitch {
+			return
+		}
+		ctx.RefreshGameData()
+		if ctx.Data.ActiveWeaponSlot != 1 {
+			s.Logger.Debug("switch hork slot", "current", ctx.Data.ActiveWeaponSlot)
+			s.SwapToSlot(1)
+		}
+	}
+
 	if ctx.CharacterCfg.Character.WarcryBarb.FindItemSwitch {
 		if s.SwapToSlot(1) {
 			swapped = true
@@ -490,6 +501,9 @@ func (s *WarcryBarb) horkCorpses(maxRange int) {
 	}
 
 	for _, corpse := range corpses {
+		ctx.PauseIfNotPriority()
+		keepHorkSlot()
+
 		if s.horkedCorpses[corpse.UnitID] {
 			continue
 		}
@@ -506,6 +520,8 @@ func (s *WarcryBarb) horkCorpses(maxRange int) {
 				continue
 			}
 		}
+
+		keepHorkSlot()
 
 		if s.Data.PlayerUnit.RightSkill != skill.FindItem {
 			ctx.HID.PressKeyBinding(findItemKey)
