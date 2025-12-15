@@ -588,8 +588,8 @@ func (s *Berserker) SwapToSlot(slot int) bool {
 		return true
 	}
 
-	const maxAttempts = 6                     // Increased from 4
-	const retryDelay = 200 * time.Millisecond // Increased from 150ms
+	const maxAttempts = 6
+	const retryDelay = 200 * time.Millisecond
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		// Refresh data before checking to ensure we have current state
