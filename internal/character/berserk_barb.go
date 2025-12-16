@@ -319,6 +319,17 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	originalSlot := ctx.Data.ActiveWeaponSlot
 	swapped := false
 
+	keepHorkSlot := func() {
+		if !ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
+			return
+		}
+		ctx.RefreshGameData()
+		if ctx.Data.ActiveWeaponSlot != 1 {
+			s.Logger.Debug("switch hork slot", "current", ctx.Data.ActiveWeaponSlot)
+			s.SwapToSlot(1)
+		}
+	}
+
 	// Swap to hork slot if configured
 	if ctx.CharacterCfg.Character.BerserkerBarb.FindItemSwitch {
 		if s.SwapToSlot(1) {
@@ -351,6 +362,9 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 	}
 
 	for _, corpse := range corpses {
+		ctx.PauseIfNotPriority()
+		keepHorkSlot()
+
 		if s.horkedCorpses[corpse.UnitID] {
 			continue
 		}
@@ -367,6 +381,8 @@ func (s *Berserker) FindItemOnNearbyCorpses(maxRange int) {
 				continue
 			}
 		}
+
+		keepHorkSlot()
 
 		// Make sure Find Item is on right-click
 		if s.Data.PlayerUnit.RightSkill != skill.FindItem {
