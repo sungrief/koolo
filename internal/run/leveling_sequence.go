@@ -592,7 +592,7 @@ func (ls LevelingSequence) CheckResCondition(resType stat.ID, resTarget *int, re
 
 	if resTarget != nil {
 		if res, found := ls.ctx.Data.PlayerUnit.FindStat(resType, 0); found {
-			if res.Value < *resTarget-resPenalty {
+			if res.Value-resPenalty < *resTarget {
 				return false
 			}
 		} else {
