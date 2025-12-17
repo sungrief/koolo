@@ -484,7 +484,7 @@ function maybeShowAutoStartPrompt(data) {
   confirmBtn.className = "btn btn-start";
   confirmBtn.textContent = "Start Now";
 
-  let remaining = 10;
+  let remaining = 15;
   const updateCountdown = () => {
     countdownText.textContent = `Auto start will begin in ${remaining} seconds...`;
   };
