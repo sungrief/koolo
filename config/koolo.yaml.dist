@@ -35,4 +35,4 @@ pingMonitor:
 # Auto Start - Automatically start selected supervisors when Koolo starts
 autoStart:
   enabled: false         # If true, start all supervisors with autoStart=true when Koolo starts
-  delaySeconds: 30       # Delay between starting each supervisor in seconds (default: 30)
+  delaySeconds: 60       # Delay between starting each supervisor in seconds (default: 60)
