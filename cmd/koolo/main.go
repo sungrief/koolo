@@ -55,6 +55,11 @@ func main() {
 		return
 	}
 
+	// Ensure a sensible default delay for Auto Start if not configured
+	if config.Koolo.AutoStart.DelaySeconds <= 0 {
+		config.Koolo.AutoStart.DelaySeconds = 60
+	}
+
 	logger, err := sloggger.NewLogger(config.Koolo.Debug.Log, config.Koolo.LogSaveDirectory, "")
 	if err != nil {
 		log.Fatalf("Error starting logger: %s", err.Error())

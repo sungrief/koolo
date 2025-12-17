@@ -34,6 +34,9 @@ function fetchInitialData() {
       updateDashboard(data);
       document.getElementById("loading").style.display = "none";
       document.getElementById("dashboard").style.display = "block";
+
+      // Show auto-start confirmation prompt once on initial load
+      maybeShowAutoStartPrompt(data);
     })
     .catch((error) => console.error("Error fetching initial data:", error));
 }
@@ -64,6 +67,12 @@ function updateDashboard(data) {
       container.appendChild(card);
     }
     updateCharacterCard(card, key, value, data.DropCount[key]);
+
+    // Sync Auto Start toggle if present
+    const autoStartCheckbox = card.querySelector(".autostart-checkbox");
+    if (autoStartCheckbox && data.AutoStart) {
+      autoStartCheckbox.checked = !!data.AutoStart[key];
+    }
   }
 
   // Remove cards for characters that no longer exist
@@ -83,6 +92,9 @@ function createCharacterCard(key) {
             <div class="character-header">
                 <div class="character-stats">
                   <div class="character-info">
+                    <label class="autostart-toggle" title="Include in Auto Start">
+                      <input type="checkbox" class="autostart-checkbox" data-character="${key}">
+                    </label>
                     <span>${key}</span>
                      <div class="status-indicator"></div>
                      <div class="co-line co-line-with-stats">
@@ -196,6 +208,7 @@ function setupEventListeners(card, key) {
   const startPauseBtn = card.querySelector(".start-pause");
   const stopBtn = card.querySelector(".stop");
   const resetMuleBtn = card.querySelector(".reset-muling-btn");
+  const autoStartCheckbox = card.querySelector(".autostart-checkbox");
   if (resetMuleBtn) {
     resetMuleBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -226,6 +239,23 @@ function setupEventListeners(card, key) {
         ? "rotate(180deg)"
         : "rotate(0deg)";
       saveExpandedState();
+    });
+  }
+
+  if (autoStartCheckbox) {
+    autoStartCheckbox.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const enabled = autoStartCheckbox.checked;
+      fetch(
+        `/autostart/toggle?characterName=${encodeURIComponent(
+          key
+        )}&enabled=${enabled}`,
+        {
+          method: "POST",
+        }
+      ).catch((err) => {
+        console.error("Failed to toggle auto start", err);
+      });
     });
   }
 
@@ -388,6 +418,133 @@ function updateStartedTime(statusDetails, startedAt) {
 
   const duration = formatDuration(timeDiff);
   runningForElement.textContent = `Running for: ${duration}`;
+}
+
+function maybeShowAutoStartPrompt(data) {
+  // Backend decides whether this prompt should be shown.
+  // It will only be true on the first eligible dashboard load
+  // after the program starts.
+  if (!data.ShowAutoStartPrompt) return;
+
+  // Additionally, guard on the frontend so that within a single
+  // browser/webview session we only ever show this prompt once,
+  // even if navigation/back-forward causes the dashboard to be
+  // reloaded.
+  try {
+    if (sessionStorage.getItem("kooloAutoStartPromptShown") === "true") {
+      return;
+    }
+    sessionStorage.setItem("kooloAutoStartPromptShown", "true");
+  } catch (e) {
+    // If sessionStorage is not available for any reason, we just
+    // fall back to showing the prompt based solely on the backend
+    // flag.
+  }
+
+  const overlay = document.createElement("div");
+  overlay.id = "autostart-overlay";
+  overlay.style.position = "fixed";
+  overlay.style.inset = "0";
+  overlay.style.background = "rgba(0,0,0,0.7)";
+  overlay.style.display = "flex";
+  overlay.style.alignItems = "center";
+  overlay.style.justifyContent = "center";
+  overlay.style.zIndex = "9999";
+
+  const modal = document.createElement("div");
+  modal.style.background = "#1f2430";
+  modal.style.padding = "24px";
+  modal.style.borderRadius = "12px";
+  modal.style.maxWidth = "480px";
+  modal.style.width = "100%";
+  modal.style.boxShadow = "0 10px 40px rgba(0,0,0,0.6)";
+  modal.style.color = "#fff";
+
+  const title = document.createElement("h3");
+  title.textContent = "Auto Start";
+
+  const message = document.createElement("p");
+  message.textContent =
+    "Based on your settings, the selected characters will start automatically. If you don't want this, click Cancel.";
+
+  const countdownText = document.createElement("p");
+  countdownText.style.marginTop = "8px";
+
+  const buttonRow = document.createElement("div");
+  buttonRow.style.display = "flex";
+  buttonRow.style.justifyContent = "flex-end";
+  buttonRow.style.gap = "8px";
+  buttonRow.style.marginTop = "16px";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.className = "btn btn-outline";
+  cancelBtn.textContent = "Cancel";
+
+  const confirmBtn = document.createElement("button");
+  confirmBtn.className = "btn btn-start";
+  confirmBtn.textContent = "Start Now";
+
+  let remaining = 10;
+  const updateCountdown = () => {
+    countdownText.textContent = `Auto start will begin in ${remaining} seconds...`;
+  };
+  updateCountdown();
+
+  const cleanup = () => {
+    if (overlay.parentNode) {
+      overlay.parentNode.removeChild(overlay);
+    }
+  };
+
+  let timerId = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearInterval(timerId);
+      triggerAutoStartOnce();
+      cleanup();
+    } else {
+      updateCountdown();
+    }
+  }, 1000);
+
+  cancelBtn.onclick = () => {
+    clearInterval(timerId);
+    cleanup();
+  };
+
+  confirmBtn.onclick = () => {
+    clearInterval(timerId);
+    triggerAutoStartOnce();
+    cleanup();
+  };
+
+  buttonRow.appendChild(cancelBtn);
+  buttonRow.appendChild(confirmBtn);
+
+  modal.appendChild(title);
+  modal.appendChild(message);
+  modal.appendChild(countdownText);
+  modal.appendChild(buttonRow);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+}
+
+function triggerAutoStartOnce() {
+  fetch("/autostart/run-once", {
+    method: "POST",
+  })
+    .then((response) => {
+      if (!response.ok) {
+        return response.text().then((text) => {
+          throw new Error(text || "Failed to trigger auto start");
+        });
+      }
+    })
+    .catch((error) => {
+      console.error("Error triggering auto start:", error);
+      alert("Failed to trigger Auto Start: " + error.message);
+    });
 }
 
 function updateButtons(startPauseBtn, stopBtn, attachBtn, manualPlayBtn, status, manualModeActive) {

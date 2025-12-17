@@ -47,17 +47,18 @@ import (
 )
 
 type HttpServer struct {
-	logger       *slog.Logger
-	server       *http.Server
-	manager      *bot.SupervisorManager
-	templates    *template.Template
-	wsServer     *WebSocketServer
-	pickitAPI    *PickitAPI
-	sequenceAPI  *SequenceAPI
-	DropHistory  []DropHistoryEntry
-	DropFilters  map[string]drop.Filters
-	DropCardInfo map[string]dropCardInfo
-	DropMux      sync.Mutex
+	logger              *slog.Logger
+	server              *http.Server
+	manager             *bot.SupervisorManager
+	templates           *template.Template
+	wsServer            *WebSocketServer
+	pickitAPI           *PickitAPI
+	sequenceAPI         *SequenceAPI
+	DropHistory         []DropHistoryEntry
+	DropFilters         map[string]drop.Filters
+	DropCardInfo        map[string]dropCardInfo
+	DropMux             sync.Mutex
+	autoStartPromptOnce sync.Once
 }
 
 var (
@@ -430,6 +431,24 @@ func containss(slice []string, item string) bool {
 
 func (s *HttpServer) initialData(w http.ResponseWriter, r *http.Request) {
 	data := s.getStatusData()
+
+	// Decide whether to show the auto-start confirmation prompt.
+	// This should only happen once per program run, on the first
+	// dashboard load where global auto-start is enabled and at
+	// least one character is marked for auto-start.
+	showPrompt := false
+	if data.GlobalAutoStartEnabled {
+		s.autoStartPromptOnce.Do(func() {
+			for _, enabled := range data.AutoStart {
+				if enabled {
+					showPrompt = true
+					break
+				}
+			}
+		})
+	}
+	data.ShowAutoStartPrompt = showPrompt
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
 }
@@ -437,6 +456,7 @@ func (s *HttpServer) initialData(w http.ResponseWriter, r *http.Request) {
 func (s *HttpServer) getStatusData() IndexData {
 	status := make(map[string]bot.Stats)
 	drops := make(map[string]int)
+	autoStart := make(map[string]bool)
 
 	for _, supervisorName := range s.manager.AvailableSupervisors() {
 		stats := s.manager.Status(supervisorName)
@@ -577,15 +597,18 @@ func (s *HttpServer) getStatusData() IndexData {
 			}
 		}
 
-		// Check if this is a companion follower
+		// Character-level settings
 		cfg, found := config.GetCharacter(supervisorName)
-		if found {
+		if found && cfg != nil {
 			// Add companion information to the stats
 			if cfg.Companion.Enabled && !cfg.Companion.Leader {
 				// This is a companion follower
 				stats.IsCompanionFollower = true
 				stats.MuleEnabled = cfg.Muling.Enabled
 			}
+
+			// Per-character Auto Start flag
+			autoStart[supervisorName] = cfg.AutoStart
 		}
 
 		status[supervisorName] = stats
@@ -598,9 +621,12 @@ func (s *HttpServer) getStatusData() IndexData {
 	}
 
 	return IndexData{
-		Version:   config.Version,
-		Status:    status,
-		DropCount: drops,
+		Version:                     config.Version,
+		Status:                      status,
+		DropCount:                   drops,
+		AutoStart:                   autoStart,
+		GlobalAutoStartEnabled:      config.Koolo.AutoStart.Enabled,
+		GlobalAutoStartDelaySeconds: config.Koolo.AutoStart.DelaySeconds,
 	}
 }
 
@@ -615,6 +641,8 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/start", s.startSupervisor)
 	http.HandleFunc("/stop", s.stopSupervisor)
 	http.HandleFunc("/togglePause", s.togglePause)
+	http.HandleFunc("/autostart/toggle", s.toggleAutoStart)
+	http.HandleFunc("/autostart/run-once", s.runAutoStartOnce)
 	http.HandleFunc("/debug", s.debugHandler)
 	http.HandleFunc("/debug-data", s.debugData)
 	http.HandleFunc("/drops", s.drops)
@@ -780,33 +808,151 @@ func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prevent launching of other clients while there's a client with TokenAuth still starting
-	for _, sup := range supervisorList {
-
-		// If the current don't check against the one we're trying to launch
-		if sup == Supervisor {
-			continue
-		}
-
-		if s.manager.GetSupervisorStats(sup).SupervisorStatus == bot.Starting {
-
-			// Prevent launching if we're using token auth & another client is starting (no matter what auth method)
-			if supCfg.AuthMethod == "TokenAuth" {
-				return
-			}
-
-			// Prevent launching if another client that is using token auth is starting
-			sCfg, found := config.GetCharacter(sup)
-			if found {
-				if sCfg.AuthMethod == "TokenAuth" {
-					return
-				}
-			}
-		}
+	if !s.canStartSupervisor(Supervisor, supervisorList, supCfg) {
+		return
 	}
 
 	s.manager.Start(Supervisor, false, manualMode)
 	s.initialData(w, r)
+}
+
+// canStartSupervisor enforces TokenAuth concurrency rules before starting a supervisor.
+func (s *HttpServer) canStartSupervisor(target string, supervisorList []string, targetCfg *config.CharacterCfg) bool {
+	// Prevent launching of other clients while there's a client with TokenAuth still starting
+	for _, sup := range supervisorList {
+		// Skip the target itself
+		if sup == target {
+			continue
+		}
+
+		if s.manager.GetSupervisorStats(sup).SupervisorStatus == bot.Starting {
+			// Prevent launching if we're using token auth & another client is starting (no matter what auth method)
+			if targetCfg.AuthMethod == "TokenAuth" {
+				return false
+			}
+
+			// Prevent launching if another client that is using token auth is starting
+			sCfg, found := config.GetCharacter(sup)
+			if found && sCfg.AuthMethod == "TokenAuth" {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func (s *HttpServer) toggleAutoStart(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("characterName")
+	enabled := r.URL.Query().Get("enabled") == "true"
+
+	if name == "" {
+		http.Error(w, "missing characterName", http.StatusBadRequest)
+		return
+	}
+
+	cfg, found := config.GetCharacter(name)
+	if !found || cfg == nil {
+		http.Error(w, "character not found", http.StatusNotFound)
+		return
+	}
+
+	cfg.AutoStart = enabled
+	if err := config.SaveSupervisorConfig(name, cfg); err != nil {
+		http.Error(w, "failed to save supervisor config", http.StatusInternalServerError)
+		return
+	}
+
+	s.initialData(w, r)
+}
+
+func (s *HttpServer) runAutoStartOnce(w http.ResponseWriter, r *http.Request) {
+	if err := s.autoStartOnceInternal(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// autoStartOnceInternal contains the core logic for starting all supervisors
+// marked with AutoStart, using the global delay setting. It is used both by
+// the HTTP handler and by application startup.
+func (s *HttpServer) autoStartOnceInternal() error {
+	supervisorList := s.manager.AvailableSupervisors()
+	if len(supervisorList) == 0 {
+		return fmt.Errorf("no supervisors available")
+	}
+
+	// Collect supervisors marked for AutoStart
+	var targets []string
+	for _, name := range supervisorList {
+		cfg, found := config.GetCharacter(name)
+		if !found || cfg == nil {
+			continue
+		}
+		if cfg.AutoStart {
+			targets = append(targets, name)
+		}
+	}
+
+	if len(targets) == 0 {
+		return fmt.Errorf("no supervisors marked for auto start")
+	}
+
+	// Fallback to a sensible default if not configured
+	delaySeconds := config.Koolo.AutoStart.DelaySeconds
+	if delaySeconds <= 0 {
+		delaySeconds = 60
+	}
+	delay := time.Duration(delaySeconds) * time.Second
+
+	go func() {
+		s.logger.Info("Auto-start sequence begin",
+			"characters", targets,
+			"delay_seconds", delaySeconds)
+
+		for i, name := range targets {
+			if i > 0 && delay > 0 {
+				s.logger.Info("Waiting before next auto-start",
+					"next_name", name,
+					"delay", delay)
+				time.Sleep(delay)
+			}
+
+			s.logger.Info("Auto-starting character",
+				"name", name,
+				"position", fmt.Sprintf("%d/%d", i+1, len(targets)))
+
+			// Run each supervisor start in its own goroutine so that
+			// a long-running Start call for one character does not block
+			// the scheduling of subsequent characters.
+			go func(supervisorName string) {
+				if err := s.manager.Start(supervisorName, false, false); err != nil {
+					s.logger.Error("Auto-start failed",
+						"name", supervisorName,
+						"error", err)
+				}
+			}(name)
+		}
+
+		s.logger.Info("Auto-start sequence completed",
+			"total", len(targets))
+	}()
+
+	return nil
+}
+
+// AutoStartOnStartup triggers a one-off Auto Start sequence if it is enabled
+// in the global configuration. This is intended to be called when Koolo starts.
+func (s *HttpServer) AutoStartOnStartup() {
+	if !config.Koolo.AutoStart.Enabled {
+		return
+	}
+
+	if err := s.autoStartOnceInternal(); err != nil {
+		s.logger.Error("Auto start on startup failed", slog.Any("error", err))
+	}
 }
 
 func (s *HttpServer) stopSupervisor(w http.ResponseWriter, r *http.Request) {
@@ -1091,6 +1237,14 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 			pingDuration = 30 // Default to 30 seconds
 		}
 		newConfig.PingMonitor.SustainedDuration = pingDuration
+
+		// Auto Start
+		newConfig.AutoStart.Enabled = r.Form.Get("autostart_enabled") == "true"
+		autoStartDelay, err := strconv.Atoi(r.Form.Get("autostart_delay"))
+		if err != nil || autoStartDelay < 0 {
+			autoStartDelay = 0
+		}
+		newConfig.AutoStart.DelaySeconds = autoStartDelay
 
 		err = config.ValidateAndSaveConfig(newConfig)
 		if err != nil {

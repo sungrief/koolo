@@ -31,3 +31,8 @@ pingMonitor:
   enabled: false             # Set to true to enable ping monitoring
   highPingThreshold: 500     # Stop bot if ping exceeds this value in ms (default: 500)
   sustainedDuration: 30      # How long high ping must persist before stopping in seconds (default: 30)
+
+# Auto Start - Automatically start selected supervisors when Koolo starts
+autoStart:
+  enabled: false         # If true, start all supervisors with autoStart=true when Koolo starts
+  delaySeconds: 30       # Delay between starting each supervisor in seconds (default: 30)
