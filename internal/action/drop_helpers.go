@@ -151,7 +151,7 @@ func DropVendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) erro
 	}
 
 	// Align with existing vendor flow: switch to tab 4 (shared stash area for vendor UI)
-	SwitchStashTab(4)
+	SwitchVendorTab(4)
 	ctx.RefreshGameData()
 
 	return step.CloseAllMenus()
