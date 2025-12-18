@@ -23,7 +23,7 @@ type Dragondin struct {
 }
 
 func (d Dragondin) ShouldIgnoreMonster(m data.Monster) bool {
-	if m.Type == data.MonsterTypeNormal {
+	if !m.IsElite() {
 		return true
 	}
 
@@ -72,7 +72,7 @@ func (d Dragondin) KillMonsterSequence(
 			return nil
 		}
 
-		if monster.Type == data.MonsterTypeNormal {
+		if !monster.IsElite() {
 			return nil
 		}
 
