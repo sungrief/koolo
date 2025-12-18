@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"reflect"
 	"slices"
 	"sort"
@@ -659,6 +660,8 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/sequence-editor/save", s.sequenceAPI.handleSaveSequence)
 	http.HandleFunc("/api/sequence-editor/delete", s.sequenceAPI.handleDeleteSequence)
 	http.HandleFunc("/api/sequence-editor/files", s.sequenceAPI.handleListSequenceFiles)
+
+	http.HandleFunc("/api/supervisors/bulk-apply", s.bulkApplyCharacterSettings)
 	http.HandleFunc("/Drop-manager", s.DropManagerPage)
 
 	s.registerDropRoutes()
@@ -1742,13 +1745,16 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	muleProfiles := []string{}
 	farmerProfiles := []string{}
 	allCharacters := config.GetCharacters()
+	supervisors := make([]string, 0, len(allCharacters))
 	for profileName, profileCfg := range allCharacters {
+		supervisors = append(supervisors, profileName)
 		if strings.ToLower(profileCfg.Character.Class) == "mule" {
 			muleProfiles = append(muleProfiles, profileName)
 		} else {
 			farmerProfiles = append(farmerProfiles, profileName)
 		}
 	}
+	sort.Strings(supervisors)
 	sort.Strings(muleProfiles)
 	sort.Strings(farmerProfiles)
 
@@ -1775,6 +1781,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		AvailableProfiles:     muleProfiles,
 		FarmerProfiles:        farmerProfiles,
 		LevelingSequenceFiles: sequenceFiles,
+		Supervisors:           supervisors,
 	})
 }
 
@@ -1834,6 +1841,193 @@ func (s *HttpServer) companionJoin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+type ApplySections struct {
+	Health        bool `json:"health"`
+	Runs          bool `json:"runs"`
+	PacketCasting bool `json:"packetCasting"`
+	CubeRecipes   bool `json:"cubeRecipes"`
+	Merc          bool `json:"merc"`
+	General       bool `json:"general"`
+	Client        bool `json:"client"`
+}
+
+func (s *HttpServer) applySectionsFromFormValues(values url.Values, cfg *config.CharacterCfg, sections ApplySections) {
+	if sections.Health {
+		if v := values.Get("healingPotionAt"); v != "" {
+			cfg.Health.HealingPotionAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("manaPotionAt"); v != "" {
+			cfg.Health.ManaPotionAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("rejuvPotionAtLife"); v != "" {
+			cfg.Health.RejuvPotionAtLife, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("rejuvPotionAtMana"); v != "" {
+			cfg.Health.RejuvPotionAtMana, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("chickenAt"); v != "" {
+			cfg.Health.ChickenAt, _ = strconv.Atoi(v)
+		}
+	}
+
+	if sections.Runs {
+		if raw := values.Get("gameRuns"); raw != "" {
+			var enabledRuns []config.Run
+			if err := json.Unmarshal([]byte(raw), &enabledRuns); err == nil {
+				cfg.Game.Runs = enabledRuns
+			}
+		}
+	}
+
+	if sections.Merc {
+		cfg.Character.UseMerc = values.Has("useMerc")
+		if v := values.Get("mercHealingPotionAt"); v != "" {
+			cfg.Health.MercHealingPotionAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("mercRejuvPotionAt"); v != "" {
+			cfg.Health.MercRejuvPotionAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("mercChickenAt"); v != "" {
+			cfg.Health.MercChickenAt, _ = strconv.Atoi(v)
+		}
+	}
+
+	if sections.PacketCasting {
+		cfg.PacketCasting.UseForEntranceInteraction = values.Has("packetCastingUseForEntranceInteraction")
+		cfg.PacketCasting.UseForItemPickup = values.Has("packetCastingUseForItemPickup")
+		cfg.PacketCasting.UseForTpInteraction = values.Has("packetCastingUseForTpInteraction")
+		cfg.PacketCasting.UseForTeleport = values.Has("packetCastingUseForTeleport")
+		cfg.PacketCasting.UseForEntitySkills = values.Has("packetCastingUseForEntitySkills")
+		cfg.PacketCasting.UseForSkillSelection = values.Has("packetCastingUseForSkillSelection")
+	}
+
+	if sections.CubeRecipes {
+		cfg.CubeRecipes.Enabled = values.Has("enableCubeRecipes")
+		if recipes, ok := values["enabledRecipes"]; ok {
+			cfg.CubeRecipes.EnabledRecipes = recipes
+		} else {
+			cfg.CubeRecipes.EnabledRecipes = nil
+		}
+		cfg.CubeRecipes.SkipPerfectAmethysts = values.Has("skipPerfectAmethysts")
+		cfg.CubeRecipes.SkipPerfectRubies = values.Has("skipPerfectRubies")
+		if v := values.Get("jewelsToKeep"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				cfg.CubeRecipes.JewelsToKeep = n
+			} else {
+				cfg.CubeRecipes.JewelsToKeep = 1
+			}
+		}
+	}
+
+	if sections.General {
+		// Character general toggles
+		cfg.Character.StashToShared = values.Has("characterStashToShared")
+		cfg.Character.UseTeleport = values.Has("characterUseTeleport")
+		cfg.Character.UseExtraBuffs = values.Has("characterUseExtraBuffs")
+		cfg.Character.UseSwapForBuffs = values.Has("useSwapForBuffs")
+		cfg.Character.BuffOnNewArea = values.Has("characterBuffOnNewArea")
+		cfg.Character.BuffAfterWP = values.Has("characterBuffAfterWP")
+
+		// ClearPathDist - mirror main handler behaviour
+		if !cfg.Character.UseTeleport {
+			if v := values.Get("clearPathDist"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 30 {
+					cfg.Character.ClearPathDist = n
+				}
+			}
+		} else {
+			cfg.Character.ClearPathDist = 7
+		}
+
+		// Game / pickit general
+		cfg.UseCentralizedPickit = values.Has("useCentralizedPickit")
+		cfg.Game.InteractWithShrines = values.Has("interactWithShrines")
+		cfg.Game.InteractWithChests = values.Has("interactWithChests")
+
+		if v := values.Get("stopLevelingAt"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				cfg.Game.StopLevelingAt = n
+			}
+		}
+		if v := values.Get("gameMinGoldPickupThreshold"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				cfg.Game.MinGoldPickupThreshold = n
+			}
+		}
+
+		cfg.Game.UseCainIdentify = values.Has("useCainIdentify")
+		cfg.Game.DisableIdentifyTome = values.Has("game.disableIdentifyTome")
+	}
+
+	if sections.Client {
+		// Client / process related options
+		cfg.CommandLineArgs = values.Get("commandLineArgs")
+		cfg.KillD2OnStop = values.Has("kill_d2_process")
+		cfg.ClassicMode = values.Has("classic_mode")
+		cfg.CloseMiniPanel = values.Has("close_mini_panel")
+		cfg.HidePortraits = values.Has("hide_portraits")
+	}
+}
+
+func (s *HttpServer) bulkApplyCharacterSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		SourceSupervisor  string              `json:"sourceSupervisor"`
+		TargetSupervisors []string            `json:"targetSupervisors"`
+		Sections          ApplySections       `json:"sections"`
+		Form              map[string][]string `json:"form"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	targets := map[string]struct{}{}
+	if req.SourceSupervisor != "" {
+		targets[req.SourceSupervisor] = struct{}{}
+	}
+	for _, t := range req.TargetSupervisors {
+		if t == "" {
+			continue
+		}
+		targets[t] = struct{}{}
+	}
+
+	if len(targets) == 0 {
+		http.Error(w, "no supervisors specified", http.StatusBadRequest)
+		return
+	}
+
+	values := url.Values{}
+	for k, arr := range req.Form {
+		for _, v := range arr {
+			values.Add(k, v)
+		}
+	}
+
+	for name := range targets {
+		cfg, found := config.GetCharacter(name)
+		if !found || cfg == nil {
+			continue
+		}
+
+		s.applySectionsFromFormValues(values, cfg, req.Sections)
+
+		if err := config.SaveSupervisorConfig(name, cfg); err != nil {
+			s.logger.Error("failed to save bulk-applied config", slog.String("supervisor", name), slog.Any("error", err))
+			continue
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
 }
 
 func (s *HttpServer) resetMuling(w http.ResponseWriter, r *http.Request) {

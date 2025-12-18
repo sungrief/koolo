@@ -65,6 +65,13 @@ function updateEnabledRunsHiddenField() {
         return item.getAttribute("value");
     });
     document.getElementById('gameRuns').value = JSON.stringify(values);
+    if (window.onGameRunsUpdated) {
+        try {
+            window.onGameRunsUpdated();
+        } catch (e) {
+            console.error('onGameRunsUpdated handler failed', e);
+        }
+    }
 }
 
 function filterDisabledRuns(searchTerm) {
@@ -713,30 +720,3 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updateLevelingSequenceActionState();
 });
-
-function handleBossStaticThresholdChange() {
-    const input = document.getElementById('novaBossStaticThreshold');
-    const selectedDifficulty = document.getElementById('gameDifficulty').value;
-    let minValue;
-    switch (selectedDifficulty) {
-        case 'normal':
-            minValue = 1;
-            break;
-        case 'nightmare':
-            minValue = 33;
-            break;
-        case 'hell':
-            minValue = 50;
-            break;
-        default:
-            minValue = 65;
-    }
-
-    let value = parseInt(input.value);
-    if (isNaN(value) || value < minValue) {
-        value = minValue;
-    } else if (value > 100) {
-        value = 100;
-    }
-    input.value = value;
-}

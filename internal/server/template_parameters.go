@@ -59,6 +59,7 @@ type CharacterSettings struct {
 	AvailableProfiles     []string
 	FarmerProfiles        []string
 	LevelingSequenceFiles []string
+	Supervisors           []string
 }
 
 type ConfigData struct {

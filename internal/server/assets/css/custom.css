@@ -729,6 +729,116 @@
   border-radius: 8px;
 }
 
+/* ========================================
+   Supervisor Bulk Apply Modal
+   ======================================== */
+#supervisorModal {
+  /* Dark translucent backdrop so the page behind is dimmed */
+  background-color: rgba(0, 0, 0, 0.65);
+}
+
+#supervisorModal .modal-dialog {
+  max-width: 480px;
+  width: 100%;
+  margin: 2rem auto;
+}
+
+#supervisorModal .modal-content {
+  background-color: #f5f7ff;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.45);
+  padding: 0.75rem 1.25rem 1rem;
+}
+
+#supervisorModal .modal-header,
+#supervisorModal .modal-footer {
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+#supervisorModal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#supervisorModal .modal-title {
+  font-weight: 600;
+}
+
+#supervisorModal .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+#supervisorModal #supervisorList {
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background-color: #eef2ff;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+#supervisorModal #supervisorList .form-check {
+  margin-bottom: 0.25rem;
+}
+
+#supervisorModal .form-check-label,
+#supervisorModal strong {
+  color: #111827;
+  opacity: 1;
+}
+
+.supervisor-section-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.supervisor-section-toggles span.section-dirty::after {
+  content: ' (modified)';
+  color: #dc2626;
+  font-size: 0.8em;
+  margin-left: 0.125rem;
+}
+
+.supervisor-select-all {
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+#supervisorModal .modal-footer {
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+#supervisorModal .btn-close {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: #111827;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+/* Bottom bulk-apply icon button near Save */
+/* Use default .secondary button sizing; icon-only is handled in template */
+
+#supervisorModal .modal-footer {
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 /* Terror Zone Table Styles by: aC */
 
 .tz-card {

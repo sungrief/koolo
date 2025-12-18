@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="../assets/css/bootstrap-icons.css">
     <script src="../assets/js/Sortable.min.js"></script>
     <script src="../assets/js/character_settings.js"></script>
+    <script src="../assets/js/character_bulk_apply.js"></script>
     <title>Koolo Settings</title>
 </head>
 <body>
@@ -690,7 +691,44 @@
                 </div>
                 {{ end }}
             </div>
-            <br><h3>Health settings</h3><br>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+                <h3 style="margin:0">Health settings</h3>
+            </div>
+            <br>
+
+            <!-- Supervisor Apply Modal -->
+            <div class="modal fade" id="supervisorModal" tabindex="-1" aria-labelledby="supervisorModalLabel" aria-hidden="true" style="display:none; position:fixed; inset:0; z-index:1050; align-items:center; justify-content:center;">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content" style="max-width:720px; width:100%;">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="supervisorModalLabel">Apply to Supervisor</h5>
+                            <button type="button" class="btn-close" id="supervisorModalCloseBtn" aria-label="Close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-2">
+                            </div>
+                            <div id="supervisorList" style="max-height:240px; overflow:auto;">
+                                <!-- JS will render supervisor entries here as checkboxes -->
+                                <!-- Example entry structure (to be populated by JS):
+                                     <div class="form-check">
+                                       <input class="form-check-input supervisor-checkbox" type="checkbox" id="sup-123" value="123">
+                                       <label class="form-check-label" for="sup-123">SupervisorName</label>
+                                     </div>
+                                -->
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="selectAllChars">
+                                <label class="form-check-label" for="selectAllChars">모든 캐릭터 선택</label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                            <button type="button" class="btn btn-primary" id="supervisorApplyBtn">적용</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Modal behavior moved to assets/js/character_settings.js -->
             <fieldset class="grid">
                 <label>
                     Healing at (%)
@@ -1019,6 +1057,13 @@
             <fieldset class="grid sticky-bottom">
                 <a href="/"><input type="button" value="Cancel" class="secondary"/></a>
                 <input type="submit" value="Save"/>
+                <button type="button"
+                        id="bulkApplyOpenBtn"
+                        class="secondary"
+                        title="Apply settings to multiple supervisors"
+                        aria-label="Apply settings to multiple supervisors">
+                    <i class="bi bi-people-fill" aria-hidden="true"></i>
+                </button>
             </fieldset>
         </form>
     </div>
