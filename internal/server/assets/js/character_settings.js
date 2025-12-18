@@ -410,16 +410,11 @@ document.addEventListener('DOMContentLoaded', function () {
         hideClearPathTooltip();
     }
 
-    function updateNovaSorceressOptions() {
-        const selectedDifficulty = document.getElementById('gameDifficulty').value;
-        updateBossStaticThresholdMin(selectedDifficulty);
-        handleBossStaticThresholdChange();
-    }
-
-    function updateBossStaticThresholdMin(difficulty) {
+    function handleBossStaticThresholdChange() {
         const input = document.getElementById('novaBossStaticThreshold');
+        const selectedDifficulty = document.getElementById('gameDifficulty').value;
         let minValue;
-        switch (difficulty) {
+        switch (selectedDifficulty) {
             case 'normal':
                 minValue = 1;
                 break;
@@ -432,12 +427,18 @@ document.addEventListener('DOMContentLoaded', function () {
             default:
                 minValue = 65;
         }
-        input.min = minValue;
 
-        // Ensure the current value is not less than the new minimum
-        if (parseInt(input.value) < minValue) {
-            input.value = minValue;
+        let value = parseInt(input.value);
+        if (isNaN(value) || value < minValue) {
+            value = minValue;
+        } else if (value > 100) {
+            value = 100;
         }
+        input.value = value;
+    }
+
+    function updateNovaSorceressOptions() {
+        handleBossStaticThresholdChange();
     }
 
     if (mainCharacterClassSelect && characterClassSelect) {
