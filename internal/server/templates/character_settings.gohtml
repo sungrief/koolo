@@ -701,11 +701,18 @@
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content" style="max-width:720px; width:100%;">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="supervisorModalLabel">Apply to Supervisor</h5>
+                            <h5 class="modal-title" id="supervisorModalLabel">Apply to another supervisor</h5>
                             <button type="button" class="btn-close" id="supervisorModalCloseBtn" aria-label="Close">&times;</button>
                         </div>
                         <div class="modal-body">
                             <div class="mb-2">
+                            </div>
+                            <div class="mb-0 supervisor-header-row">
+                                <strong>Supervisors</strong>
+                                <label class="supervisor-select-all" for="selectAllChars">
+                                    <input type="checkbox" id="selectAllChars">
+                                    <span>Select all supervisors</span>
+                                </label>
                             </div>
                             <div id="supervisorList" style="max-height:240px; overflow:auto;">
                                 <!-- JS will render supervisor entries here as checkboxes -->
@@ -717,18 +724,34 @@
                                 -->
                             </div>
                             <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" id="selectAllChars">
-                                <label class="form-check-label" for="selectAllChars">모든 캐릭터 선택</label>
+                                <input class="form-check-input" type="checkbox" id="selectAllCharsLegacy">
+                                <label class="form-check-label" for="selectAllChars">Select all characters</label>
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                            <button type="button" class="btn btn-primary" id="supervisorApplyBtn">적용</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="supervisorApplyBtn">Apply</button>
                         </div>
                     </div>
                 </div>
             </div>
             <!-- Modal behavior moved to assets/js/character_settings.js -->
+
+            <!-- Leveling supervisor warning overlay (custom 3-button alert) -->
+            <div id="levelingWarningOverlay" class="bulk-warning-overlay" style="display:none;">
+                <div class="bulk-warning-dialog">
+                    <h5 class="bulk-warning-title">Leveling supervisors selected</h5>
+                    <p id="levelingWarningMessage" class="bulk-warning-message">
+                        One or more leveling supervisors are selected. Applying these settings may prevent leveling from continuing.
+                    </p>
+                    <p id="levelingWarningTargets" class="bulk-warning-targets"></p>
+                    <div class="bulk-warning-actions">
+                        <button type="button" class="btn bulk-warning-btn-cancel" id="levelingWarningCancelBtn">Cancel</button>
+                        <button type="button" class="btn bulk-warning-btn-exclude" id="levelingWarningExcludeBtn">Exclude leveling only</button>
+                        <button type="button" class="btn bulk-warning-btn-apply" id="levelingWarningApplyAllBtn">Apply to all</button>
+                    </div>
+                </div>
+            </div>
             <fieldset class="grid">
                 <label>
                     Healing at (%)

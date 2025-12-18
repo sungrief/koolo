@@ -578,9 +578,12 @@ func (s *HttpServer) getStatusData() IndexData {
 			}
 		}
 
-		// Check if this is a companion follower
+		// Check if this is a companion follower & ensure we always expose class
 		cfg, found := config.GetCharacter(supervisorName)
 		if found {
+			if stats.UI.Class == "" {
+				stats.UI.Class = cfg.Character.Class
+			}
 			// Add companion information to the stats
 			if cfg.Companion.Enabled && !cfg.Companion.Leader {
 				// This is a companion follower
@@ -1971,6 +1974,235 @@ func (s *HttpServer) applySectionsFromFormValues(values url.Values, cfg *config.
 	}
 }
 
+func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg, runs []string) {
+	for _, runID := range runs {
+		switch runID {
+		case "andariel":
+			cfg.Game.Andariel.ClearRoom = values.Has("gameAndarielClearRoom")
+			cfg.Game.Andariel.UseAntidoes = values.Has("gameAndarielUseAntidoes")
+		case "countess":
+			cfg.Game.Countess.ClearFloors = values.Has("gameCountessClearFloors")
+		case "duriel":
+			cfg.Game.Duriel.UseThawing = values.Has("gameDurielUseThawing")
+		case "pit":
+			cfg.Game.Pit.MoveThroughBlackMarsh = values.Has("gamePitMoveThroughBlackMarsh")
+			cfg.Game.Pit.OpenChests = values.Has("gamePitOpenChests")
+			cfg.Game.Pit.FocusOnElitePacks = values.Has("gamePitFocusOnElitePacks")
+			cfg.Game.Pit.OnlyClearLevel2 = values.Has("gamePitOnlyClearLevel2")
+		case "cows":
+			cfg.Game.Cows.OpenChests = values.Has("gameCowsOpenChests")
+		case "pindleskin":
+			if raw, ok := values["gamePindleskinSkipOnImmunities[]"]; ok {
+				skips := make([]stat.Resist, 0, len(raw))
+				for _, v := range raw {
+					if v == "" {
+						continue
+					}
+					skips = append(skips, stat.Resist(v))
+				}
+				cfg.Game.Pindleskin.SkipOnImmunities = skips
+			} else {
+				cfg.Game.Pindleskin.SkipOnImmunities = nil
+			}
+		case "stony_tomb":
+			cfg.Game.StonyTomb.OpenChests = values.Has("gameStonytombOpenChests")
+			cfg.Game.StonyTomb.FocusOnElitePacks = values.Has("gameStonytombFocusOnElitePacks")
+		case "mausoleum":
+			cfg.Game.Mausoleum.OpenChests = values.Has("gameMausoleumOpenChests")
+			cfg.Game.Mausoleum.FocusOnElitePacks = values.Has("gameMausoleumFocusOnElitePacks")
+		case "ancient_tunnels":
+			cfg.Game.AncientTunnels.OpenChests = values.Has("gameAncientTunnelsOpenChests")
+			cfg.Game.AncientTunnels.FocusOnElitePacks = values.Has("gameAncientTunnelsFocusOnElitePacks")
+		case "drifter_cavern":
+			cfg.Game.DrifterCavern.OpenChests = values.Has("gameDrifterCavernOpenChests")
+			cfg.Game.DrifterCavern.FocusOnElitePacks = values.Has("gameDrifterCavernFocusOnElitePacks")
+		case "spider_cavern":
+			cfg.Game.SpiderCavern.OpenChests = values.Has("gameSpiderCavernOpenChests")
+			cfg.Game.SpiderCavern.FocusOnElitePacks = values.Has("gameSpiderCavernFocusOnElitePacks")
+		case "arachnid_lair":
+			cfg.Game.ArachnidLair.OpenChests = values.Has("gameArachnidLairOpenChests")
+			cfg.Game.ArachnidLair.FocusOnElitePacks = values.Has("gameArachnidLairFocusOnElitePacks")
+		case "mephisto":
+			cfg.Game.Mephisto.KillCouncilMembers = values.Has("gameMephistoKillCouncilMembers")
+			cfg.Game.Mephisto.OpenChests = values.Has("gameMephistoOpenChests")
+			cfg.Game.Mephisto.ExitToA4 = values.Has("gameMephistoExitToA4")
+		case "tristram":
+			cfg.Game.Tristram.ClearPortal = values.Has("gameTristramClearPortal")
+			cfg.Game.Tristram.FocusOnElitePacks = values.Has("gameTristramFocusOnElitePacks")
+			cfg.Game.Tristram.OnlyFarmRejuvs = values.Has("gameTristramOnlyFarmRejuvs")
+		case "nihlathak":
+			cfg.Game.Nihlathak.ClearArea = values.Has("gameNihlathakClearArea")
+		case "summoner":
+			cfg.Game.Summoner.KillFireEye = values.Has("gameSummonerKillFireEye")
+		case "baal":
+			cfg.Game.Baal.KillBaal = values.Has("gameBaalKillBaal")
+			cfg.Game.Baal.DollQuit = values.Has("gameBaalDollQuit")
+			cfg.Game.Baal.SoulQuit = values.Has("gameBaalSoulQuit")
+			cfg.Game.Baal.ClearFloors = values.Has("gameBaalClearFloors")
+			cfg.Game.Baal.OnlyElites = values.Has("gameBaalOnlyElites")
+		case "eldritch":
+			cfg.Game.Eldritch.KillShenk = values.Has("gameEldritchKillShenk")
+		case "lower_kurast_chest":
+			cfg.Game.LowerKurastChest.OpenRacks = values.Has("gameLowerKurastChestOpenRacks")
+		case "diablo":
+			cfg.Game.Diablo.KillDiablo = values.Has("gameDiabloKillDiablo")
+			cfg.Game.Diablo.DisableItemPickupDuringBosses = values.Has("gameDiabloDisableItemPickupDuringBosses")
+			cfg.Game.Diablo.StartFromStar = values.Has("gameDiabloStartFromStar")
+			cfg.Game.Diablo.FocusOnElitePacks = values.Has("gameDiabloFocusOnElitePacks")
+			if v := values.Get("gameDiabloAttackFromDistance"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < 0 {
+						n = 0
+					} else if n > 25 {
+						n = 25
+					}
+					cfg.Game.Diablo.AttackFromDistance = n
+				}
+			}
+		case "leveling":
+			cfg.Game.Leveling.EnsurePointsAllocation = values.Has("gameLevelingEnsurePointsAllocation")
+			cfg.Game.Leveling.EnsureKeyBinding = values.Has("gameLevelingEnsureKeyBinding")
+			cfg.Game.Leveling.AutoEquip = values.Has("gameLevelingAutoEquip")
+			cfg.Game.Leveling.AutoEquipFromSharedStash = values.Has("gameLevelingAutoEquipFromSharedStash")
+			if v := values.Get("gameLevelingNightmareRequiredLevel"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < 0 {
+						n = 0
+					} else if n > 99 {
+						n = 99
+					}
+					cfg.Game.Leveling.NightmareRequiredLevel = n
+				}
+			}
+			if v := values.Get("gameLevelingHellRequiredLevel"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < 0 {
+						n = 0
+					} else if n > 99 {
+						n = 99
+					}
+					cfg.Game.Leveling.HellRequiredLevel = n
+				}
+			}
+			if v := values.Get("gameLevelingHellRequiredFireRes"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < -100 {
+						n = -100
+					} else if n > 75 {
+						n = 75
+					}
+					cfg.Game.Leveling.HellRequiredFireRes = n
+				}
+			}
+			if v := values.Get("gameLevelingHellRequiredLightRes"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < -100 {
+						n = -100
+					} else if n > 75 {
+						n = 75
+					}
+					cfg.Game.Leveling.HellRequiredLightRes = n
+				}
+			}
+		case "leveling_sequence":
+			cfg.Game.LevelingSequence.SequenceFile = values.Get("gameLevelingSequenceFile")
+		case "quests":
+			cfg.Game.Quests.ClearDen = values.Has("gameQuestsClearDen")
+			cfg.Game.Quests.RescueCain = values.Has("gameQuestsRescueCain")
+			cfg.Game.Quests.RetrieveHammer = values.Has("gameQuestsRetrieveHammer")
+			cfg.Game.Quests.KillRadament = values.Has("gameQuestsKillRadament")
+			cfg.Game.Quests.GetCube = values.Has("gameQuestsGetCube")
+			cfg.Game.Quests.RetrieveBook = values.Has("gameQuestsRetrieveBook")
+			cfg.Game.Quests.KillIzual = values.Has("gameQuestsKillIzual")
+			cfg.Game.Quests.KillShenk = values.Has("gameQuestsKillShenk")
+			cfg.Game.Quests.RescueAnya = values.Has("gameQuestsRescueAnya")
+			cfg.Game.Quests.KillAncients = values.Has("gameQuestsKillAncients")
+		case "terror_zone":
+			cfg.Game.TerrorZone.FocusOnElitePacks = values.Has("gameTerrorZoneFocusOnElitePacks")
+			cfg.Game.TerrorZone.SkipOtherRuns = values.Has("gameTerrorZoneSkipOtherRuns")
+			cfg.Game.TerrorZone.OpenChests = values.Has("gameTerrorZoneOpenChests")
+
+			if raw, ok := values["gameTerrorZoneSkipOnImmunities[]"]; ok {
+				skips := make([]stat.Resist, 0, len(raw))
+				for _, v := range raw {
+					if v == "" {
+						continue
+					}
+					skips = append(skips, stat.Resist(v))
+				}
+				cfg.Game.TerrorZone.SkipOnImmunities = skips
+			} else {
+				cfg.Game.TerrorZone.SkipOnImmunities = nil
+			}
+
+			if raw, ok := values["gameTerrorZoneAreas[]"]; ok {
+				areas := make([]area.ID, 0, len(raw))
+				for _, v := range raw {
+					if v == "" {
+						continue
+					}
+					if id, err := strconv.Atoi(v); err == nil {
+						areas = append(areas, area.ID(id))
+					}
+				}
+				cfg.Game.TerrorZone.Areas = areas
+			} else {
+				cfg.Game.TerrorZone.Areas = nil
+			}
+		case "utility":
+			if v := values.Get("gameUtilityParkingAct"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					cfg.Game.Utility.ParkingAct = n
+				}
+			}
+		case "shopping":
+			cfg.Shopping.Enabled = values.Has("shoppingEnabled")
+
+			if v := values.Get("shoppingMaxGoldToSpend"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					cfg.Shopping.MaxGoldToSpend = n
+				}
+			}
+			if v := values.Get("shoppingMinGoldReserve"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					cfg.Shopping.MinGoldReserve = n
+				}
+			}
+			if v := values.Get("shoppingRefreshesPerRun"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					cfg.Shopping.RefreshesPerRun = n
+				}
+			}
+
+			cfg.Shopping.ShoppingRulesFile = values.Get("shoppingRulesFile")
+
+			if raw := strings.TrimSpace(values.Get("shoppingItemTypes")); raw != "" {
+				parts := strings.Split(raw, ",")
+				items := make([]string, 0, len(parts))
+				for _, p := range parts {
+					p = strings.TrimSpace(p)
+					if p != "" {
+						items = append(items, p)
+					}
+				}
+				cfg.Shopping.ItemTypes = items
+			} else {
+				cfg.Shopping.ItemTypes = []string{}
+			}
+
+			cfg.Shopping.VendorAkara = values.Has("shoppingVendorAkara")
+			cfg.Shopping.VendorCharsi = values.Has("shoppingVendorCharsi")
+			cfg.Shopping.VendorGheed = values.Has("shoppingVendorGheed")
+			cfg.Shopping.VendorFara = values.Has("shoppingVendorFara")
+			cfg.Shopping.VendorDrognan = values.Has("shoppingVendorDrognan")
+			cfg.Shopping.VendorElzix = values.Has("shoppingVendorElzix")
+			cfg.Shopping.VendorOrmus = values.Has("shoppingVendorOrmus")
+			cfg.Shopping.VendorMalah = values.Has("shoppingVendorMalah")
+			cfg.Shopping.VendorAnya = values.Has("shoppingVendorAnya")
+		}
+	}
+}
+
 func (s *HttpServer) bulkApplyCharacterSettings(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1981,6 +2213,7 @@ func (s *HttpServer) bulkApplyCharacterSettings(w http.ResponseWriter, r *http.R
 		SourceSupervisor  string              `json:"sourceSupervisor"`
 		TargetSupervisors []string            `json:"targetSupervisors"`
 		Sections          ApplySections       `json:"sections"`
+		RunDetailTargets  []string            `json:"runDetailTargets"`
 		Form              map[string][]string `json:"form"`
 	}
 
@@ -2019,6 +2252,9 @@ func (s *HttpServer) bulkApplyCharacterSettings(w http.ResponseWriter, r *http.R
 		}
 
 		s.applySectionsFromFormValues(values, cfg, req.Sections)
+		if len(req.RunDetailTargets) > 0 {
+			s.applyRunDetails(values, cfg, req.RunDetailTargets)
+		}
 
 		if err := config.SaveSupervisorConfig(name, cfg); err != nil {
 			s.logger.Error("failed to save bulk-applied config", slog.String("supervisor", name), slog.Any("error", err))

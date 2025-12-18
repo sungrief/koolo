@@ -33,6 +33,55 @@ document.addEventListener('DOMContentLoaded', function () {
         client: false,
     };
 
+    const levelingClasses = new Set([
+        'sorceress_leveling',
+        'paladin',
+        'druid_leveling',
+        'amazon_leveling',
+        'necromancer',
+        'assassin',
+        'barb_leveling',
+    ]);
+    const levelingSupervisors = new Set();
+
+    // Custom 3-button warning overlay for leveling supervisors
+    const levelingWarningOverlay = document.getElementById('levelingWarningOverlay');
+    const levelingWarningMessage = document.getElementById('levelingWarningMessage');
+    const levelingWarningTargets = document.getElementById('levelingWarningTargets');
+    const warningApplyAllBtn = document.getElementById('levelingWarningApplyAllBtn');
+    const warningExcludeBtn = document.getElementById('levelingWarningExcludeBtn');
+    const warningCancelBtn = document.getElementById('levelingWarningCancelBtn');
+
+    let pendingApplyState = null;
+
+    function openLevelingWarning(levelingTargets, applyState) {
+        if (!levelingWarningOverlay) {
+            return;
+        }
+        pendingApplyState = applyState;
+
+        if (levelingWarningMessage) {
+            levelingWarningMessage.textContent =
+                'One or more leveling supervisors are selected. Applying these settings may prevent leveling from continuing.';
+        }
+        if (levelingWarningTargets) {
+            const namesList = levelingTargets.join(', ');
+            levelingWarningTargets.textContent = levelingTargets.length
+                ? `Leveling supervisors: ${namesList}`
+                : '';
+        }
+
+        levelingWarningOverlay.style.display = 'flex';
+    }
+
+    function closeLevelingWarning() {
+        if (!levelingWarningOverlay) {
+            return;
+        }
+        levelingWarningOverlay.style.display = 'none';
+        pendingApplyState = null;
+    }
+
     function snapshotHealthState() {
         const form = document.querySelector('form');
         if (!form) {
@@ -331,7 +380,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const sectionContainer = modal.querySelector('.modal-body .mb-2');
     if (sectionContainer) {
         sectionContainer.innerHTML = ''
-            + '<strong>Select settings to apply:</strong>'
+            + '<strong>Select settings</strong>'
             + '<div class="supervisor-section-toggles">'
             + '  <label>'
             + '    <input type="checkbox" id="sectionHealth">'
@@ -361,16 +410,148 @@ document.addEventListener('DOMContentLoaded', function () {
             + '    <input type="checkbox" id="sectionClient">'
             + '    <span>Client settings</span>'
             + '  </label>'
+            + '</div>'
+            + '<div class="run-detail-toggles">'
+            + '  <span class="run-detail-title">Run detail options to copy (optional):</span>'
+            + '  <div class="run-detail-grid" id="runDetailGrid"></div>'
             + '</div>';
     }
 
-    // Fix label text for "select all" if it contains garbled characters
-    const selectAllLabel = selectAllCheckbox
-        ? selectAllCheckbox.closest('.form-check')?.querySelector('.form-check-label')
-        : null;
-    if (selectAllLabel) {
-        selectAllLabel.textContent = 'Select all supervisors';
+    const runDetailToggles = modal.querySelector('.run-detail-toggles');
+    const runDetailGrid = modal.querySelector('#runDetailGrid');
+
+    const SUPPORTED_RUN_DETAILS = [
+        { id: 'pit', label: 'Pit' },
+        { id: 'andariel', label: 'Andariel' },
+        { id: 'duriel', label: 'Duriel' },
+        { id: 'countess', label: 'Countess' },
+        { id: 'cows', label: 'Cows' },
+        { id: 'pindleskin', label: 'Pindleskin' },
+        { id: 'stony_tomb', label: 'Stony Tomb' },
+        { id: 'mausoleum', label: 'Mausoleum' },
+        { id: 'summoner', label: 'Summoner' },
+        { id: 'ancient_tunnels', label: 'Ancient Tunnels' },
+        { id: 'drifter_cavern', label: 'Drifter Cavern' },
+        { id: 'spider_cavern', label: 'Spider Cavern' },
+        { id: 'arachnid_lair', label: 'Arachnid Lair' },
+        { id: 'mephisto', label: 'Mephisto' },
+        { id: 'tristram', label: 'Tristram' },
+        { id: 'nihlathak', label: 'Nihlathak' },
+        { id: 'baal', label: 'Baal' },
+        { id: 'eldritch', label: 'Eldritch' },
+        { id: 'lower_kurast_chest', label: 'Lower Kurast Chest' },
+        { id: 'diablo', label: 'Diablo' },
+        { id: 'leveling', label: 'Leveling' },
+        { id: 'leveling_sequence', label: 'Leveling sequence' },
+        { id: 'quests', label: 'Quests' },
+        { id: 'terror_zone', label: 'Terror Zone' },
+        { id: 'utility', label: 'Utility' },
+        { id: 'shopping', label: 'Shopping' },
+    ];
+
+    let runDetailToggleButton = null;
+
+    function rebuildRunDetailOptions() {
+        if (!runDetailGrid || !runDetailToggles) {
+            return;
+        }
+
+        runDetailGrid.innerHTML = '';
+
+        const runsInput = document.getElementById('gameRuns');
+        if (!runsInput || !runsInput.value) {
+            runDetailToggles.classList.remove('open');
+            return;
+        }
+
+        let enabledRuns;
+        try {
+            enabledRuns = JSON.parse(runsInput.value);
+        } catch (_e) {
+            enabledRuns = [];
+        }
+        if (!Array.isArray(enabledRuns)) {
+            enabledRuns = [];
+        }
+
+        const enabledSet = new Set(enabledRuns);
+
+        SUPPORTED_RUN_DETAILS.forEach((run) => {
+            if (!enabledSet.has(run.id)) {
+                return;
+            }
+            const label = document.createElement('label');
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'run-detail-checkbox';
+            input.setAttribute('data-run-id', run.id);
+            label.appendChild(input);
+            label.appendChild(document.createTextNode(' ' + run.label));
+            runDetailGrid.appendChild(label);
+        });
+
+        updateRunDetailVisibility();
     }
+
+    function updateRunDetailVisibility() {
+        if (!runDetailToggles || !runDetailGrid) {
+            return;
+        }
+        const runCheckbox = document.getElementById('sectionRuns');
+        const hasAny = runDetailGrid.children.length > 0;
+        const enabled = !!(runCheckbox && runCheckbox.checked && hasAny);
+
+        if (runDetailToggleButton) {
+            if (enabled) {
+                runDetailToggleButton.classList.remove('disabled');
+                runDetailToggleButton.classList.add('visible');
+            } else {
+                runDetailToggleButton.classList.add('disabled');
+                runDetailToggleButton.classList.remove('visible');
+            }
+        }
+
+        if (!enabled) {
+            runDetailToggles.classList.remove('open');
+        }
+    }
+
+    const runsSectionCheckbox = document.getElementById('sectionRuns');
+    if (runsSectionCheckbox) {
+        runsSectionCheckbox.addEventListener('change', updateRunDetailVisibility);
+
+        const runLabelSpan = runsSectionCheckbox.nextElementSibling;
+        if (runLabelSpan && runLabelSpan.parentElement) {
+            runDetailToggleButton = document.createElement('button');
+            runDetailToggleButton.type = 'button';
+            runDetailToggleButton.className = 'run-detail-toggle-btn disabled';
+            runDetailToggleButton.innerHTML = '<i class="bi bi-sliders"></i>';
+            runDetailToggleButton.setAttribute('aria-label', 'Configure run details');
+            runDetailToggleButton.title = 'Configure run details';
+            runLabelSpan.parentElement.appendChild(runDetailToggleButton);
+
+            runDetailToggleButton.addEventListener('click', function () {
+                if (!runDetailToggles) {
+                    return;
+                }
+                const isOpen = runDetailToggles.classList.contains('open');
+                if (isOpen) {
+                    runDetailToggles.classList.remove('open');
+                } else {
+                    runDetailToggles.classList.add('open');
+                }
+                updateRunDetailVisibility();
+            });
+        }
+    }
+
+    // Fix label text for "select all" if it contains garbled characters
+      const selectAllLabelText = selectAllCheckbox
+          ? document.querySelector('label[for="selectAllChars"] span')
+          : null;
+      if (selectAllLabelText) {
+          selectAllLabelText.textContent = 'Select all supervisors';
+      }
 
     // Load supervisor list from initial-data endpoint
     async function populateSupervisorList() {
@@ -412,6 +593,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (currentSupervisorName && name === currentSupervisorName) {
                     label.classList.add('current-supervisor');
                     label.title = 'Current supervisor (this page)';
+                }
+
+                const info = status[name];
+                const cls = info && info.UI && info.UI.Class ? String(info.UI.Class) : '';
+                if (cls && levelingClasses.has(cls)) {
+                    levelingSupervisors.add(name);
+                    label.classList.add('leveling-supervisor');
+                    if (!label.title) {
+                        label.title = 'Leveling profile';
+                    } else {
+                        label.title += ' • Leveling profile';
+                    }
                 }
 
                 wrapper.appendChild(input);
@@ -512,7 +705,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Called from updateEnabledRunsHiddenField whenever the run list changes
-    window.onGameRunsUpdated = updateRunsDirty;
+    window.onGameRunsUpdated = function () {
+        updateRunsDirty();
+        rebuildRunDetailOptions();
+    };
 
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function () {
@@ -559,30 +755,22 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
-    applyButton.addEventListener('click', async function () {
-        const supervisorNameInput = document.querySelector('input[name="name"]');
-        const currentSupervisor = supervisorNameInput ? supervisorNameInput.value : '';
-        if (!currentSupervisor) {
-            alert('Supervisor name is empty.');
-            return;
+    function collectRunDetailTargets() {
+        if (!modal) {
+            return [];
         }
+        const checkboxes = modal.querySelectorAll('.run-detail-checkbox:checked');
+        return Array.from(checkboxes)
+            .map(cb => cb.getAttribute('data-run-id') || '')
+            .filter(Boolean);
+    }
 
-        const selectedSupervisorElems = supervisorList.querySelectorAll('.supervisor-checkbox:checked');
-        const targetSupervisors = Array.from(selectedSupervisorElems)
-            .map(cb => cb.value)
-            .filter(name => !!name && name !== currentSupervisor);
-
-        const sections = getSectionsSelection();
-        const anySelected = Object.values(sections).some(Boolean);
-        if (!anySelected) {
-            alert('Please select at least one section to apply.');
-            return;
-        }
-
+    async function sendBulkApply(currentSupervisor, targetSupervisors, sections, runDetailTargets) {
         const payload = {
             sourceSupervisor: currentSupervisor,
             targetSupervisors: targetSupervisors,
             sections: sections,
+            runDetailTargets: runDetailTargets,
             form: collectFormAsJson(),
         };
 
@@ -606,11 +794,93 @@ document.addEventListener('DOMContentLoaded', function () {
                 throw new Error(data.error || 'Bulk apply failed');
             }
 
-            alert('Settings have been applied to the selected supervisors.');
+            alert('Settings were applied to the selected supervisors.');
             closeModal();
         } catch (error) {
             console.error('Failed to bulk apply settings', error);
-            alert('An error occurred while applying settings. Please check the logs.');
+            alert('Failed to apply settings. Please check the logs for details.');
         }
+    }
+
+    if (warningCancelBtn) {
+        warningCancelBtn.addEventListener('click', function () {
+            closeLevelingWarning();
+        });
+    }
+
+    if (warningApplyAllBtn) {
+        warningApplyAllBtn.addEventListener('click', async function () {
+            if (!pendingApplyState) {
+                closeLevelingWarning();
+                return;
+            }
+            const { currentSupervisor, targetSupervisors, sections, runDetailTargets } = pendingApplyState;
+            closeLevelingWarning();
+            await sendBulkApply(currentSupervisor, targetSupervisors, sections, runDetailTargets);
+        });
+    }
+
+    if (warningExcludeBtn) {
+        warningExcludeBtn.addEventListener('click', async function () {
+            if (!pendingApplyState) {
+                closeLevelingWarning();
+                return;
+            }
+            const { currentSupervisor, targetSupervisors, sections, runDetailTargets } = pendingApplyState;
+            const filteredTargets = targetSupervisors.filter(function (name) {
+                return !levelingSupervisors.has(name);
+            });
+            if (filteredTargets.length === 0) {
+                alert('Only leveling supervisors are selected. There are no remaining targets.');
+                closeLevelingWarning();
+                return;
+            }
+            closeLevelingWarning();
+            await sendBulkApply(currentSupervisor, filteredTargets, sections, runDetailTargets);
+        });
+    }
+
+    applyButton.addEventListener('click', async function () {
+        const supervisorNameInput = document.querySelector('input[name="name"]');
+        const currentSupervisor = supervisorNameInput ? supervisorNameInput.value : '';
+        if (!currentSupervisor) {
+            alert('Supervisor name is empty.');
+            return;
+        }
+
+        // New flow: use custom leveling warning overlay with 3 options
+        const selectedSupervisorElemsNew = supervisorList.querySelectorAll('.supervisor-checkbox:checked');
+        const targetSupervisorsNew = Array.from(selectedSupervisorElemsNew)
+            .map(cb => cb.value)
+            .filter(name => !!name && name !== currentSupervisor);
+
+        if (targetSupervisorsNew.length === 0) {
+            alert('Please select at least one supervisor.');
+            return;
+        }
+
+        const sectionsNew = getSectionsSelection();
+        const anySelectedNew = Object.values(sectionsNew).some(Boolean);
+        if (!anySelectedNew) {
+            alert('Please select at least one section to apply.');
+            return;
+        }
+
+        const runDetailTargetsNew = sectionsNew.runs ? collectRunDetailTargets() : [];
+        const levelingTargetsNew = targetSupervisorsNew.filter(function (name) {
+            return levelingSupervisors.has(name);
+        });
+
+        if (levelingTargetsNew.length > 0) {
+            openLevelingWarning(levelingTargetsNew, {
+                currentSupervisor: currentSupervisor,
+                targetSupervisors: targetSupervisorsNew,
+                sections: sectionsNew,
+                runDetailTargets: runDetailTargetsNew,
+            });
+        } else {
+            await sendBulkApply(currentSupervisor, targetSupervisorsNew, sectionsNew, runDetailTargetsNew);
+        }
+
     });
 });

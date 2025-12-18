@@ -759,11 +759,19 @@
 #supervisorModal .modal-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  position: relative;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 #supervisorModal .modal-title {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+  text-align: center;
+  width: 100%;
+  color: #0f172a;
 }
 
 #supervisorModal .modal-body {
@@ -772,6 +780,10 @@
   gap: 0.75rem;
   color: #111827;
   font-size: 0.9rem;
+}
+
+#supervisorModal .modal-body .mb-2 {
+  margin-top: 0.5rem;
 }
 
 #supervisorModal #supervisorList {
@@ -800,6 +812,17 @@
   color: #1d4ed8;
 }
 
+.leveling-supervisor {
+  font-weight: 600;
+  color: #b45309;
+}
+
+.leveling-supervisor::after {
+  content: " (leveling)";
+  font-size: 0.75rem;
+  color: #b45309;
+}
+
 .supervisor-section-toggles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -821,19 +844,92 @@
   font-weight: 600;
 }
 
-.supervisor-select-all {
-  margin-top: 0.5rem;
-  margin-bottom: 0.75rem;
+.supervisor-header-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
 }
 
-#supervisorModal .modal-footer {
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
+.supervisor-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1d4ed8;
+  margin: 0 0 0 0.44rem;
+}
+
+.supervisor-select-all span {
+  text-transform: none;
+}
+
+#supervisorModal #selectAllChars {
+  accent-color: #1d4ed8;
+}
+
+.run-detail-toggle-btn {
+  margin: 0 0 0 0.25rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.6);
+  background-color: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.run-detail-toggle-btn:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+.run-detail-toggle-btn.disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+
+.run-detail-toggle-btn.visible {
+  visibility: visible;
+}
+
+.run-detail-toggles {
+  max-height: 0;
+  overflow: hidden;
+  margin-top: 0.4rem;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-color: transparent;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition:
+    max-height 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    padding 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.run-detail-toggles.open {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 0.4rem 0.5rem;
+  border-color: rgba(15, 23, 42, 0.12);
+  background-color: #e5e7ff;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 #supervisorModal .btn-close {
-  position: relative;
+  position: absolute;
+  right: 0.75rem;
   background: transparent;
   border: none;
   color: #111827;
@@ -842,7 +938,20 @@
   padding: 0;
   font-size: 1.1rem;
   line-height: 1;
-  margin-left: auto;
+  cursor: pointer;
+}
+
+#supervisorModal .btn-close {
+  position: absolute;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: #111827;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -850,8 +959,133 @@
 /* Use default .secondary button sizing; icon-only is handled in template */
 
 #supervisorModal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+#supervisorModal .modal-footer .btn {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+#supervisorModal .modal-footer .btn-secondary {
+  background-color: #e5e7eb;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+#supervisorModal .modal-footer .btn-secondary:hover {
+  background-color: #d4d4d8;
+  border-color: #c4c4cf;
+}
+
+#supervisorModal .modal-footer .btn-primary {
+  background-color: #2563eb;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+#supervisorModal .modal-footer .btn-primary:hover {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+#supervisorModal .modal-body .form-check.mt-2 {
+  display: none;
+}
+
+/* ========================================
+   Leveling warning overlay (bulk apply)
+   ======================================== */
+.bulk-warning-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.bulk-warning-dialog {
+  background-color: #fef2f2;
+  color: #111827;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem 1rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.6);
+  border: 1px solid #fecaca;
+}
+
+.bulk-warning-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #b91c1c;
+}
+
+.bulk-warning-message {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.bulk-warning-targets {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: #7f1d1d;
+}
+
+.bulk-warning-actions {
+  display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.bulk-warning-actions .btn {
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.bulk-warning-btn-cancel {
+  background-color: #e5e7eb;
+  border: 1px solid #d1d5db;
+  color: #111827;
+}
+
+.bulk-warning-btn-cancel:hover {
+  background-color: #d4d4d8;
+}
+
+.bulk-warning-btn-exclude {
+  background-color: #f97316;
+  border: 1px solid #ea580c;
+  color: #111827;
+}
+
+.bulk-warning-btn-exclude:hover {
+  background-color: #ea580c;
+}
+
+.bulk-warning-btn-apply {
+  background-color: #2563eb;
+  border: 1px solid #1d4ed8;
+  color: #ffffff;
+}
+
+.bulk-warning-btn-apply:hover {
+  background-color: #1d4ed8;
 }
 
 /* Terror Zone Table Styles by: aC */
