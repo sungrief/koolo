@@ -65,6 +65,7 @@ function updateEnabledRunsHiddenField() {
         return item.getAttribute("value");
     });
     document.getElementById('gameRuns').value = JSON.stringify(values);
+
     if (window.onGameRunsUpdated) {
         try {
             window.onGameRunsUpdated();
@@ -410,11 +411,16 @@ document.addEventListener('DOMContentLoaded', function () {
         hideClearPathTooltip();
     }
 
-    function handleBossStaticThresholdChange() {
-        const input = document.getElementById('novaBossStaticThreshold');
+    function updateNovaSorceressOptions() {
         const selectedDifficulty = document.getElementById('gameDifficulty').value;
+        updateBossStaticThresholdMin(selectedDifficulty);
+        handleBossStaticThresholdChange();
+    }
+
+    function updateBossStaticThresholdMin(difficulty) {
+        const input = document.getElementById('novaBossStaticThreshold');
         let minValue;
-        switch (selectedDifficulty) {
+        switch (difficulty) {
             case 'normal':
                 minValue = 1;
                 break;
@@ -427,18 +433,12 @@ document.addEventListener('DOMContentLoaded', function () {
             default:
                 minValue = 65;
         }
+        input.min = minValue;
 
-        let value = parseInt(input.value);
-        if (isNaN(value) || value < minValue) {
-            value = minValue;
-        } else if (value > 100) {
-            value = 100;
+        // Ensure the current value is not less than the new minimum
+        if (parseInt(input.value) < minValue) {
+            input.value = minValue;
         }
-        input.value = value;
-    }
-
-    function updateNovaSorceressOptions() {
-        handleBossStaticThresholdChange();
     }
 
     if (mainCharacterClassSelect && characterClassSelect) {
@@ -721,3 +721,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updateLevelingSequenceActionState();
 });
+
+function handleBossStaticThresholdChange() {
+    const input = document.getElementById('novaBossStaticThreshold');
+    const selectedDifficulty = document.getElementById('gameDifficulty').value;
+    let minValue;
+    switch (selectedDifficulty) {
+        case 'normal':
+            minValue = 1;
+            break;
+        case 'nightmare':
+            minValue = 33;
+            break;
+        case 'hell':
+            minValue = 50;
+            break;
+        default:
+            minValue = 65;
+    }
+
+    let value = parseInt(input.value);
+    if (isNaN(value) || value < minValue) {
+        value = minValue;
+    } else if (value > 100) {
+        value = 100;
+    }
+    input.value = value;
+}

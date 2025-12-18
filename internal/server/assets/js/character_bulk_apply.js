@@ -334,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function () {
             + '<strong>Select settings to apply:</strong>'
             + '<div class="supervisor-section-toggles">'
             + '  <label>'
-            + '    <input type="checkbox" id="sectionHealth" checked>'
+            + '    <input type="checkbox" id="sectionHealth">'
             + '    <span>Health settings</span>'
             + '  </label>'
             + '  <label>'
@@ -347,7 +347,7 @@ document.addEventListener('DOMContentLoaded', function () {
             + '  </label>'
             + '  <label>'
             + '    <input type="checkbox" id="sectionPacketCasting">'
-            + '    <span>Packet usage (Using Packets)</span>'
+            + '    <span>Using Packets</span>'
             + '  </label>'
             + '  <label>'
             + '    <input type="checkbox" id="sectionCubeRecipes">'
@@ -387,6 +387,10 @@ document.addEventListener('DOMContentLoaded', function () {
             names.sort();
 
             supervisorList.innerHTML = '';
+
+            const currentSupervisorInput = document.querySelector('input[name="name"]');
+            const currentSupervisorName = currentSupervisorInput ? currentSupervisorInput.value : '';
+
             names.forEach(name => {
                 if (!name) {
                     return;
@@ -404,6 +408,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 label.className = 'form-check-label';
                 label.htmlFor = input.id;
                 label.textContent = name;
+
+                if (currentSupervisorName && name === currentSupervisorName) {
+                    label.classList.add('current-supervisor');
+                    label.title = 'Current supervisor (this page)';
+                }
 
                 wrapper.appendChild(input);
                 wrapper.appendChild(label);

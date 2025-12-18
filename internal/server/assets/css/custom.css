@@ -780,6 +780,9 @@
   background-color: #eef2ff;
   border-radius: 6px;
   border: 1px solid rgba(15, 23, 42, 0.12);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.25rem 0.75rem;
 }
 
 #supervisorModal #supervisorList .form-check {
@@ -792,18 +795,30 @@
   opacity: 1;
 }
 
+#supervisorModal .form-check-label.current-supervisor {
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
 .supervisor-section-toggles {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
   margin-top: 0.35rem;
 }
 
 .supervisor-section-toggles span.section-dirty::after {
-  content: ' (modified)';
-  color: #dc2626;
-  font-size: 0.8em;
-  margin-left: 0.125rem;
+  font-family: "bootstrap-icons";
+  content: "\f4c9"; /* bi-pencil-fill */
+  font-size: 0.9rem;
+  color: #f97316; /* orange */
+  margin-left: 0.25rem;
+  vertical-align: -0.1em;
+}
+
+.supervisor-section-toggles span.section-dirty {
+  font-weight: 600;
 }
 
 .supervisor-select-all {
