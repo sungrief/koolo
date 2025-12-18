@@ -53,6 +53,8 @@ func BuildCharacter(ctx *context.Context) (context.Character, error) {
 		return Hammerdin{BaseCharacter: bc}, nil
 	case "foh":
 		return Foh{BaseCharacter: bc}, nil
+	case "dragondin":
+		return Dragondin{BaseCharacter: bc}, nil
 	case "smiter":
 		return Smiter{BaseCharacter: bc}, nil
 	case "trapsin":
