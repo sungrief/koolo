@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
         general: '',
         client: '',
         scheduler: '',
+        // muling/shopping dirty checking not implemented yet, but placeholders can be added if needed
     };
     const sectionDirty = {
         health: false,
@@ -54,6 +55,8 @@ document.addEventListener('DOMContentLoaded', function () {
         'sectionGeneral',
         'sectionClient',
         'sectionScheduler',
+        'sectionMuling',   // [Added]
+        'sectionShopping', // [Added]
     ];
     let sectionSelectAllCheckbox = null;
 
@@ -281,6 +284,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const generalCheckbox = document.getElementById('sectionGeneral');
         const clientCheckbox = document.getElementById('sectionClient');
         const schedulerCheckbox = document.getElementById('sectionScheduler');
+        // Muling/Shopping labels not yet tracked for dirty state, so skipped here.
 
         const healthLabelSpan = healthCheckbox && healthCheckbox.nextElementSibling;
         const mercLabelSpan = mercCheckbox && mercCheckbox.nextElementSibling;
@@ -487,6 +491,14 @@ document.addEventListener('DOMContentLoaded', function () {
             + '  <label>'
             + '    <input type="checkbox" id="sectionScheduler">'
             + '    <span>Scheduler settings</span>'
+            + '  </label>'
+            + '  <label>'
+            + '    <input type="checkbox" id="sectionMuling">'
+            + '    <span>Muling settings</span>'
+            + '  </label>'
+            + '  <label>'
+            + '    <input type="checkbox" id="sectionShopping">'
+            + '    <span>Shopping settings</span>'
             + '  </label>'
             + '</div>'
             + '<div class="run-detail-toggles">'
@@ -851,6 +863,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const generalCheckbox = document.getElementById('sectionGeneral');
         const clientCheckbox = document.getElementById('sectionClient');
         const schedulerCheckbox = document.getElementById('sectionScheduler');
+        const mulingCheckbox = document.getElementById('sectionMuling');     // [Added]
+        const shoppingCheckbox = document.getElementById('sectionShopping'); // [Added]
+
         return {
             health: !!(healthCheckbox && healthCheckbox.checked),
             merc: !!(mercCheckbox && mercCheckbox.checked),
@@ -860,6 +875,8 @@ document.addEventListener('DOMContentLoaded', function () {
             general: !!(generalCheckbox && generalCheckbox.checked),
             client: !!(clientCheckbox && clientCheckbox.checked),
             scheduler: !!(schedulerCheckbox && schedulerCheckbox.checked),
+            muling: !!(mulingCheckbox && mulingCheckbox.checked),       // [Added]
+            shopping: !!(shoppingCheckbox && shoppingCheckbox.checked), // [Added]
         };
     }
 
