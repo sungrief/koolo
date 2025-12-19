@@ -1,6 +1,7 @@
 package character
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -15,7 +16,10 @@ import (
 
 const (
 	dragondinMeleeRange     = 5
+	dragondinEngageRange    = 30
 	dragondinMaxAttackLoops = 20
+	// If something is this close, don't "think" about moving first — swing immediately.
+	dragondinImmediateThreatRange = dragondinMeleeRange + 1
 )
 
 type Dragondin struct {
@@ -23,13 +27,54 @@ type Dragondin struct {
 }
 
 func (d Dragondin) ShouldIgnoreMonster(m data.Monster) bool {
-	if !m.IsElite() {
+	// Ignore dead stuff.
+	if m.Stats[stat.Life] <= 0 {
 		return true
 	}
 
 	distance := d.PathFinder.DistanceFromMe(m.Position)
+	// Let the general combat logic consider targets in a wider radius.
+	return distance > dragondinEngageRange
+}
 
-	return distance > dragondinMeleeRange
+// tryKillNearby attempts to clear the closest enemy in our immediate vicinity.
+// Used both as an "immediate threat" handler and as a "path blocker" handler.
+func (d Dragondin) tryKillNearby(skipOnImmunities []stat.Resist, maxDist int) bool {
+	closestFound := false
+	var closest data.Monster
+	closestDist := 9999
+
+	for _, m := range d.Data.Monsters.Enemies() {
+		if m.Stats[stat.Life] <= 0 {
+			continue
+		}
+
+		dist := d.PathFinder.DistanceFromMe(m.Position)
+		if dist <= maxDist && dist < closestDist {
+			closest = m
+			closestDist = dist
+			closestFound = true
+		}
+	}
+
+	if !closestFound {
+		return false
+	}
+
+	// If we have immunity rules, respect them for blockers too.
+	if !d.preBattleChecks(closest.UnitID, skipOnImmunities) {
+		return false
+	}
+
+	step.PrimaryAttack(
+		closest.UnitID,
+		1,
+		false,
+		step.Distance(1, 3),
+		step.EnsureAura(skill.Conviction),
+	)
+
+	return true
 }
 
 func (d Dragondin) CheckKeyBindings() []skill.ID {
@@ -72,7 +117,8 @@ func (d Dragondin) KillMonsterSequence(
 			return nil
 		}
 
-		if !monster.IsElite() {
+		// Target may have died / despawned since selection.
+		if monster.Stats[stat.Life] <= 0 {
 			return nil
 		}
 
@@ -86,11 +132,30 @@ func (d Dragondin) KillMonsterSequence(
 
 		distance := d.PathFinder.DistanceFromMe(monster.Position)
 		if distance > dragondinMeleeRange {
-			if err := step.MoveTo(monster.Position, step.WithIgnoreMonsters()); err != nil {
-				d.Logger.Debug("Unable to move into melee range", slog.String("error", err.Error()))
+			// If something is already close enough to be dangerous, hit it NOW.
+			// This avoids the "stand still for ~0.5s then decide to attack" behavior.
+			if d.tryKillNearby(skipOnImmunities, dragondinImmediateThreatRange) {
+				previousUnitID = id
+				continue
 			}
 
-			outOfRangeAttempts++
+			// Fight blockers: we handle threats ourselves, so disable MoveTo's "monsters in path" early-exit.
+			if err := step.MoveTo(monster.Position, step.WithClearPathOverride(0)); err != nil {
+				if !errors.Is(err, step.ErrMonstersInPath) {
+					d.Logger.Debug("Unable to move into melee range", slog.String("error", err.Error()))
+				}
+
+				// If movement fails (monsters in path / stuck on corners), clear the closest nearby and retry.
+				// Slightly wider than immediate-threat range, but still keeps the reaction snappy.
+				if d.tryKillNearby(skipOnImmunities, dragondinMeleeRange+3) {
+					outOfRangeAttempts = 0
+				} else {
+					outOfRangeAttempts++
+				}
+			} else {
+				// Made progress towards the target.
+				outOfRangeAttempts = 0
+			}
 			if outOfRangeAttempts >= dragondinMaxAttackLoops {
 				return nil
 			}
