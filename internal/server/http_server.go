@@ -1208,6 +1208,9 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		if v := values.Get("chickenAt"); v != "" {
 			cfg.Health.ChickenAt, _ = strconv.Atoi(v)
 		}
+		if v := values.Get("townChickenAt"); v != "" {
+			cfg.Health.TownChickenAt, _ = strconv.Atoi(v)
+		}
 		// Back to town config handled with Health or General?
 		// It was in General in bulkApply but logic is closer to Health/Safety.
 		// Let's allow updating it if either General or Health is selected, or stick to General.
