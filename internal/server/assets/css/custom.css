@@ -432,6 +432,32 @@
 }
 
 /* ========================================
+   SUPERVISOR INPUT + CLONE SELECT
+   ======================================== */
+.supervisor-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.supervisor-input-row label {
+  flex: 1 1 calc(50% - 0.5rem);
+  margin-bottom: 0;
+  width: auto;
+}
+
+.supervisor-input-row .clone-select {
+  flex: 1 1 calc(50% - 0.5rem);
+}
+
+.supervisor-input-row .clone-select select {
+  margin-bottom: 0;
+  min-width: 220px;
+}
+
+/* ========================================
    NON-LADDER CHECKBOX
    ======================================== */
 .non-ladder-checkbox-container {
@@ -789,7 +815,7 @@
 #supervisorModal #supervisorList {
   margin-top: 0.25rem;
   padding: 0.5rem 0.75rem;
-  background-color: #eef2ff;
+  background-color: #f9f5ff;
   border-radius: 6px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   display: grid;
@@ -827,8 +853,23 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 0.75rem;
-  row-gap: 0.25rem;
-  margin-top: 0.35rem;
+  row-gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background-color: #eef2ff;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.supervisor-section-toggles label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.supervisor-section-toggles label input[type="checkbox"] {
+  margin: 0;
 }
 
 .supervisor-section-toggles span.section-dirty::after {
@@ -851,13 +892,12 @@
 }
 
 .supervisor-select-all {
-  display: inline-flex;
   align-items: center;
   gap: 0.25rem;
   font-size: 0.85rem;
   font-weight: 600;
   color: #1d4ed8;
-  margin: 0 0 0 0.44rem;
+  margin: 0 0 0 calc(0.44rem - 1px);
 }
 
 .supervisor-select-all span {

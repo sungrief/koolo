@@ -29,10 +29,23 @@
     <div class="notification">
         <h3>General Settings</h3><br>
         <form method="post" autocomplete="off" class="compact-form">
-            <label {{ if ne .Supervisor "" }}hidden="hidden"{{ end }}>
-                <span>Supervisor name</span>
-                <input name="name" placeholder="SuperSorc" value="{{ .Supervisor }}" required/>
-            </label>
+            <div class="supervisor-input-row">
+                <label {{ if ne .Supervisor "" }}hidden="hidden"{{ end }}>
+                    <span>Supervisor name</span>
+                    <input name="name" placeholder="SuperSorc" value="{{ .Supervisor }}" required/>
+                </label>
+                {{ if eq .Supervisor "" }}
+                <label class="clone-select">
+                    <span>Copy settings from</span>
+                    <select id="cloneSupervisorSelect">
+                        <option value="">-- Select supervisor to copy --</option>
+                        {{ range .Supervisors }}
+                        <option value="{{ . }}" {{ if eq $.CloneSource . }}selected{{ end }}>{{ . }}</option>
+                        {{ end }}
+                    </select>
+                </label>
+                {{ end }}
+            </div>
             <fieldset class="grid" style="margin-bottom: 0px;">
                 <label>
                     Main Class

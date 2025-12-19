@@ -1710,9 +1710,20 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	supervisor := r.URL.Query().Get("supervisor")
+	cloneSource := ""
+	cloneParam := r.URL.Query().Get("clone")
 	cfg, _ := config.GetCharacter("template")
 	if supervisor != "" {
-		cfg, _ = config.GetCharacter(supervisor)
+		if cfgLoaded, ok := config.GetCharacter(supervisor); ok && cfgLoaded != nil {
+			cfg = cfgLoaded
+		}
+		cloneParam = ""
+	} else if cloneParam != "" {
+		if cfgLoaded, ok := config.GetCharacter(cloneParam); ok && cfgLoaded != nil {
+			tmp := *cfgLoaded
+			cfg = &tmp
+			cloneSource = cloneParam
+		}
 	}
 
 	enabledRuns := make([]string, 0)
@@ -1750,6 +1761,9 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	allCharacters := config.GetCharacters()
 	supervisors := make([]string, 0, len(allCharacters))
 	for profileName, profileCfg := range allCharacters {
+		if profileName == "template" {
+			continue
+		}
 		supervisors = append(supervisors, profileName)
 		if strings.ToLower(profileCfg.Character.Class) == "mule" {
 			muleProfiles = append(muleProfiles, profileName)
@@ -1774,6 +1788,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
 		Version:               config.Version,
 		Supervisor:            supervisor,
+		CloneSource:           cloneSource,
 		Config:                cfg,
 		DayNames:              dayNames,
 		EnabledRuns:           enabledRuns,
@@ -1854,6 +1869,7 @@ type ApplySections struct {
 	Merc          bool `json:"merc"`
 	General       bool `json:"general"`
 	Client        bool `json:"client"`
+	Scheduler     bool `json:"scheduler"`
 }
 
 func (s *HttpServer) applySectionsFromFormValues(values url.Values, cfg *config.CharacterCfg, sections ApplySections) {
@@ -1971,6 +1987,49 @@ func (s *HttpServer) applySectionsFromFormValues(values url.Values, cfg *config.
 		cfg.ClassicMode = values.Has("classic_mode")
 		cfg.CloseMiniPanel = values.Has("close_mini_panel")
 		cfg.HidePortraits = values.Has("hide_portraits")
+	}
+
+	if sections.Scheduler {
+		if len(cfg.Scheduler.Days) == 0 {
+			cfg.Scheduler.Days = make([]config.Day, 7)
+			for day := range cfg.Scheduler.Days {
+				cfg.Scheduler.Days[day].DayOfWeek = day
+			}
+		}
+
+		cfg.Scheduler.Enabled = values.Has("schedulerEnabled")
+
+		for day := 0; day < 7; day++ {
+			starts := values[fmt.Sprintf("scheduler[%d][start][]", day)]
+			ends := values[fmt.Sprintf("scheduler[%d][end][]", day)]
+
+			cfg.Scheduler.Days[day].DayOfWeek = day
+			cfg.Scheduler.Days[day].TimeRanges = make([]config.TimeRange, 0, len(starts))
+
+			for i := 0; i < len(starts) && i < len(ends); i++ {
+				start, err := time.Parse("15:04", starts[i])
+				if err != nil {
+					continue
+				}
+				end, err := time.Parse("15:04", ends[i])
+				if err != nil {
+					continue
+				}
+
+				cfg.Scheduler.Days[day].TimeRanges = append(cfg.Scheduler.Days[day].TimeRanges, struct {
+					Start time.Time "yaml:\"start\""
+					End   time.Time "yaml:\"end\""
+				}{
+					Start: start,
+					End:   end,
+				})
+			}
+		}
+
+		if err := validateSchedulerData(cfg); err != nil {
+			s.logger.Warn("bulk apply scheduler validation failed",
+				slog.String("error", err.Error()))
+		}
 	}
 }
 

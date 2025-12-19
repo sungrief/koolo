@@ -49,6 +49,7 @@ type CharacterSettings struct {
 	Version               string
 	ErrorMessage          string
 	Supervisor            string
+	CloneSource           string
 	Config                *config.CharacterCfg
 	DayNames              []string
 	EnabledRuns           []string

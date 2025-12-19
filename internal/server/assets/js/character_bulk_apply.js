@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function () {
         cube: '',
         general: '',
         client: '',
+        scheduler: '',
     };
     const sectionDirty = {
         health: false,
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', function () {
         cube: false,
         general: false,
         client: false,
+        scheduler: false,
     };
 
     const levelingClasses = new Set([
@@ -43,6 +45,17 @@ document.addEventListener('DOMContentLoaded', function () {
         'barb_leveling',
     ]);
     const levelingSupervisors = new Set();
+    const SECTION_CHECKBOX_IDS = [
+        'sectionHealth',
+        'sectionMerc',
+        'sectionRuns',
+        'sectionPacketCasting',
+        'sectionCubeRecipes',
+        'sectionGeneral',
+        'sectionClient',
+        'sectionScheduler',
+    ];
+    let sectionSelectAllCheckbox = null;
 
     // Custom 3-button warning overlay for leveling supervisors
     const levelingWarningOverlay = document.getElementById('levelingWarningOverlay');
@@ -80,6 +93,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         levelingWarningOverlay.style.display = 'none';
         pendingApplyState = null;
+    }
+
+    function updateSectionSelectAllState() {
+        if (!sectionSelectAllCheckbox) {
+            return;
+        }
+        const checkboxes = SECTION_CHECKBOX_IDS
+            .map(id => document.getElementById(id))
+            .filter(Boolean);
+        const total = checkboxes.length;
+        if (!total) {
+            sectionSelectAllCheckbox.checked = false;
+            sectionSelectAllCheckbox.indeterminate = false;
+            return;
+        }
+        const checkedCount = checkboxes.filter(cb => cb.checked).length;
+        sectionSelectAllCheckbox.checked = checkedCount === total;
+        sectionSelectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < total;
     }
 
     function snapshotHealthState() {
@@ -220,6 +251,27 @@ document.addEventListener('DOMContentLoaded', function () {
         return JSON.stringify(state);
     }
 
+    function snapshotSchedulerState() {
+        const form = document.querySelector('form');
+        if (!form) {
+            return '';
+        }
+        const fd = new FormData(form);
+        const pairs = [];
+        fd.forEach((value, key) => {
+            if (key && (key.startsWith('scheduler') || key === 'schedulerEnabled')) {
+                pairs.push([key, String(value)]);
+            }
+        });
+        pairs.sort((a, b) => {
+            if (a[0] === b[0]) {
+                return a[1].localeCompare(b[1]);
+            }
+            return a[0].localeCompare(b[0]);
+        });
+        return JSON.stringify(pairs);
+    }
+
     function refreshSectionDirtyIndicators() {
         const healthCheckbox = document.getElementById('sectionHealth');
         const mercCheckbox = document.getElementById('sectionMerc');
@@ -228,6 +280,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cubeCheckbox = document.getElementById('sectionCubeRecipes');
         const generalCheckbox = document.getElementById('sectionGeneral');
         const clientCheckbox = document.getElementById('sectionClient');
+        const schedulerCheckbox = document.getElementById('sectionScheduler');
 
         const healthLabelSpan = healthCheckbox && healthCheckbox.nextElementSibling;
         const mercLabelSpan = mercCheckbox && mercCheckbox.nextElementSibling;
@@ -236,6 +289,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cubeLabelSpan = cubeCheckbox && cubeCheckbox.nextElementSibling;
         const generalLabelSpan = generalCheckbox && generalCheckbox.nextElementSibling;
         const clientLabelSpan = clientCheckbox && clientCheckbox.nextElementSibling;
+        const schedulerLabelSpan = schedulerCheckbox && schedulerCheckbox.nextElementSibling;
 
         if (healthLabelSpan) {
             if (sectionDirty.health) {
@@ -284,6 +338,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 clientLabelSpan.classList.add('section-dirty');
             } else {
                 clientLabelSpan.classList.remove('section-dirty');
+            }
+        }
+        if (schedulerLabelSpan) {
+            if (sectionDirty.scheduler) {
+                schedulerLabelSpan.classList.add('section-dirty');
+            } else {
+                schedulerLabelSpan.classList.remove('section-dirty');
             }
         }
     }
@@ -336,6 +397,12 @@ document.addEventListener('DOMContentLoaded', function () {
         refreshSectionDirtyIndicators();
     }
 
+    function updateSchedulerDirty() {
+        const current = snapshotSchedulerState();
+        sectionDirty.scheduler = current !== initialSectionState.scheduler;
+        refreshSectionDirtyIndicators();
+    }
+
     // Initialize snapshots
     initialSectionState.health = snapshotHealthState();
     initialSectionState.merc = snapshotMercState();
@@ -343,6 +410,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initialSectionState.cube = snapshotCubeState();
     initialSectionState.general = snapshotGeneralState();
     initialSectionState.client = snapshotClientState();
+    initialSectionState.scheduler = snapshotSchedulerState();
     refreshSectionDirtyIndicators();
 
     if (bulkOpenButton) {
@@ -380,7 +448,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const sectionContainer = modal.querySelector('.modal-body .mb-2');
     if (sectionContainer) {
         sectionContainer.innerHTML = ''
-            + '<strong>Select settings</strong>'
+            + '<div class="supervisor-header-row">'
+            + '  <strong>Select settings</strong>'
+            + '  <label class="supervisor-select-all" for="sectionSelectAll">'
+            + '    <input type="checkbox" id="sectionSelectAll">'
+            + '    <span>Select all settings</span>'
+            + '  </label>'
+            + '</div>'
             + '<div class="supervisor-section-toggles">'
             + '  <label>'
             + '    <input type="checkbox" id="sectionHealth">'
@@ -410,11 +484,38 @@ document.addEventListener('DOMContentLoaded', function () {
             + '    <input type="checkbox" id="sectionClient">'
             + '    <span>Client settings</span>'
             + '  </label>'
+            + '  <label>'
+            + '    <input type="checkbox" id="sectionScheduler">'
+            + '    <span>Scheduler settings</span>'
+            + '  </label>'
             + '</div>'
             + '<div class="run-detail-toggles">'
             + '  <span class="run-detail-title">Run detail options to copy (optional):</span>'
             + '  <div class="run-detail-grid" id="runDetailGrid"></div>'
             + '</div>';
+    }
+
+    sectionSelectAllCheckbox = document.getElementById('sectionSelectAll');
+    SECTION_CHECKBOX_IDS.forEach((id) => {
+        const cb = document.getElementById(id);
+        if (cb) {
+            cb.addEventListener('change', updateSectionSelectAllState);
+        }
+    });
+    if (sectionSelectAllCheckbox) {
+        sectionSelectAllCheckbox.addEventListener('change', function () {
+            const targetState = sectionSelectAllCheckbox.checked;
+            SECTION_CHECKBOX_IDS.forEach((id) => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.checked = targetState;
+                    checkbox.dispatchEvent(new Event('change'));
+                }
+            });
+            sectionSelectAllCheckbox.indeterminate = false;
+            sectionSelectAllCheckbox.checked = targetState;
+        });
+        updateSectionSelectAllState();
     }
 
     const runDetailToggles = modal.querySelector('.run-detail-toggles');
@@ -701,6 +802,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (CLIENT_FIELD_NAMES.has(target.name)) {
             updateClientDirty();
+            return;
+        }
+
+        if (target.name && (target.name === 'schedulerEnabled' || target.name.startsWith('scheduler'))) {
+            updateSchedulerDirty();
         }
     });
 
@@ -744,6 +850,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cubeCheckbox = document.getElementById('sectionCubeRecipes');
         const generalCheckbox = document.getElementById('sectionGeneral');
         const clientCheckbox = document.getElementById('sectionClient');
+        const schedulerCheckbox = document.getElementById('sectionScheduler');
         return {
             health: !!(healthCheckbox && healthCheckbox.checked),
             merc: !!(mercCheckbox && mercCheckbox.checked),
@@ -752,6 +859,7 @@ document.addEventListener('DOMContentLoaded', function () {
             cubeRecipes: !!(cubeCheckbox && cubeCheckbox.checked),
             general: !!(generalCheckbox && generalCheckbox.checked),
             client: !!(clientCheckbox && clientCheckbox.checked),
+            scheduler: !!(schedulerCheckbox && schedulerCheckbox.checked),
         };
     }
 
