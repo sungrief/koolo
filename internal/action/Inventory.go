@@ -14,7 +14,7 @@ const malusScoreIndividualSlots = -0.1
 const bonusScorePerSameSurface = 1.0
 const narrowLinesMultiplier = 0.2
 const narrowColumnMultiplier = 0.5
-const HeightRatioBonusMulitplier = 1.0
+const HeightRatioBonusMultiplier = 1.0
 
 type InventoryMask struct {
 	Width, Height int
@@ -92,7 +92,7 @@ func (inv *InventoryMask) computeMalus(x, y int) float64 {
 	if malus > 2 {
 		malus = malus * 4
 	} else if malus == 2 &&
-		(x == 0 || x == inv.Width-1 && y != 0 && y != inv.Height-1) || ((y == 0 || y == inv.Height-1) && x != 0 && x != inv.Width-1) {
+		(((x == 0 || x == inv.Width-1) && y != 0 && y != inv.Height-1) || ((y == 0 || y == inv.Height-1) && x != 0 && x != inv.Width-1)) {
 		malus = malus * 2
 	} else {
 		malus = 0
@@ -163,7 +163,7 @@ func largestRectangleInHistogramWeighted(heights []int) (area, w, h int, score f
 			default:
 				// Normal case: bias toward taller rectangles
 				heightBias := float64(height) / float64(width)
-				s = float64(a) * (1.0 + HeightRatioBonusMulitplier*heightBias)
+				s = float64(a) * (1.0 + HeightRatioBonusMultiplier*heightBias)
 			}
 
 			if s > maxScore {
@@ -213,7 +213,7 @@ func (inv *InventoryMask) findBestItemPlacement(items []data.Item) (bool, data.I
 					_, _, _, s := inv.LargestFreeRectangleScore()
 					inv.Remove(nx, ny, w, h)
 
-					betterPosition := (placeRight && nx > bestPosition.X) || nx < bestPosition.X
+					betterPosition := (placeRight && nx > item.Position.X) || (!placeRight && nx < item.Position.X)
 
 					// use this item only if it improves inventory score, or if it organises the inventory better
 					if s > bestScore ||
@@ -264,7 +264,10 @@ func OptimizeInventory(location item.LocationType) error {
 	}
 
 	needContinue := true
-	for needContinue {
+	maxIterations := 30
+	iterations := 0
+	for needContinue && iterations < maxIterations {
+		iterations++
 		ctx.PauseIfNotPriority()
 		ctx.RefreshGameData()
 		utils.Sleep(200)
