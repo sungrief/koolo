@@ -115,7 +115,7 @@ func (inv *InventoryMask) LargestFreeRectangleScore() (area, w, h int, score flo
 				hist[x] = 0
 			}
 		}
-		a, ww, hh, s := largestRectangleInHistogramWeighted(hist)
+		a, ww, hh, s := largestRectangleInHistogramWeighted(hist, inv.Height)
 		if s > maxScore {
 			maxScore = s
 			bestArea, bestW, bestH = a, ww, hh
@@ -134,7 +134,7 @@ func (inv *InventoryMask) LargestFreeRectangleScore() (area, w, h int, score flo
 }
 
 // Modified histogram solver: prioritize height over width
-func largestRectangleInHistogramWeighted(heights []int) (area, w, h int, score float64) {
+func largestRectangleInHistogramWeighted(heights []int, maxHeight int) (area, w, h int, score float64) {
 	stack := []int{}
 	maxScore := 0.0
 	bestArea, bestW, bestH := 0, 0, 0
@@ -155,10 +155,15 @@ func largestRectangleInHistogramWeighted(heights []int) (area, w, h int, score f
 			var s float64
 
 			// Apply prioritization rules
+			// Priority: full-height rectangle
 			switch {
 			case width <= 1:
 				s = float64(a) * narrowColumnMultiplier
-			case width > height:
+			case height == maxHeight:
+				s = float64(a) * 3.0
+			case height >= maxHeight-1:
+				s = float64(a) * 1.5
+			case width > height && height < maxHeight-1:
 				s = float64(a) * narrowLinesMultiplier
 			default:
 				// Normal case: bias toward taller rectangles
@@ -217,9 +222,7 @@ func (inv *InventoryMask) findBestItemPlacement(items []data.Item) (bool, data.I
 
 					// use this item only if it improves inventory score, or if it organises the inventory better
 					if s > bestScore ||
-						(s == bestScore && s > currentScore && betterPosition) ||
-						(w > 1 && h > 1 && s >= bestScore && betterPosition) ||
-						(w == 1 && h == 1 && s >= bestScore && betterPosition) {
+						(s >= bestScore && betterPosition) {
 						bestScore = s
 						bestPosition.X, bestPosition.Y = nx, ny
 						betterPositioning = betterPosition
@@ -231,7 +234,7 @@ func (inv *InventoryMask) findBestItemPlacement(items []data.Item) (bool, data.I
 		// replace item in mask
 		inv.Place(x, y, w, h)
 
-		if !utils.IsSamePosition(bestPosition, item.Position) && (bestScore > bestItemScore || (bestScore == bestItemScore && !itemBetterPositionned && betterPositioning)) {
+		if !utils.IsSamePosition(bestPosition, item.Position) && (bestScore > bestItemScore || (bestScore >= bestItemScore && betterPositioning && !itemBetterPositionned)) {
 			bestItemScore = bestScore
 			itemBetterPositionned = betterPositioning
 			bestItem = *item
@@ -316,5 +319,14 @@ func OptimizeInventory(location item.LocationType) error {
 	//fmt.Printf("Optimization complete. Best free rectangle: %dx%d (score %.2f)\n", w, h, s)
 
 	step.CloseAllMenus()
+
+	// if something is left on cursor, drop it and pick it up again
+	ctx.RefreshInventory()
+	if len(ctx.Data.Inventory.ByLocation(item.LocationCursor)) > 0 {
+		DropMouseItem()
+		utils.PingSleep(utils.Light, 200)
+		ItemPickup(-1)
+	}
+
 	return nil
 }
