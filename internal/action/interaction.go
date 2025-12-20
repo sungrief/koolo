@@ -50,12 +50,7 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 	ctx := context.Get()
 	ctx.SetLastAction("InteractObject")
 
-	// Track starting area to detect transitions (e.g., portals)
 	startingArea := ctx.Data.PlayerUnit.Area
-
-	ctx.Logger.Debug("InteractObject called",
-		"object", o.Name,
-		"startArea", startingArea)
 
 	pos := o.Position
 	distFinish := step.DistanceToFinishMoving
@@ -69,64 +64,10 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 
 	var err error
 	for range 5 {
-		// Ensure collision data is loaded before attempting to move
-		// This prevents "path couldn't be calculated" errors when area has changed but collision grid isn't ready
-		if ctx.Data.AreaData.Grid == nil ||
-			ctx.Data.AreaData.Grid.CollisionGrid == nil ||
-			len(ctx.Data.AreaData.Grid.CollisionGrid) == 0 {
-			ctx.Logger.Debug("Waiting for collision grid to load before InteractObject movement",
-				"object", o.Name,
-				"area", ctx.Data.PlayerUnit.Area)
-			utils.Sleep(200)
-			ctx.RefreshGameData()
-			continue
-		}
-
-		// For waypoints, check if we should use telekinesis
-		if o.IsWaypoint() {
-			// Check if telekinesis is enabled and available
-			useTelekinesis := false
-			switch ctx.CharacterCfg.Character.Class {
-			case "sorceress":
-				useTelekinesis = ctx.CharacterCfg.Character.BlizzardSorceress.UseTelekinesis
-			case "nova":
-				useTelekinesis = ctx.CharacterCfg.Character.NovaSorceress.UseTelekinesis
-			case "lightsorc":
-				useTelekinesis = ctx.CharacterCfg.Character.LightningSorceress.UseTelekinesis
-			case "hydraorb":
-				useTelekinesis = ctx.CharacterCfg.Character.HydraOrbSorceress.UseTelekinesis
-			case "fireballsorc":
-				useTelekinesis = ctx.CharacterCfg.Character.FireballSorceress.UseTelekinesis
-			case "sorceress_leveling":
-				useTelekinesis = ctx.CharacterCfg.Character.SorceressLeveling.UseTelekinesis
-			}
-
-			canUseTK := useTelekinesis && ctx.Data.AreaData.Area.IsTown()
-
-			if canUseTK {
-				// Only move if distance is greater than 21 (telekinesis max range)
-				// Otherwise stay where we are and use telekinesis from current position
-				distance := ctx.PathFinder.DistanceFromMe(pos)
-				if distance > 21 {
-					// Too far, move closer to 15 units (optimal TK range)
-					err = step.MoveTo(pos, step.WithDistanceToFinish(15), step.WithIgnoreMonsters())
-					if err != nil {
-						continue
-					}
-				}
-				// If distance <= 21, don't move at all - use telekinesis from current position
-			} else if !ctx.Data.AreaData.Area.IsTown() {
-				// Original behavior for non-town waypoints without TK - move directly to waypoint
-				err = MoveToCoords(pos)
-				if err != nil {
-					continue
-				}
-			} else {
-				// Town waypoints without TK - use default distance
-				err = step.MoveTo(pos, step.WithDistanceToFinish(distFinish), step.WithIgnoreMonsters())
-				if err != nil {
-					continue
-				}
+		if o.IsWaypoint() && !ctx.Data.AreaData.Area.IsTown() {
+			err = MoveToCoords(pos)
+			if err != nil {
+				continue
 			}
 		} else {
 			err = step.MoveTo(pos, step.WithDistanceToFinish(distFinish), step.WithIgnoreMonsters())
@@ -152,16 +93,8 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 	// Refresh game data to get the final area state after interaction
 	ctx.RefreshGameData()
 
-	ctx.Logger.Debug("InteractObject step.InteractObject succeeded",
-		"object", o.Name,
-		"startArea", startingArea,
-		"currentArea", ctx.Data.PlayerUnit.Area)
-
 	// If we transitioned to a new area (portal interaction), ensure collision data is loaded
 	if ctx.Data.PlayerUnit.Area != startingArea {
-		ctx.Logger.Debug("Area transition detected via portal, waiting for collision data",
-			"from", startingArea,
-			"to", ctx.Data.PlayerUnit.Area)
 
 		// Initial delay to allow server to fully sync area data
 		utils.Sleep(500)
@@ -178,10 +111,6 @@ func InteractObject(o data.Object, isCompletedFn func() bool) error {
 				ctx.Data.AreaData.Grid.CollisionGrid != nil &&
 				len(ctx.Data.AreaData.Grid.CollisionGrid) > 0 {
 				gridLoaded = true
-				ctx.Logger.Debug("Collision grid loaded successfully after portal transition",
-					"area", ctx.Data.PlayerUnit.Area,
-					"gridWidth", ctx.Data.AreaData.Grid.Width,
-					"gridHeight", ctx.Data.AreaData.Grid.Height)
 				break
 			}
 			utils.Sleep(100)

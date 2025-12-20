@@ -156,15 +156,13 @@ type CharacterCfg struct {
 		BlizzardSorceress struct {
 			UseMoatTrick          bool `yaml:"use_moat_trick"`
 			UseStaticOnMephisto   bool `yaml:"use_static_on_mephisto"`
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+
 			UseBlizzardPackets    bool `yaml:"use_blizzard_packets"`
 		} `yaml:"blizzard_sorceress"`
 		SorceressLeveling struct {
 			UseMoatTrick          bool `yaml:"use_moat_trick"`
 			UseStaticOnMephisto   bool `yaml:"use_static_on_mephisto"`
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+
 			UseBlizzardPackets    bool `yaml:"use_blizzard_packets"`
 			UsePacketLearning     bool `yaml:"use_packet_learning"`
 		} `yaml:"sorceress_leveling"`
@@ -179,21 +177,17 @@ type CharacterCfg struct {
 		} `yaml:"barb_leveling"`
 		NovaSorceress struct {
 			BossStaticThreshold       int  `yaml:"boss_static_threshold"`
-			UseTelekinesis            bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets     bool `yaml:"use_telekinesis_packets"`
+
 			AggressiveNovaPositioning bool `yaml:"aggressive_nova_positioning"`
 		} `yaml:"nova_sorceress"`
 		LightningSorceress struct {
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+
 		} `yaml:"lightning_sorceress"`
 		HydraOrbSorceress struct {
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+
 		} `yaml:"hydraorb_sorceress"`
 		FireballSorceress struct {
-			UseTelekinesis        bool `yaml:"use_telekinesis"`
-			UseTelekinesisPackets bool `yaml:"use_telekinesis_packets"`
+
 		} `yaml:"fireball_sorceress"`
 		MosaicSin struct {
 			UseTigerStrike    bool `yaml:"useTigerStrike"`
