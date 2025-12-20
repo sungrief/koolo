@@ -218,7 +218,8 @@ func (inv *InventoryMask) findBestItemPlacement(items []data.Item) (bool, data.I
 					// use this item only if it improves inventory score, or if it organises the inventory better
 					if s > bestScore ||
 						(s == bestScore && s > currentScore && betterPosition) ||
-						(w > 1 && h > 1 && s >= bestScore && betterPosition) {
+						(w > 1 && h > 1 && s >= bestScore && betterPosition) ||
+						(w == 1 && h == 1 && s >= bestScore && betterPosition) {
 						bestScore = s
 						bestPosition.X, bestPosition.Y = nx, ny
 						betterPositioning = betterPosition
