@@ -53,6 +53,9 @@ var (
 		"AmuletOfTheViper",
 		"KhalimsFlail",
 		"KhalimsWill",
+		"TheGidbinn",
+		"HellforgeHammer",
+		"HoradricMalus",
 	}
 )
 
