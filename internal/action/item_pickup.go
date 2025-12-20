@@ -44,6 +44,18 @@ func itemFitsInventory(i data.Item) bool {
 	return false
 }
 
+func itemNeedsInventorySpace(i data.Item) bool {
+	// Gold does not occupy grid slots.
+	if i.Name == "Gold" {
+		return false
+	}
+	// Potions can go to belt, and we don't want "no grid slot" to trigger town trips/blacklists for them.
+	if i.IsPotion() {
+		return false
+	}
+	return true
+}
+
 // HasTPsAvailable checks if the player has at least one Town Portal in their tome.
 func HasTPsAvailable() bool {
 	ctx := context.Get()
@@ -72,28 +84,38 @@ func ItemPickup(maxDistance int) error {
 	const totalMaxAttempts = maxRetries + maxItemTooFarAttempts // Combined total attempts
 	const debugPickit = false
 
-	//if we're already picking items, skip it
+	// If we're already picking items, skip it
 	if ctx.CurrentGame.IsPickingItems {
 		return nil
 	}
 
-	//Lock items pickup from other sources during the execution of the function
+	// Lock items pickup from other sources during the execution of the function
 	ctx.SetPickingItems(true)
 	defer func() {
 		ctx.SetPickingItems(false)
 	}()
 
+	// Track how many times we tried to "clean inventory in town" for a specific ground UnitID
+	// to avoid infinite town-loops when an item will never fit due to charm layout, etc.
+	townCleanupByUnitID := map[data.UnitID]int{}
+	consecutiveNoFitTownTrips := 0
+
+outer:
 	for {
 		ctx.PauseIfNotPriority()
-		itemsToPickup := GetItemsToPickup(maxDistance)
 
+		// Inventory state can drift while moving/clearing. Refresh before deciding what "fits".
+		ctx.RefreshInventory()
+
+		itemsToPickup := GetItemsToPickup(maxDistance)
 		if len(itemsToPickup) == 0 {
 			return nil
 		}
 
 		var itemToPickup data.Item
 		for _, i := range itemsToPickup {
-			if itemFitsInventory(i) {
+			// Prefer items that we can actually place.
+			if !itemNeedsInventorySpace(i) || itemFitsInventory(i) {
 				itemToPickup = i
 				break
 			}
@@ -104,18 +126,27 @@ func ItemPickup(maxDistance int) error {
 				ctx.Logger.Debug("No fitting items found for pickup after filtering.")
 			}
 			if HasTPsAvailable() {
+				consecutiveNoFitTownTrips++
+				if consecutiveNoFitTownTrips > 1 {
+					// Prevent endless TP-town-TP loops when an item can never fit.
+					ctx.Logger.Warn("No fitting items after a town cleanup; stopping pickup cycle to avoid loops.")
+					return nil
+				}
+
 				if debugPickit {
-					ctx.Logger.Debug("TPs available and keybinding found, returning to town to sell junk and stash items.")
+					ctx.Logger.Debug("TPs available, returning to town to sell junk and stash items.")
 				}
 				if err := InRunReturnTownRoutine(); err != nil {
 					ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
 				}
 				continue
-			} else {
-				ctx.Logger.Warn("Inventory is full and NO Town Portals found. Skipping return to town and continuing current run (no more item pickups this cycle).")
-				return nil
 			}
+
+			ctx.Logger.Warn("Inventory is full and NO Town Portals found. Skipping return to town and continuing current run (no more item pickups this cycle).")
+			return nil
 		}
+
+		consecutiveNoFitTownTrips = 0
 
 		if debugPickit {
 			ctx.Logger.Info(fmt.Sprintf(
@@ -131,14 +162,42 @@ func ItemPickup(maxDistance int) error {
 		var lastError error
 		attempt := 1
 		itemTooFarRetryCount := 0     // Tracks retries specifically for "item too far"
-		totalAttemptCounter := 0      // New counter for overall attempts
-		var consecutiveMoveErrors int // New variable to track consecutive ErrCastingMoving errors
+		totalAttemptCounter := 0      // Overall attempts
+		var consecutiveMoveErrors int // Track consecutive ErrCastingMoving errors
+		pickedUp := false
 
-		for totalAttemptCounter < totalMaxAttempts { // Loop until totalMaxAttempts is reached
+		for totalAttemptCounter < totalMaxAttempts {
 			totalAttemptCounter++
 			if debugPickit {
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Starting attempt %d (total: %d)", attempt, totalAttemptCounter))
 			}
+
+			// If inventory changed and item no longer fits, do NOT grind attempts and then blacklist.
+			// Instead: go to town (stash/sell), come back and retry.
+			if itemNeedsInventorySpace(itemToPickup) {
+				ctx.RefreshInventory()
+				if !itemFitsInventory(itemToPickup) {
+					if HasTPsAvailable() {
+						townCleanupByUnitID[itemToPickup.UnitID]++
+						if townCleanupByUnitID[itemToPickup.UnitID] <= 1 {
+							ctx.Logger.Debug("Item doesn't fit in inventory right now; returning to town to stash/sell and retry.",
+								slog.String("itemName", string(itemToPickup.Desc().Name)),
+								slog.Int("unitID", int(itemToPickup.UnitID)),
+							)
+							if err := InRunReturnTownRoutine(); err != nil {
+								ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
+							}
+							continue outer
+						}
+						// Already tried town once and it still doesn't fit: blacklist this ground instance to stop thrashing.
+						lastError = fmt.Errorf("item does not fit in inventory even after town cleanup")
+						break
+					}
+					ctx.Logger.Warn("Inventory full and NO Town Portals found. Skipping further item pickups this cycle.")
+					return nil
+				}
+			}
+
 			pickupStartTime := time.Now()
 
 			// Clear monsters on each attempt
@@ -152,27 +211,16 @@ func ItemPickup(maxDistance int) error {
 			}
 
 			// Calculate position to move to based on attempt number
-			// on 2nd and 3rd attempt try position left/right of item
-			// on 4th and 5th attempt try position further away
 			pickupPosition := itemToPickup.Position
 			moveDistance := 3
-			if attempt > 1 { // Use 'attempt' for the movement strategy, 'totalAttemptCounter' for overall limit
+			if attempt > 1 {
 				switch attempt {
 				case 2:
-					pickupPosition = data.Position{
-						X: itemToPickup.Position.X + moveDistance,
-						Y: itemToPickup.Position.Y - 1,
-					}
+					pickupPosition = data.Position{X: itemToPickup.Position.X + moveDistance, Y: itemToPickup.Position.Y - 1}
 				case 3:
-					pickupPosition = data.Position{
-						X: itemToPickup.Position.X - moveDistance,
-						Y: itemToPickup.Position.Y + 1,
-					}
+					pickupPosition = data.Position{X: itemToPickup.Position.X - moveDistance, Y: itemToPickup.Position.Y + 1}
 				case 4:
-					pickupPosition = data.Position{
-						X: itemToPickup.Position.X + moveDistance + 2,
-						Y: itemToPickup.Position.Y - 3,
-					}
+					pickupPosition = data.Position{X: itemToPickup.Position.X + moveDistance + 2, Y: itemToPickup.Position.Y - 3}
 				case 5:
 					MoveToCoords(ctx.PathFinder.BeyondPosition(ctx.Data.PlayerUnit.Position, itemToPickup.Position, 4), step.WithIgnoreItems())
 				}
@@ -185,12 +233,8 @@ func ItemPickup(maxDistance int) error {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moving to coordinates X:%d Y:%d (distance: %d, distToFinish: %d). Attempt %d", pickupPosition.X, pickupPosition.Y, distance, distanceToFinish, attempt))
 				}
 				if err := MoveToCoords(pickupPosition, step.WithDistanceToFinish(distanceToFinish), step.WithIgnoreItems()); err != nil {
-					if debugPickit {
-						ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Failed moving to item on attempt %d: %v", attempt, err))
-					}
 					lastError = err
-
-					continue // Go to next total attempt
+					continue
 				}
 				if debugPickit {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Move completed in %v. Attempt %d", time.Since(pickupStartTime), attempt))
@@ -202,92 +246,130 @@ func ItemPickup(maxDistance int) error {
 			if debugPickit {
 				ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Initiating PickupItem action. Attempt %d", attempt))
 			}
+
 			err := step.PickupItem(itemToPickup, attempt)
 			if err == nil {
+				pickedUp = true
+				lastError = nil
 				if debugPickit {
 					ctx.Logger.Info(fmt.Sprintf("Successfully picked up item: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 				}
-				break // Success! Exit the inner retry loop
+				break
 			}
 
 			lastError = err
 			if debugPickit {
-				ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Pickup attempt %d failed: %v", attempt, err), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
+				ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Pickup attempt %d failed: %v", attempt, err), slog.String("itemName", string(itemToPickup.Name)))
 			}
 
-			// Here's the fix: Add a pause and an error counter
+			// If the pickup failed and the item doesn't fit *right now*, don't blacklist it.
+			// This is the exact scenario where we should go stash/sell and retry.
+			if itemNeedsInventorySpace(itemToPickup) {
+				ctx.RefreshInventory()
+				if !itemFitsInventory(itemToPickup) {
+					if HasTPsAvailable() {
+						townCleanupByUnitID[itemToPickup.UnitID]++
+						if townCleanupByUnitID[itemToPickup.UnitID] <= 1 {
+							ctx.Logger.Debug("Pickup failed and item no longer fits; returning to town to stash/sell and retry.",
+								slog.String("itemName", string(itemToPickup.Desc().Name)),
+								slog.Int("unitID", int(itemToPickup.UnitID)),
+							)
+							if errTown := InRunReturnTownRoutine(); errTown != nil {
+								ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", errTown)
+							}
+							continue outer
+						}
+						lastError = fmt.Errorf("item does not fit in inventory even after town cleanup: %w", err)
+						break
+					}
+					ctx.Logger.Warn("Inventory full and NO Town Portals found. Skipping further item pickups this cycle.")
+					return nil
+				}
+			}
+
+			// Movement-state handling
 			if errors.Is(err, step.ErrCastingMoving) {
 				consecutiveMoveErrors++
 				if consecutiveMoveErrors > 3 {
-					// Give up on this item after 3 consecutive failed attempts due to movement
-					if debugPickit {
-						ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Giving up on item after %d consecutive failed pickup attempts due to movement.", consecutiveMoveErrors))
-					}
 					lastError = fmt.Errorf("failed to pick up item after multiple attempts due to movement state: %w", err)
-					break // Exit the inner loop to blacklist the item
+					break
 				}
-				// Pause to let the game state update from 'walking' to 'idle'
-				// Use adaptive delay based on ping
 				time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 100)))
 				continue
 			}
+
 			if errors.Is(err, step.ErrMonsterAroundItem) {
 				continue
 			}
 
-			// Item too far retry logic: Use itemTooFarRetryCount for this specific error type
+			// Item too far retry logic
 			if errors.Is(err, step.ErrItemTooFar) {
 				itemTooFarRetryCount++
 				if debugPickit {
 					ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Item too far detected. ItemTooFar specific retry %d/%d.", itemTooFarRetryCount, maxItemTooFarAttempts))
 				}
-				// We don't increment 'attempt' here to keep the movement strategy.
 				if itemTooFarRetryCount < maxItemTooFarAttempts {
-					ctx.PathFinder.RandomMovement() // Add random movement to break potential sticking
-					continue                        // Continue in the total loop
+					ctx.PathFinder.RandomMovement()
+					continue
 				}
-				// If we reached maxItemTooFarAttempts, we'll let the totalAttemptCounter handle the blacklist.
 			}
 
 			if errors.Is(err, step.ErrNoLOSToItem) {
 				if debugPickit {
 					ctx.Logger.Debug("Item Pickup: No line of sight to item, moving closer",
-						slog.String("item", string(itemToPickup.Desc().Name))) // <--- FIXED: string(itemToPickup.Desc().Name)
+						slog.String("item", string(itemToPickup.Desc().Name)))
 				}
-				// Try moving beyond the item for better line of sight
 				beyondPos := ctx.PathFinder.BeyondPosition(ctx.Data.PlayerUnit.Position, itemToPickup.Position, 2+attempt)
 				if mvErr := MoveToCoords(beyondPos, step.WithIgnoreItems()); mvErr == nil {
-					if debugPickit {
-						ctx.Logger.Debug(fmt.Sprintf("Item Pickup: Moved for LOS. Retrying pickup. Attempt %d", attempt))
-					}
 					err = step.PickupItem(itemToPickup, attempt)
 					if err == nil {
+						pickedUp = true
+						lastError = nil
 						if debugPickit {
 							ctx.Logger.Info(fmt.Sprintf("Successfully picked up item after LOS correction: %s [%d] in %v. Total attempts: %d", itemToPickup.Name, itemToPickup.Quality, time.Since(pickupActionStartTime), totalAttemptCounter))
 						}
 						break
 					}
 					lastError = err
-					if debugPickit {
-						ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Pickup attempt %d failed even after LOS correction: %v", attempt, err), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
-					}
 				} else {
 					lastError = mvErr
-					if debugPickit {
-						ctx.Logger.Warn(fmt.Sprintf("Item Pickup: Failed to move for LOS correction: %v", mvErr), slog.String("itemName", string(itemToPickup.Name))) // <--- FIXED: string(itemToPickup.Name)
-					}
 				}
 			}
-			attempt++ // Only increment 'attempt' for general strategy change (movements, etc.)
+
+			attempt++
 		}
 
-		// If all attempts failed (totalAttemptCounter reached limit and lastError is not nil)
+		if pickedUp {
+			continue
+		}
+
+		// Final guard: if it doesn't fit at the end, prefer a town cleanup over blacklisting.
+		if lastError != nil && itemNeedsInventorySpace(itemToPickup) {
+			ctx.RefreshInventory()
+			if !itemFitsInventory(itemToPickup) {
+				if HasTPsAvailable() {
+					townCleanupByUnitID[itemToPickup.UnitID]++
+					if townCleanupByUnitID[itemToPickup.UnitID] <= 1 {
+						if err := InRunReturnTownRoutine(); err != nil {
+							ctx.Logger.Warn("Failed returning to town from ItemPickup", "error", err)
+						}
+						continue
+					}
+					// Still doesn't fit after town: fall through to blacklist this UnitID.
+				} else {
+					return nil
+				}
+			}
+		}
+
+		// If all attempts failed, blacklist *this specific ground instance* (UnitID), not the whole base item ID.
 		if totalAttemptCounter >= totalMaxAttempts && lastError != nil {
-			ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, itemToPickup)
+			if !IsBlacklisted(itemToPickup) {
+				ctx.CurrentGame.BlacklistedItems = append(ctx.CurrentGame.BlacklistedItems, itemToPickup)
+			}
 
 			// Screenshot with show items on
 			ctx.HID.KeyDown(ctx.Data.KeyBindings.ShowItems)
-			// Adaptive delay to ensure items are shown before screenshot
 			time.Sleep(time.Millisecond * time.Duration(utils.PingMultiplier(utils.Light, 200)))
 			screenshot := ctx.GameReader.Screenshot()
 			event.Send(event.ItemBlackListed(event.WithScreenshot(ctx.Name, fmt.Sprintf("Item %s [%s] BlackListed in Area:%s", itemToPickup.Name, itemToPickup.Quality.ToString(), ctx.Data.PlayerUnit.Area.Area().Name), screenshot), data.Drop{Item: itemToPickup}))
@@ -295,14 +377,11 @@ func ItemPickup(maxDistance int) error {
 
 			ctx.Logger.Warn(
 				"Failed picking up item after all attempts, blacklisting it",
-				slog.String("itemName", string(itemToPickup.Desc().Name)), // <--- FIXED: string(itemToPickup.Desc().Name)
+				slog.String("itemName", string(itemToPickup.Desc().Name)),
 				slog.Int("unitID", int(itemToPickup.UnitID)),
 				slog.String("lastError", lastError.Error()),
 				slog.Int("totalAttempts", totalAttemptCounter),
 			)
-		} else if lastError == nil {
-			// Item was successfully picked up, continue the outer loop to check for more items
-			continue
 		}
 	}
 }
@@ -441,7 +520,8 @@ func shouldBePickedUp(i data.Item) bool {
 
 func IsBlacklisted(itm data.Item) bool {
 	for _, blacklisted := range context.Get().CurrentGame.BlacklistedItems {
-		if itm.ID == blacklisted.ID {
+		// Blacklist is per-game. UnitID is the safest key: it targets only the problematic ground instance.
+		if itm.UnitID == blacklisted.UnitID {
 			return true
 		}
 	}

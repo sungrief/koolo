@@ -133,6 +133,15 @@ const (
 	SwitchStashTabBtnTabSize        = 55
 	SwitchStashTabBtnTabSizeClassic = 96
 
+	SwitchVendorTabBtnX        = 107
+	SwitchVendorTabBtnXClassic = 258
+
+	SwitchVendorTabBtnY        = 128
+	SwitchVendorTabBtnYClassic = 84
+
+	SwitchVendorTabBtnTabSize        = 82
+	SwitchVendorTabBtnTabSizeClassic = 96
+
 	CloseMiniPanelClassicX = 639
 	CloseMiniPanelClassicY = 686
 

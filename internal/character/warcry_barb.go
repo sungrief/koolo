@@ -93,7 +93,6 @@ func (s *WarcryBarb) KillMonsterSequence(
 
 	for {
 		context.Get().PauseIfNotPriority()
-		s.primaryWeapon()
 		s.tryGrimWard()
 
 		var id data.UnitID
@@ -105,11 +104,11 @@ func (s *WarcryBarb) KillMonsterSequence(
 				monstersNearby := s.countInRange(s.horkRange())
 				if monstersNearby == 0 {
 					s.horkCorpses(warcryBarbHorkRange)
-					s.primaryWeapon()
 				}
 			}
 			return nil
 		}
+		s.primaryWeapon()
 
 		if blacklistedMonsters[id] {
 			continue
@@ -146,7 +145,6 @@ func (s *WarcryBarb) KillMonsterSequence(
 			monstersNearby := s.countInRange(s.horkRange())
 			if monstersNearby <= 3 {
 				s.horkCorpses(warcryBarbHorkRange)
-				s.primaryWeapon()
 			}
 		}
 	}
@@ -481,7 +479,7 @@ func (s *WarcryBarb) horkCorpses(maxRange int) {
 		}
 	}
 
-	if swapped {
+	if swapped && !ctx.CharacterCfg.Character.WarcryBarb.FindItemSwitch {
 		defer func() {
 			if !s.SwapToSlot(originalSlot) {
 				s.Logger.Error("CRITICAL: Failed to swap back to original weapon slot",

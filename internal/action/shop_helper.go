@@ -69,7 +69,7 @@ func BuyAct2Flails(ctx *context.Status) error {
 		}
 
 		// Switch to weapons tab (tab 2, zero-indexed)
-		SwitchStashTab(2)
+		SwitchVendorTab(2)
 		utils.Sleep(500)
 		ctx.GameReader.GetData()
 
@@ -175,7 +175,7 @@ func BuyAct2BoneWands(ctx *context.Status) error {
 		}
 
 		// Switch to weapons tab (tab 2, zero-indexed)
-		SwitchStashTab(2)
+		SwitchVendorTab(2)
 		utils.Sleep(500)
 		ctx.GameReader.GetData()
 

@@ -17,10 +17,14 @@ type TZGroup struct {
 }
 
 type IndexData struct {
-	ErrorMessage string
-	Version      string
-	Status       map[string]bot.Stats
-	DropCount    map[string]int
+	ErrorMessage                string
+	Version                     string
+	Status                      map[string]bot.Stats
+	DropCount                   map[string]int
+	AutoStart                   map[string]bool
+	GlobalAutoStartEnabled      bool
+	GlobalAutoStartDelaySeconds int
+	ShowAutoStartPrompt         bool
 }
 
 type DropData struct {

@@ -625,7 +625,7 @@ func buyAct2Belt(ctx *context.Status) error {
 	utils.Sleep(1000)
 
 	// Switch to armor tab and refresh game data to see the new items
-	action.SwitchStashTab(1)
+	action.SwitchVendorTab(1)
 	ctx.RefreshGameData()
 	utils.Sleep(500)
 
