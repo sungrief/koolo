@@ -433,12 +433,14 @@ func containss(slice []string, item string) bool {
 func (s *HttpServer) initialData(w http.ResponseWriter, r *http.Request) {
 	data := s.getStatusData()
 
+	skipPrompt := r.URL.Query().Get("skipAutoStartPrompt") == "true"
+
 	// Decide whether to show the auto-start confirmation prompt.
 	// This should only happen once per program run, on the first
 	// dashboard load where global auto-start is enabled and at
 	// least one character is marked for auto-start.
 	showPrompt := false
-	if data.GlobalAutoStartEnabled {
+	if !skipPrompt && data.GlobalAutoStartEnabled {
 		s.autoStartPromptOnce.Do(func() {
 			for _, enabled := range data.AutoStart {
 				if enabled {

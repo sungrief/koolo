@@ -12,6 +12,45 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!modal || !supervisorList || !applyButton) {
         return;
     }
+    const applyButtonOriginalText = applyButton.textContent;
+    const applyingStatus = document.createElement('div');
+    applyingStatus.className = 'bulk-apply-status';
+    applyingStatus.textContent = 'Applying settings...';
+    applyingStatus.style.display = 'none';
+    applyingStatus.style.marginLeft = 'auto';
+    applyingStatus.style.marginRight = 'auto';
+    applyingStatus.style.marginTop = '8px';
+    applyingStatus.style.fontWeight = '600';
+    applyingStatus.style.color = '#0d6efd';
+    const modalFooter = modal.querySelector('.modal-footer');
+    if (modalFooter) {
+        modalFooter.appendChild(applyingStatus);
+    } else {
+        modal.appendChild(applyingStatus);
+    }
+
+    function setApplyingState(applying) {
+        if (applyButton) {
+            applyButton.disabled = applying;
+            applyButton.textContent = applying ? 'Applying...' : applyButtonOriginalText;
+        }
+        if (cancelButton) {
+            cancelButton.disabled = applying;
+        }
+        if (closeButton) {
+            closeButton.disabled = applying;
+        }
+        if (warningApplyAllBtn) {
+            warningApplyAllBtn.disabled = applying;
+        }
+        if (warningExcludeBtn) {
+            warningExcludeBtn.disabled = applying;
+        }
+        if (warningCancelBtn) {
+            warningCancelBtn.disabled = applying;
+        }
+        applyingStatus.style.display = applying ? 'block' : 'none';
+    }
 
     // Track original section values for "changed" indicators
     const initialSectionState = {
@@ -669,7 +708,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Load supervisor list from initial-data endpoint
     async function populateSupervisorList() {
         try {
-            const response = await fetch('/initial-data', {
+            const response = await fetch('/initial-data?skipAutoStartPrompt=true', {
                 headers: { 'Accept': 'application/json' },
             });
             if (!response.ok) {
@@ -900,6 +939,7 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         try {
+            setApplyingState(true);
             const response = await fetch('/api/supervisors/bulk-apply', {
                 method: 'POST',
                 headers: {
@@ -924,6 +964,8 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             console.error('Failed to bulk apply settings', error);
             alert('Failed to apply settings. Please check the logs for details.');
+        } finally {
+            setApplyingState(false);
         }
     }
 
