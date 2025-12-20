@@ -3,6 +3,7 @@ package action
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -10,6 +11,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
+	"github.com/hectorgimenez/koolo/internal/pickit"
 	"github.com/hectorgimenez/koolo/internal/ui"
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
@@ -21,8 +23,17 @@ func MakeRunewords() error {
 	insertItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 	baseItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 
+	enabledRecipes := ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes
+
+	if len(enabledRecipes) == 0 {
+		return nil
+	}
+
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
+
 	for _, recipe := range Runewords {
-		if !slices.Contains(ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes, string(recipe.Name)) {
+
+		if !slices.Contains(enabledRecipes, string(recipe.Name)) {
 			continue
 		}
 
@@ -32,8 +43,8 @@ func MakeRunewords() error {
 		for continueProcessing {
 			if baseItem, hasBase := hasBaseForRunewordRecipe(baseItems, recipe); hasBase {
 				existingTier, hasExisting := currentRunewordBaseTier(ctx, recipe, baseItem.Type().Name)
-				// Prevent creating runeword multiple times if we don't care about damage / def
-				if hasExisting && (len(recipe.BaseSortOrder) == 0 || baseItem.Desc().Tier() <= existingTier) {
+
+				if isLevelingChar && hasExisting && (len(recipe.BaseSortOrder) == 0 || baseItem.Desc().Tier() <= existingTier) {
 					ctx.Logger.Debug("Skipping recipe - existing runeword has equal or better tier in same base type",
 						"recipe", recipe.Name,
 						"baseType", baseItem.Type().Name,
@@ -42,23 +53,45 @@ func MakeRunewords() error {
 					continueProcessing = false
 					continue
 				}
+
 				if inserts, hasInserts := hasItemsForRunewordRecipe(insertItems, recipe); hasInserts {
 					err := SocketItems(ctx, recipe, baseItem, inserts...)
 					if err != nil {
 						return err
 					}
 
-					insertItems = removeUsedItems(insertItems, inserts)
+					// Log successful creation of the runeword for easier auditing
+					ctx.Logger.Info("Runeword maker: created runeword",
+						"runeword", recipe.Name,
+						"base", baseItem.Name,
+					)
+
+					// Refresh game data so in-memory inventory reflects the newly created runeword
+					ctx.RefreshGameData()
+
+					// Recalculate available items from the refreshed game state so the maker
+					// doesn't try to reuse the same base or inserts.
+					insertItems = ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
+					baseItems = ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 				} else {
+					// No inserts available for this recipe at this time
+					ctx.Logger.Debug("Runeword maker: no inserts available for recipe; skipping",
+						"runeword", recipe.Name,
+					)
 					continueProcessing = false
 				}
 			} else {
+				// No suitable base found for this recipe
+				ctx.Logger.Debug("Runeword maker: no suitable base found for recipe; skipping",
+					"runeword", recipe.Name,
+				)
 				continueProcessing = false
 			}
 		}
 	}
 	return nil
 }
+
 func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...data.Item) error {
 
 	ctx.SetLastAction("SocketItem")
@@ -113,6 +146,23 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 			}
 		}
 	}
+	// Diagnostic log: report how many inserts we will attempt to socket
+	if len(orderedItems) == 0 {
+		ctx.Logger.Debug("SocketItems: no ordered inserts found for recipe",
+			"runeword", recipe.Name,
+		)
+	} else {
+		names := make([]string, 0, len(orderedItems))
+		for _, it := range orderedItems {
+			names = append(names, string(it.Name))
+		}
+		ctx.Logger.Debug("SocketItems: preparing inserts",
+			"runeword", recipe.Name,
+			"count", len(orderedItems),
+			"items", fmt.Sprintf("%v", names),
+		)
+	}
+
 	previousPage := -1 // Initialize to invalid page number
 	for _, itm := range orderedItems {
 		if itm.Location.LocationType == item.LocationSharedStash || itm.Location.LocationType == item.LocationStash {
@@ -166,7 +216,15 @@ func currentRunewordBaseTier(ctx *context.Status, recipe Runeword, baseType stri
 
 func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bool) {
 	ctx := context.Get()
+	// Determine if this is a leveling character; overrides are ignored for leveling
+	// to keep the existing, simpler behavior.
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	isBarbLeveling := ctx.CharacterCfg.Character.Class == "barb_leveling"
+
+	// Look up any per-runeword overrides configured for this character.
+	overrides := ctx.CharacterCfg.Game.RunewordOverrides
+	ov, hasOverride := overrides[string(recipe.Name)]
+	useOverride := !isLevelingChar && hasOverride
 
 	var validBases []data.Item
 	for _, itm := range items {
@@ -180,6 +238,11 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 			}
 		}
 		if !isValidType {
+			continue
+		}
+
+		// Apply user-specified base type restriction when not leveling.
+		if useOverride && ov.BaseType != "" && itemType != ov.BaseType {
 			continue
 		}
 
@@ -201,16 +264,85 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 			continue
 		}
 
-		if itm.Ethereal && !recipe.AllowEth {
-			continue
+		// Eth handling: overrides beat AllowEth, otherwise fall back to the recipe value.
+		ethMode := "any"
+		if useOverride && ov.EthMode != "" {
+			ethMode = ov.EthMode
+		}
+		switch ethMode {
+		case "eth":
+			if !itm.Ethereal {
+				continue
+			}
+		case "noneth":
+			if itm.Ethereal {
+				continue
+			}
+		default:
+			if itm.Ethereal && !recipe.AllowEth {
+				continue
+			}
 		}
 
 		if itm.HasSocketedItems() {
 			continue
 		}
 
-		if itm.Quality > item.QualitySuperior {
-			continue
+		// Quality handling: overrides dictate Normal/Superior preference; otherwise allow <= Superior.
+		qualityMode := "any"
+		if useOverride && ov.QualityMode != "" {
+			qualityMode = ov.QualityMode
+		}
+		switch qualityMode {
+		case "normal":
+			if itm.Quality != item.QualityNormal {
+				continue
+			}
+		case "superior":
+			if itm.Quality != item.QualitySuperior {
+				continue
+			}
+		default:
+			if itm.Quality > item.QualitySuperior {
+				continue
+			}
+		}
+
+		// Apply base tier restriction (normal/exceptional/elite) when not leveling.
+		if useOverride && ov.BaseTier != "" {
+			itemTier := itm.Desc().Tier()
+			switch strings.ToLower(ov.BaseTier) {
+			case "normal":
+				if itemTier != item.TierNormal {
+					continue
+				}
+			case "exceptional":
+				if itemTier != item.TierExceptional {
+					continue
+				}
+			case "elite":
+				if itemTier != item.TierElite {
+					continue
+				}
+			}
+		}
+
+		// BaseName (single NIP code or comma list) only applies outside leveling.
+		if useOverride && ov.BaseName != "" {
+			baseCode := pickit.ToNIPName(itm.Desc().Name)
+			if baseCode == "" {
+				continue
+			}
+			allowed := false
+			for _, part := range strings.Split(ov.BaseName, ",") {
+				if strings.TrimSpace(part) == baseCode {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				continue
+			}
 		}
 
 		validBases = append(validBases, itm)
