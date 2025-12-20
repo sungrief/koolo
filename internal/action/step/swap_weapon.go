@@ -35,6 +35,7 @@ func swapWeapon(toCTA bool) error {
 		}
 
 		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.SwapWeapons)
+		ctx.RefreshGameData()
 
 		lastRun = time.Now()
 	}
