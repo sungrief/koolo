@@ -798,26 +798,37 @@ func (s *HttpServer) sequenceEditorPage(w http.ResponseWriter, r *http.Request) 
 
 func (s *HttpServer) startSupervisor(w http.ResponseWriter, r *http.Request) {
 	supervisorList := s.manager.AvailableSupervisors()
-	Supervisor := r.URL.Query().Get("characterName")
+	supervisor := r.URL.Query().Get("characterName")
 	manualMode := r.URL.Query().Get("manualMode") == "true"
 
+	if supervisor == "" {
+		http.Error(w, "missing characterName", http.StatusBadRequest)
+		return
+	}
+
 	// Get the current auth method for the supervisor we wanna start
-	supCfg, currFound := config.GetCharacter(Supervisor)
-	if !currFound {
-		// There's no config for the current supervisor. THIS SHOULDN'T HAPPEN
+	supCfg, currFound := config.GetCharacter(supervisor)
+	if !currFound || supCfg == nil {
+		http.Error(w, "character configuration not found", http.StatusNotFound)
 		return
 	}
 
-	if !s.canStartSupervisor(Supervisor, supervisorList, supCfg) {
+	if err := s.canStartSupervisor(supervisor, supervisorList, supCfg); err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
 
-	s.manager.Start(Supervisor, false, manualMode)
+	go func(name string, manual bool) {
+		if err := s.manager.Start(name, false, manual); err != nil {
+			s.logger.Error("Failed to start supervisor", slog.String("supervisor", name), slog.Any("error", err))
+		}
+	}(supervisor, manualMode)
+
 	s.initialData(w, r)
 }
 
 // canStartSupervisor enforces TokenAuth concurrency rules before starting a supervisor.
-func (s *HttpServer) canStartSupervisor(target string, supervisorList []string, targetCfg *config.CharacterCfg) bool {
+func (s *HttpServer) canStartSupervisor(target string, supervisorList []string, targetCfg *config.CharacterCfg) error {
 	// Prevent launching of other clients while there's a client with TokenAuth still starting
 	for _, sup := range supervisorList {
 		// Skip the target itself
@@ -828,18 +839,18 @@ func (s *HttpServer) canStartSupervisor(target string, supervisorList []string, 
 		if s.manager.GetSupervisorStats(sup).SupervisorStatus == bot.Starting {
 			// Prevent launching if we're using token auth & another client is starting (no matter what auth method)
 			if targetCfg.AuthMethod == "TokenAuth" {
-				return false
+				return fmt.Errorf("waiting to start %s: another client (%s) is still starting", target, sup)
 			}
 
 			// Prevent launching if another client that is using token auth is starting
 			sCfg, found := config.GetCharacter(sup)
 			if found && sCfg.AuthMethod == "TokenAuth" {
-				return false
+				return fmt.Errorf("waiting to start %s: token-auth client %s is still starting", target, sup)
 			}
 		}
 	}
 
-	return true
+	return nil
 }
 
 func (s *HttpServer) toggleAutoStart(w http.ResponseWriter, r *http.Request) {
@@ -912,12 +923,32 @@ func (s *HttpServer) autoStartOnceInternal() error {
 			"characters", targets,
 			"delay_seconds", delaySeconds)
 
+		const concurrencyRetryDelay = 5 * time.Second
+
 		for i, name := range targets {
 			if i > 0 && delay > 0 {
 				s.logger.Info("Waiting before next auto-start",
 					"next_name", name,
 					"delay", delay)
 				time.Sleep(delay)
+			}
+
+			cfg, found := config.GetCharacter(name)
+			if !found || cfg == nil {
+				s.logger.Warn("Skipping auto-start because configuration was not found",
+					slog.String("name", name))
+				continue
+			}
+
+			for {
+				if err := s.canStartSupervisor(name, supervisorList, cfg); err != nil {
+					s.logger.Info("Auto-start waiting for available slot",
+						"name", name,
+						"reason", err.Error())
+					time.Sleep(concurrencyRetryDelay)
+					continue
+				}
+				break
 			}
 
 			s.logger.Info("Auto-starting character",
