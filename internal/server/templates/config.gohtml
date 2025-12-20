@@ -398,6 +398,29 @@
                         <small>How long to persist (default: 30s)</small>
                     </label>
                 </fieldset>
+                <h4>Auto Start</h4>
+                <label>
+                    <input
+                            {{ if .AutoStart.Enabled }}
+                                checked="checked"
+                            {{ end }}
+                            type="checkbox"
+                            name="autostart_enabled"
+                            value="true"
+                    />
+                    Auto start selected characters on launch
+                </label>
+                <label>
+                    Delay between characters (seconds)
+                    <input
+                            name="autostart_delay"
+                            type="number"
+                            min="0"
+                            max="600"
+                            step="1"
+                            value="{{ if .AutoStart.DelaySeconds }}{{ .AutoStart.DelaySeconds }}{{ else }}60{{ end }}"
+                    />
+                </label>
             </fieldset>
             <fieldset class="grid">
                 {{ if not .FirstRun }}

@@ -67,6 +67,10 @@ type KooloCfg struct {
 		HighPingThreshold int  `yaml:"highPingThreshold"` // Ping threshold in ms (default 500-1000)
 		SustainedDuration int  `yaml:"sustainedDuration"` // Seconds high ping must persist (default 10-30)
 	} `yaml:"pingMonitor"`
+	AutoStart struct {
+		Enabled      bool `yaml:"enabled"`
+		DelaySeconds int  `yaml:"delaySeconds"`
+	} `yaml:"autoStart"`
 }
 
 type Day struct {
@@ -99,6 +103,7 @@ type CharacterCfg struct {
 	CloseMiniPanel       bool   `yaml:"closeMiniPanel"`
 	UseCentralizedPickit bool   `yaml:"useCentralizedPickit"`
 	HidePortraits        bool   `yaml:"hidePortraits"`
+	AutoStart            bool   `yaml:"autoStart"`
 
 	ConfigFolderName string `yaml:"-"`
 
