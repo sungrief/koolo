@@ -54,6 +54,7 @@ type CharacterSettings struct {
 	ErrorMessage          string
 	Supervisor            string
 	Config                *config.CharacterCfg
+	Saved                 bool
 	DayNames              []string
 	EnabledRuns           []string
 	DisabledRuns          []string

@@ -99,6 +99,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error starting local server: %s", err.Error())
 	}
+	eventListener.Register(srv.HandleRunewordHistory)
 
 	// Use wrapWithRecover for all goroutines to handle panics
 	g.Go(wrapWithRecover(logger, func() error {

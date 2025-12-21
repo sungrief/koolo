@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -9,6 +10,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/pickit"
 )
 
@@ -215,6 +217,233 @@ func checkGroupedRunewordTargets(ctx *context.Status, itm data.Item, ids []stat.
 	return true
 }
 
+func buildRerollHistorySummary(itm data.Item, rule config.RunewordRerollRule) (string, string) {
+	if len(rule.TargetStats) == 0 {
+		return "None", "n/a"
+	}
+
+	rw, hasRecipe := getRunewordByName(itm.RunewordName)
+	supportsGroupedResists := hasRecipe && runewordSupportsGroupedResists(rw)
+	supportsGroupedAttributes := hasRecipe && runewordSupportsGroupedAttributes(rw)
+
+	targets := make([]string, 0, len(rule.TargetStats))
+	actuals := make([]string, 0, len(rule.TargetStats))
+
+	for _, ts := range rule.TargetStats {
+		label, groupTag := rerollTargetLabel(ts, supportsGroupedResists, supportsGroupedAttributes)
+		targets = append(targets, formatTargetStat(label, ts))
+		actuals = append(actuals, formatActualStat(itm, label, groupTag, ts))
+	}
+
+	return strings.Join(targets, ", "), strings.Join(actuals, ", ")
+}
+
+func rerollTargetLabel(ts config.RunewordTargetStatOverride, supportsGroupedResists, supportsGroupedAttributes bool) (string, string) {
+	group := strings.ToLower(strings.TrimSpace(ts.Group))
+	switch group {
+	case rerollGroupAllResistances:
+		return "All Res", rerollGroupAllResistances
+	case rerollGroupAllAttributes:
+		return "All Attr", rerollGroupAllAttributes
+	default:
+		if group == "" && ts.StatID == stat.Strength && ts.Layer == 0 {
+			switch {
+			case supportsGroupedResists:
+				return "All Res", rerollGroupAllResistances
+			case supportsGroupedAttributes:
+				return "All Attr", rerollGroupAllAttributes
+			}
+		}
+	}
+
+	return PrettyRunewordStatLabel(ts.StatID, ts.Layer), rerollGroupSingle
+}
+
+func formatTargetStat(label string, ts config.RunewordTargetStatOverride) string {
+	minVal := strconv.FormatFloat(ts.Min, 'f', -1, 64)
+	if ts.Max != nil {
+		maxVal := strconv.FormatFloat(*ts.Max, 'f', -1, 64)
+		return fmt.Sprintf("%s %s-%s", label, minVal, maxVal)
+	}
+	return fmt.Sprintf("%s >=%s", label, minVal)
+}
+
+func formatActualStat(itm data.Item, label string, groupTag string, ts config.RunewordTargetStatOverride) string {
+	switch groupTag {
+	case rerollGroupAllResistances:
+		return fmt.Sprintf("%s %s", label, formatGroupedActualStats(itm, groupedResistStatIDs, map[stat.ID]string{
+			stat.FireResist:      "FR",
+			stat.ColdResist:      "CR",
+			stat.LightningResist: "LR",
+			stat.PoisonResist:    "PR",
+		}))
+	case rerollGroupAllAttributes:
+		return fmt.Sprintf("%s %s", label, formatGroupedActualStats(itm, groupedAttributeStatIDs, map[stat.ID]string{
+			stat.Strength:  "Str",
+			stat.Energy:    "Ene",
+			stat.Dexterity: "Dex",
+			stat.Vitality:  "Vit",
+		}))
+	default:
+		st, found := itm.FindStat(ts.StatID, ts.Layer)
+		if !found {
+			return fmt.Sprintf("%s n/a", label)
+		}
+		return fmt.Sprintf("%s %d", label, st.Value)
+	}
+}
+
+func formatGroupedActualStats(itm data.Item, ids []stat.ID, labels map[stat.ID]string) string {
+	parts := make([]string, 0, len(ids))
+	for _, id := range ids {
+		label := labels[id]
+		if label == "" {
+			label = PrettyRunewordStatLabel(id, 0)
+		}
+		st, found := itm.FindStat(id, 0)
+		if !found {
+			parts = append(parts, fmt.Sprintf("%s n/a", label))
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s %d", label, st.Value))
+	}
+	return strings.Join(parts, "/")
+}
+
+func evaluateRunewordRules(ctx *context.Status, itm data.Item, rules []config.RunewordRerollRule, runewordName string) (bool, bool, *config.RunewordRerollRule) {
+	desc := itm.Desc()
+	baseCode := pickit.ToNIPName(desc.Name)
+
+	applicableRuleFound := false
+	meetsAnyRule := false
+	var historyRule *config.RunewordRerollRule
+
+	ctx.Logger.Debug("Runeword reroll: evaluating runeword item against reroll rules",
+		"runeword", runewordName,
+		"baseCode", baseCode,
+	)
+
+	for idx, rule := range rules {
+		ctx.Logger.Debug("Runeword reroll: checking rule",
+			"runeword", runewordName,
+			"ruleIndex", idx,
+			"ethMode", rule.EthMode,
+			"qualityMode", rule.QualityMode,
+			"baseType", rule.BaseType,
+			"baseTier", rule.BaseTier,
+			"baseName", rule.BaseName,
+			"targetStatsCount", len(rule.TargetStats),
+		)
+		// EthMode filter: if set, restrict rules to eth/non-eth items.
+		ethMode := strings.ToLower(strings.TrimSpace(rule.EthMode))
+		switch ethMode {
+		case "eth":
+			if !itm.Ethereal {
+				continue
+			}
+		case "noneth":
+			if itm.Ethereal {
+				continue
+			}
+		}
+
+		// QualityMode filter: if set, restrict to Normal/Superior as requested.
+		qualityMode := strings.ToLower(strings.TrimSpace(rule.QualityMode))
+		switch qualityMode {
+		case "normal":
+			if itm.Quality != item.QualityNormal {
+				continue
+			}
+		case "superior":
+			if itm.Quality != item.QualitySuperior {
+				continue
+			}
+		}
+
+		baseNameExplicitMatch := false
+		if rule.BaseName != "" {
+			for _, part := range strings.Split(rule.BaseName, ",") {
+				if strings.TrimSpace(part) == baseCode {
+					baseNameExplicitMatch = true
+					break
+				}
+			}
+			if !baseNameExplicitMatch {
+				continue
+			}
+		}
+
+		// Only enforce type/tier filters when BaseName didn't already pin a list.
+		if !baseNameExplicitMatch {
+			if rule.BaseType != "" && desc.Type != rule.BaseType {
+				continue
+			}
+
+			if rule.BaseTier != "" {
+				itemTier := desc.Tier()
+				switch strings.ToLower(rule.BaseTier) {
+				case "normal":
+					if itemTier != item.TierNormal {
+						continue
+					}
+				case "exceptional":
+					if itemTier != item.TierExceptional {
+						continue
+					}
+				case "elite":
+					if itemTier != item.TierElite {
+						continue
+					}
+				}
+			}
+		}
+
+		applicableRuleFound = true
+		if historyRule == nil {
+			ruleCopy := rule
+			historyRule = &ruleCopy
+		}
+		if runewordMeetsTargetStats(itm, rule.TargetStats) {
+			meetsAnyRule = true
+			break
+		}
+	}
+
+	return applicableRuleFound, meetsAnyRule, historyRule
+}
+
+func findRerolledRunewordItem(original data.Item, recipe Runeword) (data.Item, bool) {
+	ctx := context.Get()
+
+	items := ctx.Data.Inventory.ByLocation(
+		item.LocationInventory,
+		item.LocationStash,
+		item.LocationSharedStash,
+	)
+
+	origDesc := original.Desc()
+	origBaseCode := pickit.ToNIPName(origDesc.Name)
+
+	for _, itm := range items {
+		if !itm.IsRuneword || itm.RunewordName != recipe.Name {
+			continue
+		}
+		desc := itm.Desc()
+		if pickit.ToNIPName(desc.Name) != origBaseCode {
+			continue
+		}
+		if itm.Ethereal != original.Ethereal {
+			continue
+		}
+		if itm.Quality != original.Quality {
+			continue
+		}
+		return itm, true
+	}
+
+	return data.Item{}, false
+}
+
 // hasRunesForReroll ensures stash/inventory has the Hel rune for unsocketing plus everything needed to rebuild the recipe.
 func hasRunesForReroll(ctx *context.Status, recipe Runeword) bool {
 	items := ctx.Data.Inventory.ByLocation(
@@ -313,7 +542,7 @@ func ensureLooseTownPortalScroll() (data.Item, bool) {
 }
 
 // unsocketRuneword runs the (item + Hel + TP scroll) cube recipe after the caller decides a reroll is needed.
-func unsocketRuneword(itm data.Item) error {
+func unsocketRuneword(itm data.Item) (bool, string) {
 	ctx := context.Get()
 
 	// Find a Hel rune for unsocketing
@@ -324,14 +553,14 @@ func unsocketRuneword(itm data.Item) error {
 	)
 	if !foundHel {
 		ctx.Logger.Warn("Runeword reroll: cannot unsocket runeword; no Hel rune found")
-		return nil
+		return false, "No Hel rune"
 	}
 
 	// Grab a loose Scroll of Town Portal (tomes eat the extra scroll otherwise).
 	scroll, foundScroll := ensureLooseTownPortalScroll()
 	if !foundScroll {
 		ctx.Logger.Warn("Runeword reroll: cannot unsocket runeword; no loose TP scroll available")
-		return nil
+		return false, "No loose TP scroll"
 	}
 
 	ctx.Logger.Info("Runeword reroll: attempting to unsocket runeword",
@@ -344,14 +573,14 @@ func unsocketRuneword(itm data.Item) error {
 		ctx.Logger.Warn("Runeword reroll: failed to add items to cube for unsocket",
 			"error", err,
 		)
-		return err
+		return false, "Failed to add to cube"
 	}
 
 	if err := CubeTransmute(); err != nil {
 		ctx.Logger.Warn("Runeword reroll: cube transmute failed while unsocketing runeword",
 			"error", err,
 		)
-		return err
+		return false, "Cube transmute failed"
 	}
 
 	ctx.Logger.Info("Runeword reroll: successfully unsocketed runeword item")
@@ -363,11 +592,12 @@ func unsocketRuneword(itm data.Item) error {
 		ctx.Logger.Warn("Runeword reroll: MakeRunewords failed after unsocket",
 			"error", err,
 		)
+		return false, "MakeRunewords failed"
 	} else {
 		ctx.Logger.Info("Runeword reroll: invoked MakeRunewords after successful unsocket")
 	}
 
-	return nil
+	return true, ""
 }
 
 // RerollRunewords looks for configured reroll rules, checks owned items, and unsockets one that misses every applicable rule.
@@ -423,101 +653,7 @@ func RerollRunewords() {
 		}
 
 		for _, itm := range candidates {
-			// Resolve item description once for rule matching.
-			desc := itm.Desc()
-
-			// Determine the base code (NIP-style) for rule matching.
-			baseCode := pickit.ToNIPName(desc.Name)
-
-			applicableRuleFound := false
-			meetsAnyRule := false
-
-			ctx.Logger.Debug("Runeword reroll: evaluating runeword item against reroll rules",
-				"runeword", name,
-				"baseCode", baseCode,
-			)
-
-			for idx, rule := range rules {
-				ctx.Logger.Debug("Runeword reroll: checking rule",
-					"runeword", name,
-					"ruleIndex", idx,
-					"ethMode", rule.EthMode,
-					"qualityMode", rule.QualityMode,
-					"baseType", rule.BaseType,
-					"baseTier", rule.BaseTier,
-					"baseName", rule.BaseName,
-					"targetStatsCount", len(rule.TargetStats),
-				)
-				// EthMode filter: if set, restrict rules to eth/non-eth items.
-				ethMode := strings.ToLower(strings.TrimSpace(rule.EthMode))
-				switch ethMode {
-				case "eth":
-					if !itm.Ethereal {
-						continue
-					}
-				case "noneth":
-					if itm.Ethereal {
-						continue
-					}
-				}
-
-				// QualityMode filter: if set, restrict to Normal/Superior as requested.
-				qualityMode := strings.ToLower(strings.TrimSpace(rule.QualityMode))
-				switch qualityMode {
-				case "normal":
-					if itm.Quality != item.QualityNormal {
-						continue
-					}
-				case "superior":
-					if itm.Quality != item.QualitySuperior {
-						continue
-					}
-				}
-
-				baseNameExplicitMatch := false
-				if rule.BaseName != "" {
-					for _, part := range strings.Split(rule.BaseName, ",") {
-						if strings.TrimSpace(part) == baseCode {
-							baseNameExplicitMatch = true
-							break
-						}
-					}
-					if !baseNameExplicitMatch {
-						continue
-					}
-				}
-
-				// Only enforce type/tier filters when BaseName didn't already pin a list.
-				if !baseNameExplicitMatch {
-					if rule.BaseType != "" && desc.Type != rule.BaseType {
-						continue
-					}
-
-					if rule.BaseTier != "" {
-						itemTier := desc.Tier()
-						switch strings.ToLower(rule.BaseTier) {
-						case "normal":
-							if itemTier != item.TierNormal {
-								continue
-							}
-						case "exceptional":
-							if itemTier != item.TierExceptional {
-								continue
-							}
-						case "elite":
-							if itemTier != item.TierElite {
-								continue
-							}
-						}
-					}
-				}
-
-				applicableRuleFound = true
-				if runewordMeetsTargetStats(itm, rule.TargetStats) {
-					meetsAnyRule = true
-					break
-				}
-			}
+			applicableRuleFound, meetsAnyRule, historyRule := evaluateRunewordRules(ctx, itm, rules, name)
 
 			// If no rule applied to this base, skip it (no reroll decision).
 			if !applicableRuleFound {
@@ -531,7 +667,44 @@ func RerollRunewords() {
 
 			// At this point, the item failed all rules that apply to its base;
 			// attempt to unsocket once, then stop for this tick.
-			_ = unsocketRuneword(itm)
+			var targetSummary string
+			var actualSummary string
+			if historyRule != nil {
+				targetSummary, actualSummary = buildRerollHistorySummary(itm, *historyRule)
+			} else {
+				targetSummary = "Unknown"
+				actualSummary = "n/a"
+			}
+
+			success, failureReason := unsocketRuneword(itm)
+			if success {
+				remade, found := findRerolledRunewordItem(itm, recipe)
+				if !found {
+					success = false
+					failureReason = "Remade item not found"
+				} else {
+					_, meetsAnyRuleAfter, _ := evaluateRunewordRules(ctx, remade, rules, name)
+					if meetsAnyRuleAfter {
+						success = true
+						failureReason = ""
+					} else {
+						success = false
+						failureReason = "Target not met"
+					}
+
+					if historyRule != nil {
+						targetSummary, actualSummary = buildRerollHistorySummary(remade, *historyRule)
+					}
+				}
+			}
+			event.Send(event.RunewordReroll(
+				event.Text(ctx.Name, "Runeword reroll"),
+				string(itm.RunewordName),
+				targetSummary,
+				actualSummary,
+				success,
+				failureReason,
+			))
 			return
 		}
 	}
