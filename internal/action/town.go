@@ -207,15 +207,27 @@ func InRunReturnTownRoutine() error {
 	ctx.PauseIfNotPriority() // Check after Gamble
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after Stash
-	CubeRecipes()
-	ctx.PauseIfNotPriority() // Check after CubeRecipes
-	MakeRunewords()
+	if ctx.CharacterCfg.CubeRecipes.PrioritizeRunewords {
+		MakeRunewords()
+		// Do not reroll runewords while running the leveling sequences.
+		// Leveling characters rely on simpler runeword behavior and base
+		// selection, and rerolling could consume resources unexpectedly.
+		if !isLevelingChar {
+			RerollRunewords()
+		}
+		CubeRecipes()
+		ctx.PauseIfNotPriority() // Check after CubeRecipes
+	} else {
+		CubeRecipes()
+		ctx.PauseIfNotPriority() // Check after CubeRecipes
+		MakeRunewords()
 
-	// Do not reroll runewords while running the leveling sequences.
-	// Leveling characters rely on simpler runeword behavior and base
-	// selection, and rerolling could consume resources unexpectedly.
-	if !isLevelingChar {
-		RerollRunewords()
+		// Do not reroll runewords while running the leveling sequences.
+		// Leveling characters rely on simpler runeword behavior and base
+		// selection, and rerolling could consume resources unexpectedly.
+		if !isLevelingChar {
+			RerollRunewords()
+		}
 	}
 
 	// Ensure any newly created or rerolled runewords/bases are stashed

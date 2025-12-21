@@ -471,6 +471,17 @@ func hasRunesForReroll(ctx *context.Status, recipe Runeword) bool {
 		}
 	}
 
+	// We always need a Hel rune for the unsocket recipe.
+	if available["HelRune"] < 1 {
+		ctx.Logger.Debug("Runeword reroll: insufficient runes for reroll",
+			"runeword", string(recipe.Name),
+			"rune", "HelRune",
+			"required", 1,
+			"available", available["HelRune"],
+		)
+		return false
+	}
+
 	for runeName, cnt := range required {
 		needed := cnt
 		// For Hel runes we need an extra one for the unsocket recipe

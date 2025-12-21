@@ -9,6 +9,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action/step"
+	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/pickit"
@@ -23,17 +24,26 @@ func MakeRunewords() error {
 	insertItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 	baseItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 
-	enabledRecipes := ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 
-	if len(enabledRecipes) == 0 {
+	enabledRecipes := ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes
+	enabledSet := make(map[string]struct{}, len(enabledRecipes))
+	for _, recipe := range enabledRecipes {
+		enabledSet[recipe] = struct{}{}
+	}
+	if !isLevelingChar {
+		for recipe := range ctx.CharacterCfg.Game.RunewordRerollRules {
+			enabledSet[recipe] = struct{}{}
+		}
+	}
+
+	if len(enabledSet) == 0 {
 		return nil
 	}
 
-	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
-
 	for _, recipe := range Runewords {
 
-		if !slices.Contains(enabledRecipes, string(recipe.Name)) {
+		if _, enabled := enabledSet[string(recipe.Name)]; !enabled {
 			continue
 		}
 
@@ -111,19 +121,39 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 		}
 	}
 
-	if base.Location.LocationType == item.LocationSharedStash {
-		ctx.Logger.Debug("Base in shared - checking it fits")
+	if base.Location.LocationType == item.LocationSharedStash || base.Location.LocationType == item.LocationStash {
+		ctx.Logger.Debug("Base in stash - checking it fits")
 		if !itemFitsInventory(base) {
 			ctx.Logger.Error("Base item does not fit in inventory", "item", base.Name)
 			return step.CloseAllMenus()
-		} else {
+		}
+
+		if base.Location.LocationType == item.LocationSharedStash {
 			ctx.Logger.Debug("Base in shared stash but fits in inv, switching to correct tab")
 			SwitchStashTab(base.Location.Page + 1)
-			ctx.Logger.Debug("Switched to correct tab")
-			utils.Sleep(500)
-			screenPos := ui.GetScreenCoordsForItem(base)
-			ctx.Logger.Debug(fmt.Sprintf("Clicking after 5s at %d:%d", screenPos.X, screenPos.Y))
+		} else {
+			ctx.Logger.Debug("Base in personal stash but fits in inv, switching to correct tab")
+			SwitchStashTab(1)
+		}
+		ctx.Logger.Debug("Switched to correct tab")
+		utils.Sleep(500)
+		screenPos := ui.GetScreenCoordsForItem(base)
+		ctx.Logger.Debug(fmt.Sprintf("Clicking after 5s at %d:%d", screenPos.X, screenPos.Y))
+		moveSucceeded := false
+		for attempt := 0; attempt < 2; attempt++ {
 			ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
+			utils.Sleep(500)
+			ctx.RefreshGameData()
+			moved, found := ctx.Data.Inventory.FindByID(base.UnitID)
+			if found && moved.Location.LocationType == item.LocationInventory {
+				base = moved
+				moveSucceeded = true
+				break
+			}
+		}
+		if !moveSucceeded {
+			ctx.Logger.Error("Failed to move base item from stash to inventory", "item", base.Name)
+			return step.CloseAllMenus()
 		}
 	}
 
@@ -226,6 +256,54 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 	ov, hasOverride := overrides[string(recipe.Name)]
 	useOverride := !isLevelingChar && hasOverride
 
+	// Prefer reroll rule base constraints (when configured) over runeword overrides.
+	var ruleOverride *config.RunewordRerollRule
+	if !isLevelingChar {
+		if rules, ok := ctx.CharacterCfg.Game.RunewordRerollRules[string(recipe.Name)]; ok {
+			for i := range rules {
+				rule := &rules[i]
+				if rule.BaseName != "" || rule.BaseType != "" || rule.BaseTier != "" || rule.EthMode != "" || rule.QualityMode != "" {
+					ruleOverride = rule
+					break
+				}
+			}
+		}
+	}
+
+	effectiveEthMode := ""
+	effectiveQualityMode := ""
+	effectiveBaseType := ""
+	effectiveBaseTier := ""
+	effectiveBaseName := ""
+	if ruleOverride != nil {
+		effectiveEthMode = strings.ToLower(strings.TrimSpace(ruleOverride.EthMode))
+		effectiveQualityMode = strings.ToLower(strings.TrimSpace(ruleOverride.QualityMode))
+		effectiveBaseType = strings.TrimSpace(ruleOverride.BaseType)
+		effectiveBaseTier = strings.ToLower(strings.TrimSpace(ruleOverride.BaseTier))
+		effectiveBaseName = strings.TrimSpace(ruleOverride.BaseName)
+	}
+	if effectiveEthMode == "" || effectiveEthMode == "any" {
+		effectiveEthMode = ""
+		if useOverride && ov.EthMode != "" {
+			effectiveEthMode = strings.ToLower(strings.TrimSpace(ov.EthMode))
+		}
+	}
+	if effectiveQualityMode == "" || effectiveQualityMode == "any" {
+		effectiveQualityMode = ""
+		if useOverride && ov.QualityMode != "" {
+			effectiveQualityMode = strings.ToLower(strings.TrimSpace(ov.QualityMode))
+		}
+	}
+	if effectiveBaseType == "" && useOverride && ov.BaseType != "" {
+		effectiveBaseType = ov.BaseType
+	}
+	if effectiveBaseTier == "" && useOverride && ov.BaseTier != "" {
+		effectiveBaseTier = strings.ToLower(strings.TrimSpace(ov.BaseTier))
+	}
+	if effectiveBaseName == "" && useOverride && ov.BaseName != "" {
+		effectiveBaseName = strings.TrimSpace(ov.BaseName)
+	}
+
 	var validBases []data.Item
 	for _, itm := range items {
 		itemType := itm.Type().Code
@@ -242,7 +320,7 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 		}
 
 		// Apply user-specified base type restriction when not leveling.
-		if useOverride && ov.BaseType != "" && itemType != ov.BaseType {
+		if effectiveBaseType != "" && itemType != effectiveBaseType {
 			continue
 		}
 
@@ -264,12 +342,8 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 			continue
 		}
 
-		// Eth handling: overrides beat AllowEth, otherwise fall back to the recipe value.
-		ethMode := "any"
-		if useOverride && ov.EthMode != "" {
-			ethMode = ov.EthMode
-		}
-		switch ethMode {
+		// Eth handling: reroll rules beat overrides; otherwise fall back to the recipe value.
+		switch effectiveEthMode {
 		case "eth":
 			if !itm.Ethereal {
 				continue
@@ -288,12 +362,8 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 			continue
 		}
 
-		// Quality handling: overrides dictate Normal/Superior preference; otherwise allow <= Superior.
-		qualityMode := "any"
-		if useOverride && ov.QualityMode != "" {
-			qualityMode = ov.QualityMode
-		}
-		switch qualityMode {
+		// Quality handling: reroll rules beat overrides; otherwise allow <= Superior.
+		switch effectiveQualityMode {
 		case "normal":
 			if itm.Quality != item.QualityNormal {
 				continue
@@ -309,9 +379,9 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 		}
 
 		// Apply base tier restriction (normal/exceptional/elite) when not leveling.
-		if useOverride && ov.BaseTier != "" {
+		if effectiveBaseTier != "" {
 			itemTier := itm.Desc().Tier()
-			switch strings.ToLower(ov.BaseTier) {
+			switch effectiveBaseTier {
 			case "normal":
 				if itemTier != item.TierNormal {
 					continue
@@ -328,13 +398,13 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 		}
 
 		// BaseName (single NIP code or comma list) only applies outside leveling.
-		if useOverride && ov.BaseName != "" {
+		if effectiveBaseName != "" {
 			baseCode := pickit.ToNIPName(itm.Desc().Name)
 			if baseCode == "" {
 				continue
 			}
 			allowed := false
-			for _, part := range strings.Split(ov.BaseName, ",") {
+			for _, part := range strings.Split(effectiveBaseName, ",") {
 				if strings.TrimSpace(part) == baseCode {
 					allowed = true
 					break
