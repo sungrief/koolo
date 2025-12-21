@@ -5,6 +5,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 func SwapToMainWeapon() error {
@@ -35,6 +36,7 @@ func swapWeapon(toCTA bool) error {
 		}
 
 		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.SwapWeapons)
+		utils.PingSleep(utils.Light, 150)
 
 		lastRun = time.Now()
 	}

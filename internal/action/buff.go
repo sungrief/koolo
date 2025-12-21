@@ -65,8 +65,7 @@ func Buff() {
 	if ctx.Data.OpenMenus.LoadingScreen {
 		ctx.Logger.Debug("Loading screen detected. Waiting for game to load before buffing...")
 		ctx.WaitForGameToLoad()
-		// Give it half a second more
-		utils.Sleep(500)
+		utils.PingSleep(utils.Light, 400)
 	}
 
 	// --- Pre-CTA buffs (unchanged) ---
@@ -115,7 +114,7 @@ func Buff() {
 		if useSwapForBuffs {
 			ctx.Logger.Debug("Using weapon swap for class buff skills")
 			step.SwapToCTA()
-			utils.Sleep(500)
+			utils.PingSleep(utils.Light, 400)
 		}
 
 		ctx.Logger.Debug("Post CTA Buffing...")
@@ -129,10 +128,22 @@ func Buff() {
 
 		// If we swapped, make sure we go back to main weapon.
 		if useSwapForBuffs {
-			utils.Sleep(500)
+			utils.PingSleep(utils.Light, 400)
 			step.SwapToMainWeapon()
 		}
+	}
 
+	utils.PingSleep(utils.Light, 200)
+	buffsSuccessful := true
+	if ctaFound(*ctx.Data) {
+		if !ctx.Data.PlayerUnit.States.HasState(state.Battleorders) ||
+			!ctx.Data.PlayerUnit.States.HasState(state.Battlecommand) {
+			buffsSuccessful = false
+			ctx.Logger.Warn("CTA buffs not detected after buffing, not updating LastBuffAt")
+		}
+	}
+
+	if buffsSuccessful {
 		ctx.LastBuffAt = time.Now()
 	}
 }
@@ -193,6 +204,7 @@ func buffCTA() {
 		// (for example chicken previous game during buff stage).
 		if _, found := ctx.Data.PlayerUnit.Skills[skill.BattleCommand]; !found {
 			step.SwapToCTA()
+			utils.PingSleep(utils.Light, 150)
 		}
 
 		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.MustKBForSkill(skill.BattleCommand))
@@ -205,7 +217,7 @@ func buffCTA() {
 		ctx.HID.Click(game.RightButton, 300, 300)
 		utils.Sleep(100)
 
-		utils.Sleep(500)
+		utils.PingSleep(utils.Light, 400)
 		step.SwapToMainWeapon()
 	}
 }
