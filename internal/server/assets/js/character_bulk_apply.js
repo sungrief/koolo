@@ -264,10 +264,6 @@ document.addEventListener('DOMContentLoaded', function () {
             gameMinGoldPickupThreshold: inputVal('gameMinGoldPickupThreshold'),
             useCainIdentify: boolVal('useCainIdentify'),
             disableIdentifyTome: boolVal('game.disableIdentifyTome'),
-            characterBuffOnNewArea: boolVal('characterBuffOnNewArea'),
-            characterBuffAfterWP: boolVal('characterBuffAfterWP'),
-            useSwapForBuffs: boolVal('useSwapForBuffs'),
-            clearPathDist: inputVal('clearPathDist'),
         };
         return JSON.stringify(state);
     }
@@ -806,10 +802,6 @@ document.addEventListener('DOMContentLoaded', function () {
         'gameMinGoldPickupThreshold',
         'useCainIdentify',
         'game.disableIdentifyTome',
-        'characterBuffOnNewArea',
-        'characterBuffAfterWP',
-        'useSwapForBuffs',
-        'clearPathDist',
     ]);
 
     const CLIENT_FIELD_NAMES = new Set([
