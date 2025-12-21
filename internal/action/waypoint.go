@@ -70,8 +70,7 @@ func WayPoint(dest area.ID) error {
 
 	// apply buffs after exiting a waypoint if configured
 	if ctx.CharacterCfg.Character.BuffAfterWP && !dest.IsTown() {
-		utils.Sleep(300)
-		ctx.RefreshGameData()
+		utils.PingSleep(utils.Light, 250)
 		Buff()
 	}
 
@@ -130,8 +129,7 @@ func FieldWayPoint(dest area.ID) error {
 
 	// apply buffs after exiting a waypoint if configured
 	if ctx.CharacterCfg.Character.BuffAfterWP && !dest.IsTown() {
-		utils.Sleep(300)
-		ctx.RefreshGameData()
+		utils.PingSleep(utils.Light, 250)
 		Buff()
 	}
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/koolo/internal/context"
+	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
 func SwapToMainWeapon() error {
@@ -35,7 +36,9 @@ func swapWeapon(toCTA bool) error {
 		}
 
 		ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.SwapWeapons)
-		ctx.RefreshGameData()
+		// Small ping-aware delay to allow swap to process before checking
+		// After 150ms+ the background ticker (100ms interval) will have updated the data
+		utils.PingSleep(utils.Light, 150)
 
 		lastRun = time.Now()
 	}
