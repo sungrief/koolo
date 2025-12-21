@@ -1305,6 +1305,7 @@ type ConfigUpdateOptions struct {
 	CubeRecipes         bool `json:"cubeRecipes"`
 	Merc                bool `json:"merc"`
 	General             bool `json:"general"` // Includes class specific options too
+	GeneralExtras       bool `json:"generalExtras"`
 	Client              bool `json:"client"`
 	Scheduler           bool `json:"scheduler"`
 	Muling              bool `json:"muling"`
@@ -1319,6 +1320,7 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 			cfg.MaxGameLength, _ = strconv.Atoi(v)
 		}
 		cfg.CharacterName = values.Get("characterName")
+		cfg.Character.Class = values.Get("characterClass")
 		cfg.CommandLineArgs = values.Get("commandLineArgs")
 		cfg.AutoCreateCharacter = values.Has("autoCreateCharacter")
 		cfg.Username = values.Get("username")
@@ -1420,55 +1422,11 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 
 	// General (Character & Game)
 	if sections.General {
-		cfg.Character.Class = values.Get("characterClass")
 		cfg.Character.StashToShared = values.Has("characterStashToShared")
 		cfg.Character.UseTeleport = values.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = values.Has("characterUseExtraBuffs")
-		cfg.Character.UseSwapForBuffs = values.Has("useSwapForBuffs")
-		cfg.Character.BuffOnNewArea = values.Has("characterBuffOnNewArea")
-		cfg.Character.BuffAfterWP = values.Has("characterBuffAfterWP")
 
-		// Process ClearPathDist - only relevant when teleport is disabled
-		if !cfg.Character.UseTeleport {
-			clearPathDist, err := strconv.Atoi(values.Get("clearPathDist"))
-			if err == nil && clearPathDist >= 0 && clearPathDist <= 30 {
-				cfg.Character.ClearPathDist = clearPathDist
-			} else {
-				// Set default value if invalid
-				cfg.Character.ClearPathDist = 7
-			}
-		} else {
-			cfg.Character.ClearPathDist = 7
-		}
-
-		// Inventory Lock
-		for y, row := range cfg.Inventory.InventoryLock {
-			for x := range row {
-				if values.Has(fmt.Sprintf("inventoryLock[%d][%d]", y, x)) {
-					cfg.Inventory.InventoryLock[y][x] = 0
-				} else {
-					cfg.Inventory.InventoryLock[y][x] = 1
-				}
-			}
-		}
-
-		// Belt Columns
-		if cols, ok := values["inventoryBeltColumns[]"]; ok {
-			copy(cfg.Inventory.BeltColumns[:], cols)
-		}
-
-		if v := values.Get("healingPotionCount"); v != "" {
-			cfg.Inventory.HealingPotionCount, _ = strconv.Atoi(v)
-		}
-		if v := values.Get("manaPotionCount"); v != "" {
-			cfg.Inventory.ManaPotionCount, _ = strconv.Atoi(v)
-		}
-		if v := values.Get("rejuvPotionCount"); v != "" {
-			cfg.Inventory.RejuvPotionCount, _ = strconv.Atoi(v)
-		}
-
-		// Game Settings
-		cfg.Game.CreateLobbyGames = values.Has("createLobbyGames")
+		// Game Settings (General)
 		if v := values.Get("gameMinGoldPickupThreshold"); v != "" {
 			cfg.Game.MinGoldPickupThreshold, _ = strconv.Atoi(v)
 		}
@@ -1480,28 +1438,77 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		if v := values.Get("stopLevelingAt"); v != "" {
 			cfg.Game.StopLevelingAt, _ = strconv.Atoi(v)
 		}
-		cfg.Game.IsNonLadderChar = values.Has("isNonLadderChar")
-		cfg.Game.Difficulty = difficulty.Difficulty(values.Get("gameDifficulty"))
-		cfg.Game.RandomizeRuns = values.Has("gameRandomizeRuns")
 
-		// Back To Town Settings
-		cfg.BackToTown.NoHpPotions = values.Has("noHpPotions")
-		cfg.BackToTown.NoMpPotions = values.Has("noMpPotions")
-		cfg.BackToTown.MercDied = values.Has("mercDied")
-		cfg.BackToTown.EquipmentBroken = values.Has("equipmentBroken")
+		if sections.GeneralExtras {
+			cfg.Character.UseSwapForBuffs = values.Has("useSwapForBuffs")
+			cfg.Character.BuffOnNewArea = values.Has("characterBuffOnNewArea")
+			cfg.Character.BuffAfterWP = values.Has("characterBuffAfterWP")
 
-		// Companion
-		cfg.Companion.Enabled = values.Has("companionEnabled")
-		cfg.Companion.Leader = values.Has("companionLeader")
-		cfg.Companion.LeaderName = values.Get("companionLeaderName")
-		cfg.Companion.GameNameTemplate = values.Get("companionGameNameTemplate")
-		cfg.Companion.GamePassword = values.Get("companionGamePassword")
+			// Process ClearPathDist - only relevant when teleport is disabled
+			if !cfg.Character.UseTeleport {
+				clearPathDist, err := strconv.Atoi(values.Get("clearPathDist"))
+				if err == nil && clearPathDist >= 0 && clearPathDist <= 30 {
+					cfg.Character.ClearPathDist = clearPathDist
+				} else {
+					// Set default value if invalid
+					cfg.Character.ClearPathDist = 7
+				}
+			} else {
+				cfg.Character.ClearPathDist = 7
+			}
 
-		// Gambling
-		cfg.Gambling.Enabled = values.Has("gamblingEnabled")
+			// Inventory Lock
+			for y, row := range cfg.Inventory.InventoryLock {
+				for x := range row {
+					if values.Has(fmt.Sprintf("inventoryLock[%d][%d]", y, x)) {
+						cfg.Inventory.InventoryLock[y][x] = 0
+					} else {
+						cfg.Inventory.InventoryLock[y][x] = 1
+					}
+				}
+			}
 
-		// Class Specific
-		s.updateClassSpecificConfig(values, cfg)
+			// Belt Columns
+			if cols, ok := values["inventoryBeltColumns[]"]; ok {
+				copy(cfg.Inventory.BeltColumns[:], cols)
+			}
+
+			if v := values.Get("healingPotionCount"); v != "" {
+				cfg.Inventory.HealingPotionCount, _ = strconv.Atoi(v)
+			}
+			if v := values.Get("manaPotionCount"); v != "" {
+				cfg.Inventory.ManaPotionCount, _ = strconv.Atoi(v)
+			}
+			if v := values.Get("rejuvPotionCount"); v != "" {
+				cfg.Inventory.RejuvPotionCount, _ = strconv.Atoi(v)
+			}
+
+			cfg.Game.CreateLobbyGames = values.Has("createLobbyGames")
+			cfg.Game.IsNonLadderChar = values.Has("isNonLadderChar")
+			cfg.Game.Difficulty = difficulty.Difficulty(values.Get("gameDifficulty"))
+			cfg.Game.RandomizeRuns = values.Has("gameRandomizeRuns")
+
+			// Back To Town Settings
+			cfg.BackToTown.NoHpPotions = values.Has("noHpPotions")
+			cfg.BackToTown.NoMpPotions = values.Has("noMpPotions")
+			cfg.BackToTown.MercDied = values.Has("mercDied")
+			cfg.BackToTown.EquipmentBroken = values.Has("equipmentBroken")
+
+			// Companion
+			cfg.Companion.Enabled = values.Has("companionEnabled")
+			cfg.Companion.Leader = values.Has("companionLeader")
+			cfg.Companion.LeaderName = values.Get("companionLeaderName")
+			cfg.Companion.GameNameTemplate = values.Get("companionGameNameTemplate")
+			cfg.Companion.GamePassword = values.Get("companionGamePassword")
+
+			// Gambling
+			cfg.Gambling.Enabled = values.Has("gamblingEnabled")
+		}
+
+		// Class-specific options are only updated when identity is explicitly updated.
+		if sections.Identity {
+			s.updateClassSpecificConfig(values, cfg)
+		}
 	}
 
 	// Packet Casting
@@ -1857,6 +1864,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			CubeRecipes:         true,
 			Merc:                true,
 			General:             true,
+			GeneralExtras:       true,
 			Client:              true,
 			Scheduler:           true,
 			Muling:              true,
