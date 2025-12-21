@@ -65,6 +65,14 @@ function updateEnabledRunsHiddenField() {
         return item.getAttribute("value");
     });
     document.getElementById('gameRuns').value = JSON.stringify(values);
+
+    if (window.onGameRunsUpdated) {
+        try {
+            window.onGameRunsUpdated();
+        } catch (e) {
+            console.error('onGameRunsUpdated handler failed', e);
+        }
+    }
 }
 
 function filterDisabledRuns(searchTerm) {
@@ -135,6 +143,22 @@ function updateButtonForDisabledRun(runElement) {
 document.addEventListener('DOMContentLoaded', function () {
     const schedulerEnabled = document.querySelector('input[name="schedulerEnabled"]');
     const schedulerSettings = document.getElementById('scheduler-settings');
+    const cloneSelect = document.getElementById('cloneSupervisorSelect');
+
+    if (cloneSelect) {
+        cloneSelect.addEventListener('change', function () {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('supervisor');
+            url.searchParams.delete('clone');
+            const newValue = cloneSelect.value;
+            if (newValue) {
+                url.searchParams.set('clone', newValue);
+            }
+            const search = url.searchParams.toString();
+            const target = url.pathname + (search ? `?${search}` : '');
+            window.location.href = target;
+        });
+    }
     const characterClassSelect = document.querySelector('select[name="characterClass"]');
     const mainCharacterClassSelect = document.getElementById('mainCharacterClass');
     const berserkerBarbOptions = document.querySelector('.berserker-barb-options');

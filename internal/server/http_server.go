@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"reflect"
 	"slices"
 	"sort"
@@ -441,12 +442,14 @@ func containss(slice []string, item string) bool {
 func (s *HttpServer) initialData(w http.ResponseWriter, r *http.Request) {
 	data := s.getStatusData()
 
+	skipPrompt := r.URL.Query().Get("skipAutoStartPrompt") == "true"
+
 	// Decide whether to show the auto-start confirmation prompt.
 	// This should only happen once per program run, on the first
 	// dashboard load where global auto-start is enabled and at
 	// least one character is marked for auto-start.
 	showPrompt := false
-	if data.GlobalAutoStartEnabled {
+	if !skipPrompt && data.GlobalAutoStartEnabled {
 		s.autoStartPromptOnce.Do(func() {
 			for _, enabled := range data.AutoStart {
 				if enabled {
@@ -606,9 +609,12 @@ func (s *HttpServer) getStatusData() IndexData {
 			}
 		}
 
-		// Character-level settings
+		// Check if this is a companion follower & ensure we always expose class
 		cfg, found := config.GetCharacter(supervisorName)
-		if found && cfg != nil {
+		if found {
+			if stats.UI.Class == "" {
+				stats.UI.Class = cfg.Character.Class
+			}
 			// Add companion information to the stats
 			if cfg.Companion.Enabled && !cfg.Companion.Leader {
 				// This is a companion follower
@@ -701,6 +707,8 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/sequence-editor/save", s.sequenceAPI.handleSaveSequence)
 	http.HandleFunc("/api/sequence-editor/delete", s.sequenceAPI.handleDeleteSequence)
 	http.HandleFunc("/api/sequence-editor/files", s.sequenceAPI.handleListSequenceFiles)
+
+	http.HandleFunc("/api/supervisors/bulk-apply", s.bulkApplyCharacterSettings)
 	http.HandleFunc("/Drop-manager", s.DropManagerPage)
 
 	s.registerDropRoutes()
@@ -1257,9 +1265,6 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 			return -1
 		}, discordAdmins)
 		newConfig.Discord.BotAdmins = strings.Split(cleanedAdmins, ",")
-		newConfig.Discord.Token = r.Form.Get("discord_token")
-		newConfig.Discord.ChannelID = r.Form.Get("discord_channel_id")
-		// Telegram
 		newConfig.Telegram.Enabled = r.Form.Get("telegram_enabled") == "true"
 		newConfig.Telegram.Token = r.Form.Get("telegram_token")
 		telegramChatId, err := strconv.ParseInt(r.Form.Get("telegram_chat_id"), 10, 64)
@@ -1304,6 +1309,527 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 	s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: config.Koolo, ErrorMessage: ""})
 }
 
+// ConfigUpdateOptions defines which sections of the configuration should be updated
+// from the provided form data.
+type ConfigUpdateOptions struct {
+	Identity            bool `json:"identity"` // Name, Auth, etc.
+	Health              bool `json:"health"`
+	Runs                bool `json:"runs"`
+	PacketCasting       bool `json:"packetCasting"`
+	CubeRecipes         bool `json:"cubeRecipes"`
+	Merc                bool `json:"merc"`
+	General             bool `json:"general"` // Includes class specific options too
+	GeneralExtras       bool `json:"generalExtras"`
+	Client              bool `json:"client"`
+	Scheduler           bool `json:"scheduler"`
+	Muling              bool `json:"muling"`
+	Shopping            bool `json:"shopping"`
+	UpdateAllRunDetails bool `json:"updateAllRunDetails"`
+}
+
+func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.CharacterCfg, sections ConfigUpdateOptions, runDetailTargets []string) error {
+	// Identity / Basic Settings
+	if sections.Identity {
+		if v := values.Get("maxGameLength"); v != "" {
+			cfg.MaxGameLength, _ = strconv.Atoi(v)
+		}
+		cfg.CharacterName = values.Get("characterName")
+		cfg.Character.Class = values.Get("characterClass")
+		cfg.CommandLineArgs = values.Get("commandLineArgs")
+		cfg.AutoCreateCharacter = values.Has("autoCreateCharacter")
+		cfg.Username = values.Get("username")
+		cfg.Password = values.Get("password")
+		cfg.Realm = values.Get("realm")
+		cfg.AuthMethod = values.Get("authmethod")
+		cfg.AuthToken = values.Get("AuthToken")
+	}
+
+	// Client Settings
+	if sections.Client {
+		if !sections.Identity { // If Identity was skipped, handle these here if Client is checked
+			cfg.CommandLineArgs = values.Get("commandLineArgs")
+		}
+		cfg.KillD2OnStop = values.Has("kill_d2_process")
+		cfg.ClassicMode = values.Has("classic_mode")
+		cfg.CloseMiniPanel = values.Has("close_mini_panel")
+		cfg.HidePortraits = values.Has("hide_portraits")
+	}
+
+	// Scheduler
+	if sections.Scheduler {
+		cfg.Scheduler.Enabled = values.Has("schedulerEnabled")
+		// Reset scheduler days if we are updating them
+		if len(cfg.Scheduler.Days) != 7 {
+			cfg.Scheduler.Days = make([]config.Day, 7)
+		}
+
+		for day := 0; day < 7; day++ {
+			starts := values[fmt.Sprintf("scheduler[%d][start][]", day)]
+			ends := values[fmt.Sprintf("scheduler[%d][end][]", day)]
+
+			cfg.Scheduler.Days[day].DayOfWeek = day
+			cfg.Scheduler.Days[day].TimeRanges = make([]config.TimeRange, 0)
+
+			for i := 0; i < len(starts); i++ {
+				start, err := time.Parse("15:04", starts[i])
+				if err != nil {
+					continue
+				}
+				end, err := time.Parse("15:04", ends[i])
+				if err != nil {
+					continue
+				}
+				cfg.Scheduler.Days[day].TimeRanges = append(cfg.Scheduler.Days[day].TimeRanges, struct {
+					Start time.Time "yaml:\"start\""
+					End   time.Time "yaml:\"end\""
+				}{
+					Start: start,
+					End:   end,
+				})
+			}
+		}
+
+		if err := validateSchedulerData(cfg); err != nil {
+			return err
+		}
+	}
+
+	// Health
+	if sections.Health {
+		if v := values.Get("healingPotionAt"); v != "" {
+			cfg.Health.HealingPotionAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("manaPotionAt"); v != "" {
+			cfg.Health.ManaPotionAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("rejuvPotionAtLife"); v != "" {
+			cfg.Health.RejuvPotionAtLife, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("rejuvPotionAtMana"); v != "" {
+			cfg.Health.RejuvPotionAtMana, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("chickenAt"); v != "" {
+			cfg.Health.ChickenAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("townChickenAt"); v != "" {
+			cfg.Health.TownChickenAt, _ = strconv.Atoi(v)
+		}
+		// Back to town config handled with Health or General?
+		// It was in General in bulkApply but logic is closer to Health/Safety.
+		// Let's allow updating it if either General or Health is selected, or stick to General.
+		// For now, let's keep it under General to match previous bulk logic, or move it if needed.
+	}
+
+	// Mercenary
+	if sections.Merc {
+		cfg.Character.UseMerc = values.Has("useMerc")
+		if v := values.Get("mercHealingPotionAt"); v != "" {
+			cfg.Health.MercHealingPotionAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("mercRejuvPotionAt"); v != "" {
+			cfg.Health.MercRejuvPotionAt, _ = strconv.Atoi(v)
+		}
+		if v := values.Get("mercChickenAt"); v != "" {
+			cfg.Health.MercChickenAt, _ = strconv.Atoi(v)
+		}
+	}
+
+	// General (Character & Game)
+	if sections.General {
+		cfg.Character.StashToShared = values.Has("characterStashToShared")
+		cfg.Character.UseTeleport = values.Has("characterUseTeleport")
+		cfg.Character.UseExtraBuffs = values.Has("characterUseExtraBuffs")
+
+		// Game Settings (General)
+		if v := values.Get("gameMinGoldPickupThreshold"); v != "" {
+			cfg.Game.MinGoldPickupThreshold, _ = strconv.Atoi(v)
+		}
+		cfg.UseCentralizedPickit = values.Has("useCentralizedPickit")
+		cfg.Game.UseCainIdentify = values.Has("useCainIdentify")
+		cfg.Game.DisableIdentifyTome = values.Get("game.disableIdentifyTome") == "on"
+		cfg.Game.InteractWithShrines = values.Has("interactWithShrines")
+		cfg.Game.InteractWithChests = values.Has("interactWithChests")
+		if v := values.Get("stopLevelingAt"); v != "" {
+			cfg.Game.StopLevelingAt, _ = strconv.Atoi(v)
+		}
+
+		if sections.GeneralExtras {
+			cfg.Character.UseSwapForBuffs = values.Has("useSwapForBuffs")
+			cfg.Character.BuffOnNewArea = values.Has("characterBuffOnNewArea")
+			cfg.Character.BuffAfterWP = values.Has("characterBuffAfterWP")
+
+			// Process ClearPathDist - only relevant when teleport is disabled
+			if !cfg.Character.UseTeleport {
+				clearPathDist, err := strconv.Atoi(values.Get("clearPathDist"))
+				if err == nil && clearPathDist >= 0 && clearPathDist <= 30 {
+					cfg.Character.ClearPathDist = clearPathDist
+				} else {
+					// Set default value if invalid
+					cfg.Character.ClearPathDist = 7
+				}
+			} else {
+				cfg.Character.ClearPathDist = 7
+			}
+
+			// Inventory Lock
+			for y, row := range cfg.Inventory.InventoryLock {
+				for x := range row {
+					if values.Has(fmt.Sprintf("inventoryLock[%d][%d]", y, x)) {
+						cfg.Inventory.InventoryLock[y][x] = 0
+					} else {
+						cfg.Inventory.InventoryLock[y][x] = 1
+					}
+				}
+			}
+
+			// Belt Columns
+			if cols, ok := values["inventoryBeltColumns[]"]; ok {
+				copy(cfg.Inventory.BeltColumns[:], cols)
+			}
+
+			if v := values.Get("healingPotionCount"); v != "" {
+				cfg.Inventory.HealingPotionCount, _ = strconv.Atoi(v)
+			}
+			if v := values.Get("manaPotionCount"); v != "" {
+				cfg.Inventory.ManaPotionCount, _ = strconv.Atoi(v)
+			}
+			if v := values.Get("rejuvPotionCount"); v != "" {
+				cfg.Inventory.RejuvPotionCount, _ = strconv.Atoi(v)
+			}
+
+			cfg.Game.CreateLobbyGames = values.Has("createLobbyGames")
+			cfg.Game.IsNonLadderChar = values.Has("isNonLadderChar")
+			cfg.Game.Difficulty = difficulty.Difficulty(values.Get("gameDifficulty"))
+			cfg.Game.RandomizeRuns = values.Has("gameRandomizeRuns")
+
+			// Back To Town Settings
+			cfg.BackToTown.NoHpPotions = values.Has("noHpPotions")
+			cfg.BackToTown.NoMpPotions = values.Has("noMpPotions")
+			cfg.BackToTown.MercDied = values.Has("mercDied")
+			cfg.BackToTown.EquipmentBroken = values.Has("equipmentBroken")
+
+			// Companion
+			cfg.Companion.Enabled = values.Has("companionEnabled")
+			cfg.Companion.Leader = values.Has("companionLeader")
+			cfg.Companion.LeaderName = values.Get("companionLeaderName")
+			cfg.Companion.GameNameTemplate = values.Get("companionGameNameTemplate")
+			cfg.Companion.GamePassword = values.Get("companionGamePassword")
+
+			// Gambling
+			cfg.Gambling.Enabled = values.Has("gamblingEnabled")
+		}
+
+		// Class-specific options are only updated when identity is explicitly updated.
+		if sections.Identity {
+			s.updateClassSpecificConfig(values, cfg)
+		}
+	}
+
+	// Packet Casting
+	if sections.PacketCasting {
+		cfg.PacketCasting.UseForEntranceInteraction = values.Has("packetCastingUseForEntranceInteraction")
+		cfg.PacketCasting.UseForItemPickup = values.Has("packetCastingUseForItemPickup")
+		cfg.PacketCasting.UseForTpInteraction = values.Has("packetCastingUseForTpInteraction")
+		cfg.PacketCasting.UseForTeleport = values.Has("packetCastingUseForTeleport")
+		cfg.PacketCasting.UseForEntitySkills = values.Has("packetCastingUseForEntitySkills")
+		cfg.PacketCasting.UseForSkillSelection = values.Has("packetCastingUseForSkillSelection")
+	}
+
+	// Cube Recipes
+	if sections.CubeRecipes {
+		cfg.CubeRecipes.Enabled = values.Has("enableCubeRecipes")
+		if recipes, ok := values["enabledRecipes"]; ok {
+			cfg.CubeRecipes.EnabledRecipes = recipes
+		}
+		cfg.CubeRecipes.SkipPerfectAmethysts = values.Has("skipPerfectAmethysts")
+		cfg.CubeRecipes.SkipPerfectRubies = values.Has("skipPerfectRubies")
+		if v := values.Get("jewelsToKeep"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+				cfg.CubeRecipes.JewelsToKeep = n
+			} else {
+				cfg.CubeRecipes.JewelsToKeep = 1
+			}
+		}
+	}
+
+	// Muling
+	if sections.Muling {
+		cfg.Muling.Enabled = values.Get("mulingEnabled") == "on"
+		cfg.Muling.ReturnTo = values.Get("mulingReturnTo")
+
+		// Validate mule profiles
+		requestedMuleProfiles := values["mulingMuleProfiles[]"]
+		validMuleProfiles := []string{}
+		allCharacters := config.GetCharacters()
+		for _, muleName := range requestedMuleProfiles {
+			if muleCfg, exists := allCharacters[muleName]; exists && strings.ToLower(muleCfg.Character.Class) == "mule" {
+				validMuleProfiles = append(validMuleProfiles, muleName)
+			}
+		}
+		cfg.Muling.MuleProfiles = validMuleProfiles
+	}
+
+	// Shopping
+	if sections.Shopping {
+		s.applyShoppingFromForm(values, cfg)
+	}
+
+	// Runs
+	if sections.Runs {
+		if raw := values.Get("gameRuns"); raw != "" {
+			var enabledRuns []config.Run
+			if err := json.Unmarshal([]byte(raw), &enabledRuns); err == nil {
+				cfg.Game.Runs = enabledRuns
+			}
+		}
+
+		// Run Details
+		if sections.UpdateAllRunDetails {
+			// Update ALL run details if UpdateAllRunDetails is true
+			s.applyRunDetails(values, cfg, getAllRunIDs())
+		} else if len(runDetailTargets) > 0 {
+			// Update only specific run details
+			s.applyRunDetails(values, cfg, runDetailTargets)
+		}
+	}
+
+	return nil
+}
+
+func (s *HttpServer) updateClassSpecificConfig(values url.Values, cfg *config.CharacterCfg) {
+	// Smiter specific options
+	if cfg.Character.Class == "smiter" {
+		cfg.Character.Smiter.UberMephAura = values.Get("smiterUberMephAura")
+		if cfg.Character.Smiter.UberMephAura == "" {
+			cfg.Character.Smiter.UberMephAura = "resist_lightning"
+		}
+	}
+
+	// Berserker Barb specific options
+	if cfg.Character.Class == "berserker" {
+		cfg.Character.BerserkerBarb.SkipPotionPickupInTravincal = values.Has("barbSkipPotionPickupInTravincal")
+		cfg.Character.BerserkerBarb.FindItemSwitch = values.Has("characterFindItemSwitch")
+		cfg.Character.BerserkerBarb.UseHowl = values.Has("barbUseHowl")
+		if cfg.Character.BerserkerBarb.UseHowl {
+			howlCooldown, err := strconv.Atoi(values.Get("barbHowlCooldown"))
+			if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+				cfg.Character.BerserkerBarb.HowlCooldown = howlCooldown
+			} else {
+				cfg.Character.BerserkerBarb.HowlCooldown = 6
+			}
+			howlMinMonsters, err := strconv.Atoi(values.Get("barbHowlMinMonsters"))
+			if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+				cfg.Character.BerserkerBarb.HowlMinMonsters = howlMinMonsters
+			} else {
+				cfg.Character.BerserkerBarb.HowlMinMonsters = 4
+			}
+		}
+		cfg.Character.BerserkerBarb.UseBattleCry = values.Has("barbUseBattleCry")
+		if cfg.Character.BerserkerBarb.UseBattleCry {
+			battleCryCooldown, err := strconv.Atoi(values.Get("barbBattleCryCooldown"))
+			if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+				cfg.Character.BerserkerBarb.BattleCryCooldown = battleCryCooldown
+			} else {
+				cfg.Character.BerserkerBarb.BattleCryCooldown = 6
+			}
+			battleCryMinMonsters, err := strconv.Atoi(values.Get("barbBattleCryMinMonsters"))
+			if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+				cfg.Character.BerserkerBarb.BattleCryMinMonsters = battleCryMinMonsters
+			} else {
+				cfg.Character.BerserkerBarb.BattleCryMinMonsters = 4
+			}
+		}
+		cfg.Character.BerserkerBarb.HorkNormalMonsters = values.Has("berserkerBarbHorkNormalMonsters")
+		horkRange, err := strconv.Atoi(values.Get("berserkerBarbHorkMonsterCheckRange"))
+		if err == nil && horkRange > 0 {
+			cfg.Character.BerserkerBarb.HorkMonsterCheckRange = horkRange
+		} else {
+			cfg.Character.BerserkerBarb.HorkMonsterCheckRange = 7
+		}
+	}
+
+	// Barb Leveling specific options
+	if cfg.Character.Class == "barb_leveling" {
+		cfg.Character.BarbLeveling.UseHowl = values.Has("barbLevelingUseHowl")
+		if cfg.Character.BarbLeveling.UseHowl {
+			howlCooldown, err := strconv.Atoi(values.Get("barbLevelingHowlCooldown"))
+			if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+				cfg.Character.BarbLeveling.HowlCooldown = howlCooldown
+			} else {
+				cfg.Character.BarbLeveling.HowlCooldown = 8
+			}
+			howlMinMonsters, err := strconv.Atoi(values.Get("barbLevelingHowlMinMonsters"))
+			if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+				cfg.Character.BarbLeveling.HowlMinMonsters = howlMinMonsters
+			} else {
+				cfg.Character.BarbLeveling.HowlMinMonsters = 4
+			}
+		}
+		cfg.Character.BarbLeveling.UseBattleCry = values.Has("barbLevelingUseBattleCry")
+		if cfg.Character.BarbLeveling.UseBattleCry {
+			battleCryCooldown, err := strconv.Atoi(values.Get("barbLevelingBattleCryCooldown"))
+			if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+				cfg.Character.BarbLeveling.BattleCryCooldown = battleCryCooldown
+			} else {
+				cfg.Character.BarbLeveling.BattleCryCooldown = 6
+			}
+			battleCryMinMonsters, err := strconv.Atoi(values.Get("barbLevelingBattleCryMinMonsters"))
+			if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+				cfg.Character.BarbLeveling.BattleCryMinMonsters = battleCryMinMonsters
+			} else {
+				cfg.Character.BarbLeveling.BattleCryMinMonsters = 1
+			}
+			cfg.Character.BarbLeveling.UsePacketLearning = values.Has("usePacketLearning")
+		}
+	}
+
+	// Warcry Barb specific options
+	if cfg.Character.Class == "warcry_barb" {
+		cfg.Character.WarcryBarb.FindItemSwitch = values.Has("warcryBarbFindItemSwitch")
+		cfg.Character.WarcryBarb.SkipPotionPickupInTravincal = values.Has("warcryBarbSkipPotionPickupInTravincal")
+		cfg.Character.WarcryBarb.UseHowl = values.Has("warcryBarbUseHowl")
+		if cfg.Character.WarcryBarb.UseHowl {
+			howlCooldown, err := strconv.Atoi(values.Get("warcryBarbHowlCooldown"))
+			if err == nil && howlCooldown >= 1 && howlCooldown <= 60 {
+				cfg.Character.WarcryBarb.HowlCooldown = howlCooldown
+			} else {
+				cfg.Character.WarcryBarb.HowlCooldown = 8
+			}
+			howlMinMonsters, err := strconv.Atoi(values.Get("warcryBarbHowlMinMonsters"))
+			if err == nil && howlMinMonsters >= 1 && howlMinMonsters <= 20 {
+				cfg.Character.WarcryBarb.HowlMinMonsters = howlMinMonsters
+			} else {
+				cfg.Character.WarcryBarb.HowlMinMonsters = 4
+			}
+		}
+		cfg.Character.WarcryBarb.UseBattleCry = values.Has("warcryBarbUseBattleCry")
+		if cfg.Character.WarcryBarb.UseBattleCry {
+			battleCryCooldown, err := strconv.Atoi(values.Get("warcryBarbBattleCryCooldown"))
+			if err == nil && battleCryCooldown >= 1 && battleCryCooldown <= 60 {
+				cfg.Character.WarcryBarb.BattleCryCooldown = battleCryCooldown
+			} else {
+				cfg.Character.WarcryBarb.BattleCryCooldown = 6
+			}
+			battleCryMinMonsters, err := strconv.Atoi(values.Get("warcryBarbBattleCryMinMonsters"))
+			if err == nil && battleCryMinMonsters >= 1 && battleCryMinMonsters <= 20 {
+				cfg.Character.WarcryBarb.BattleCryMinMonsters = battleCryMinMonsters
+			} else {
+				cfg.Character.WarcryBarb.BattleCryMinMonsters = 1
+			}
+		}
+		cfg.Character.WarcryBarb.UseGrimWard = values.Has("warcryBarbUseGrimWard")
+		cfg.Character.WarcryBarb.HorkNormalMonsters = values.Has("warcryBarbHorkNormalMonsters")
+		horkRange, err := strconv.Atoi(values.Get("warcryBarbHorkMonsterCheckRange"))
+		if err == nil && horkRange > 0 {
+			cfg.Character.WarcryBarb.HorkMonsterCheckRange = horkRange
+		} else {
+			cfg.Character.WarcryBarb.HorkMonsterCheckRange = 7
+		}
+	}
+
+	// Nova Sorceress specific options
+	if cfg.Character.Class == "nova" || cfg.Character.Class == "lightsorc" {
+		bossStaticThreshold, err := strconv.Atoi(values.Get("novaBossStaticThreshold"))
+		if err == nil {
+			minThreshold := 65
+			switch cfg.Game.Difficulty {
+			case difficulty.Normal:
+				minThreshold = 1
+			case difficulty.Nightmare:
+				minThreshold = 33
+			case difficulty.Hell:
+				minThreshold = 50
+			}
+			if bossStaticThreshold >= minThreshold && bossStaticThreshold <= 100 {
+				cfg.Character.NovaSorceress.BossStaticThreshold = bossStaticThreshold
+			} else {
+				cfg.Character.NovaSorceress.BossStaticThreshold = minThreshold
+			}
+		} else {
+			cfg.Character.NovaSorceress.BossStaticThreshold = 65
+		}
+	}
+
+	// Mosaic specific options
+	if cfg.Character.Class == "mosaic" {
+		cfg.Character.MosaicSin.UseTigerStrike = values.Has("mosaicUseTigerStrike")
+		cfg.Character.MosaicSin.UseCobraStrike = values.Has("mosaicUseCobraStrike")
+		cfg.Character.MosaicSin.UseClawsOfThunder = values.Has("mosaicUseClawsOfThunder")
+		cfg.Character.MosaicSin.UseBladesOfIce = values.Has("mosaicUseBladesOfIce")
+		cfg.Character.MosaicSin.UseFistsOfFire = values.Has("mosaicUseFistsOfFire")
+	}
+
+	// Blizzard Sorc specific options
+	if cfg.Character.Class == "sorceress" {
+		cfg.Character.BlizzardSorceress.UseMoatTrick = values.Has("blizzardUseMoatTrick")
+		cfg.Character.BlizzardSorceress.UseStaticOnMephisto = values.Has("blizzardUseStaticOnMephisto")
+		cfg.Character.BlizzardSorceress.UseBlizzardPackets = values.Has("blizzardUseBlizzardPackets")
+	}
+
+	// Sorceress Leveling specific options
+	if cfg.Character.Class == "sorceress_leveling" {
+		cfg.Character.SorceressLeveling.UseMoatTrick = values.Has("levelingUseMoatTrick")
+		cfg.Character.SorceressLeveling.UseStaticOnMephisto = values.Has("levelingUseStaticOnMephisto")
+		cfg.Character.SorceressLeveling.UseBlizzardPackets = values.Has("levelingUseBlizzardPackets")
+		cfg.Character.SorceressLeveling.UsePacketLearning = values.Has("levelingUsePacketLearning")
+	}
+
+	// Assassin Leveling specific options
+	if cfg.Character.Class == "assassin" {
+		cfg.Character.AssassinLeveling.UsePacketLearning = values.Has("usePacketLearning")
+	}
+
+	// Amazon Leveling specific options
+	if cfg.Character.Class == "amazon_leveling" {
+		cfg.Character.AmazonLeveling.UsePacketLearning = values.Has("usePacketLearning")
+	}
+
+	// Druid Leveling specific options
+	if cfg.Character.Class == "druid_leveling" {
+		cfg.Character.DruidLeveling.UsePacketLearning = values.Has("usePacketLearning")
+	}
+
+	// Necromancer Leveling specific options
+	if cfg.Character.Class == "necromancer" {
+		cfg.Character.NecromancerLeveling.UsePacketLearning = values.Has("usePacketLearning")
+	}
+
+	// Paladin Leveling specific options
+	if cfg.Character.Class == "paladin" {
+		cfg.Character.PaladinLeveling.UsePacketLearning = values.Has("usePacketLearning")
+	}
+
+	// Nova Sorceress specific options (Extra)
+	if cfg.Character.Class == "nova" {
+		cfg.Character.NovaSorceress.AggressiveNovaPositioning = values.Has("aggressiveNovaPositioning")
+	}
+
+	// Lightning Sorceress specific options
+	if cfg.Character.Class == "lightsorc" {
+	}
+
+	// Hydra Orb Sorceress specific options
+	if cfg.Character.Class == "hydraorb" {
+	}
+
+	// Fireball Sorceress specific options
+	if cfg.Character.Class == "fireballsorc" {
+	}
+}
+
+func getAllRunIDs() []string {
+	// A helper to get all possible run keys if we want to apply everything
+	// This list should ideally match all case statements in applyRunDetails
+	return []string{
+		"andariel", "countess", "duriel", "pit", "cows", "pindleskin",
+		"stony_tomb", "mausoleum", "ancient_tunnels", "drifter_cavern",
+		"spider_cavern", "arachnid_lair", "mephisto", "tristram",
+		"nihlathak", "summoner", "baal", "eldritch", "lower_kurast_chest",
+		"diablo", "leveling", "leveling_sequence", "quests", "terror_zone",
+		"utility", "shopping",
+	}
+}
+
 func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	sequenceFiles := s.listLevelingSequenceFiles()
 	var err error
@@ -1315,7 +1841,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				ErrorMessage:          err.Error(),
 				LevelingSequenceFiles: sequenceFiles,
 			})
-
 			return
 		}
 
@@ -1330,10 +1855,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 					Supervisor:            supervisorName,
 					LevelingSequenceFiles: sequenceFiles,
 				})
-
 				return
 			}
-			// Reload the newly created configuration to get a non-nil pointer
 			cfg, found = config.GetCharacter(supervisorName)
 			if !found || cfg == nil {
 				s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
@@ -1342,78 +1865,8 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 					Supervisor:            supervisorName,
 					LevelingSequenceFiles: sequenceFiles,
 				})
-
 				return
 			}
-		}
-
-		cfg.MaxGameLength, _ = strconv.Atoi(r.Form.Get("maxGameLength"))
-		cfg.CharacterName = r.Form.Get("characterName")
-		cfg.CommandLineArgs = r.Form.Get("commandLineArgs")
-		cfg.AutoCreateCharacter = r.Form.Has("autoCreateCharacter")
-		cfg.KillD2OnStop = r.Form.Has("kill_d2_process")
-		cfg.ClassicMode = r.Form.Has("classic_mode")
-		cfg.CloseMiniPanel = r.Form.Has("close_mini_panel")
-		cfg.HidePortraits = r.Form.Has("hide_portraits")
-
-		// Bnet config
-		cfg.Username = r.Form.Get("username")
-		cfg.Password = r.Form.Get("password")
-		cfg.Realm = r.Form.Get("realm")
-		cfg.AuthMethod = r.Form.Get("authmethod")
-		cfg.AuthToken = r.Form.Get("AuthToken")
-
-		// Scheduler config
-		cfg.Scheduler.Enabled = r.Form.Has("schedulerEnabled")
-
-		for day := 0; day < 7; day++ {
-
-			starts := r.Form[fmt.Sprintf("scheduler[%d][start][]", day)]
-			ends := r.Form[fmt.Sprintf("scheduler[%d][end][]", day)]
-
-			cfg.Scheduler.Days[day].DayOfWeek = day
-			cfg.Scheduler.Days[day].TimeRanges = make([]config.TimeRange, 0)
-
-			for i := 0; i < len(starts); i++ {
-				start, err := time.Parse("15:04", starts[i])
-				if err != nil {
-					s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-						Version:               config.Version,
-						ErrorMessage:          fmt.Sprintf("Invalid start time format for day %d: %s", day, starts[i]),
-						LevelingSequenceFiles: sequenceFiles,
-					})
-					return
-				}
-
-				end, err := time.Parse("15:04", ends[i])
-				if err != nil {
-					s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-						Version:               config.Version,
-						ErrorMessage:          fmt.Sprintf("Invalid end time format for day %d: %s", day, ends[i]),
-						LevelingSequenceFiles: sequenceFiles,
-					})
-					return
-				}
-
-				cfg.Scheduler.Days[day].TimeRanges = append(cfg.Scheduler.Days[day].TimeRanges, struct {
-					Start time.Time "yaml:\"start\""
-					End   time.Time "yaml:\"end\""
-				}{
-					Start: start,
-					End:   end,
-				})
-			}
-		}
-
-		// Validate scheduler data
-		err := validateSchedulerData(cfg)
-		if err != nil {
-			s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
-				Version:               config.Version,
-				ErrorMessage:          err.Error(),
-				LevelingSequenceFiles: sequenceFiles,
-			})
-			return
 		}
 
 		// Health config
@@ -1707,7 +2160,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal([]byte(r.FormValue("gameRuns")), &enabledRuns)
 		cfg.Game.Runs = enabledRuns
 
-		s.applyShoppingFromForm(r, cfg)
+		s.applyShoppingFromForm(r.Form, cfg)
 
 		cfg.Game.Cows.OpenChests = r.Form.Has("gameCowsOpenChests")
 
@@ -1873,20 +2326,29 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Muling.MuleProfiles = validMuleProfiles
 
 		cfg.Muling.ReturnTo = r.FormValue("mulingReturnTo")
-
 		config.SaveSupervisorConfig(supervisorName, cfg)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
 	supervisor := r.URL.Query().Get("supervisor")
+	cloneSource := ""
+	cloneParam := r.URL.Query().Get("clone")
 	cfg, _ := config.GetCharacter("template")
 	if supervisor != "" {
-		cfg, _ = config.GetCharacter(supervisor)
+		if cfgLoaded, ok := config.GetCharacter(supervisor); ok && cfgLoaded != nil {
+			cfg = cfgLoaded
+		}
+		cloneParam = ""
+	} else if cloneParam != "" {
+		if cfgLoaded, ok := config.GetCharacter(cloneParam); ok && cfgLoaded != nil {
+			tmp := *cfgLoaded
+			cfg = &tmp
+			cloneSource = cloneParam
+		}
 	}
 
 	enabledRuns := make([]string, 0)
-	// Let's iterate cfg.Game.Runs to preserve current order
 	for _, run := range cfg.Game.Runs {
 		if run == config.UberIzualRun || run == config.UberDurielRun || run == config.LilithRun {
 			continue
@@ -1918,13 +2380,19 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	muleProfiles := []string{}
 	farmerProfiles := []string{}
 	allCharacters := config.GetCharacters()
+	supervisors := make([]string, 0, len(allCharacters))
 	for profileName, profileCfg := range allCharacters {
+		if profileName == "template" {
+			continue
+		}
+		supervisors = append(supervisors, profileName)
 		if strings.ToLower(profileCfg.Character.Class) == "mule" {
 			muleProfiles = append(muleProfiles, profileName)
 		} else {
 			farmerProfiles = append(farmerProfiles, profileName)
 		}
 	}
+	sort.Strings(supervisors)
 	sort.Strings(muleProfiles)
 	sort.Strings(farmerProfiles)
 
@@ -1941,6 +2409,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
 		Version:               config.Version,
 		Supervisor:            supervisor,
+		CloneSource:           cloneSource,
 		Config:                cfg,
 		DayNames:              dayNames,
 		EnabledRuns:           enabledRuns,
@@ -1951,6 +2420,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		AvailableProfiles:     muleProfiles,
 		FarmerProfiles:        farmerProfiles,
 		LevelingSequenceFiles: sequenceFiles,
+		Supervisors:           supervisors,
 	})
 }
 
@@ -1985,7 +2455,6 @@ func (s *HttpServer) companionJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if the supervisor exists and is a companion
 	cfg, found := config.GetCharacter(requestData.Supervisor)
 	if !found {
 		http.Error(w, "Supervisor not found", http.StatusNotFound)
@@ -1997,11 +2466,9 @@ func (s *HttpServer) companionJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create and send the event
 	baseEvent := event.Text(requestData.Supervisor, fmt.Sprintf("Manual request to join game %s", requestData.GameName))
 	joinEvent := event.RequestCompanionJoinGame(baseEvent, cfg.CharacterName, requestData.GameName, requestData.Password)
 
-	// Send the event
 	event.Send(joinEvent)
 
 	s.logger.Info("Manual companion join request sent",
@@ -2010,6 +2477,307 @@ func (s *HttpServer) companionJoin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// applyShoppingFromForm parses shopping-specific fields (used in updateConfigFromForm)
+func (s *HttpServer) applyShoppingFromForm(values url.Values, cfg *config.CharacterCfg) {
+	cfg.Shopping.Enabled = values.Has("shoppingEnabled")
+
+	if v, err := strconv.Atoi(values.Get("shoppingMaxGoldToSpend")); err == nil {
+		cfg.Shopping.MaxGoldToSpend = v
+	}
+	if v, err := strconv.Atoi(values.Get("shoppingMinGoldReserve")); err == nil {
+		cfg.Shopping.MinGoldReserve = v
+	}
+	if v, err := strconv.Atoi(values.Get("shoppingRefreshesPerRun")); err == nil {
+		cfg.Shopping.RefreshesPerRun = v
+	}
+
+	cfg.Shopping.ShoppingRulesFile = values.Get("shoppingRulesFile")
+
+	if raw := strings.TrimSpace(values.Get("shoppingItemTypes")); raw != "" {
+		parts := strings.Split(raw, ",")
+		items := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if p = strings.TrimSpace(p); p != "" {
+				items = append(items, p)
+			}
+		}
+		cfg.Shopping.ItemTypes = items
+	} else {
+		cfg.Shopping.ItemTypes = []string{}
+	}
+
+	cfg.Shopping.VendorAkara = values.Has("shoppingVendorAkara")
+	cfg.Shopping.VendorCharsi = values.Has("shoppingVendorCharsi")
+	cfg.Shopping.VendorGheed = values.Has("shoppingVendorGheed")
+	cfg.Shopping.VendorFara = values.Has("shoppingVendorFara")
+	cfg.Shopping.VendorDrognan = values.Has("shoppingVendorDrognan")
+	cfg.Shopping.VendorElzix = values.Has("shoppingVendorElzix")
+	cfg.Shopping.VendorOrmus = values.Has("shoppingVendorOrmus")
+	cfg.Shopping.VendorMalah = values.Has("shoppingVendorMalah")
+	cfg.Shopping.VendorAnya = values.Has("shoppingVendorAnya")
+}
+
+func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg, runs []string) {
+	for _, runID := range runs {
+		switch runID {
+		case "andariel":
+			cfg.Game.Andariel.ClearRoom = values.Has("gameAndarielClearRoom")
+			cfg.Game.Andariel.UseAntidoes = values.Has("gameAndarielUseAntidoes")
+		case "countess":
+			cfg.Game.Countess.ClearFloors = values.Has("gameCountessClearFloors")
+		case "duriel":
+			cfg.Game.Duriel.UseThawing = values.Has("gameDurielUseThawing")
+		case "pit":
+			cfg.Game.Pit.MoveThroughBlackMarsh = values.Has("gamePitMoveThroughBlackMarsh")
+			cfg.Game.Pit.OpenChests = values.Has("gamePitOpenChests")
+			cfg.Game.Pit.FocusOnElitePacks = values.Has("gamePitFocusOnElitePacks")
+			cfg.Game.Pit.OnlyClearLevel2 = values.Has("gamePitOnlyClearLevel2")
+		case "cows":
+			cfg.Game.Cows.OpenChests = values.Has("gameCowsOpenChests")
+		case "pindleskin":
+			if raw, ok := values["gamePindleskinSkipOnImmunities[]"]; ok {
+				skips := make([]stat.Resist, 0, len(raw))
+				for _, v := range raw {
+					if v == "" {
+						continue
+					}
+					skips = append(skips, stat.Resist(v))
+				}
+				cfg.Game.Pindleskin.SkipOnImmunities = skips
+			} else {
+				cfg.Game.Pindleskin.SkipOnImmunities = nil
+			}
+		case "stony_tomb":
+			cfg.Game.StonyTomb.OpenChests = values.Has("gameStonytombOpenChests")
+			cfg.Game.StonyTomb.FocusOnElitePacks = values.Has("gameStonytombFocusOnElitePacks")
+		case "mausoleum":
+			cfg.Game.Mausoleum.OpenChests = values.Has("gameMausoleumOpenChests")
+			cfg.Game.Mausoleum.FocusOnElitePacks = values.Has("gameMausoleumFocusOnElitePacks")
+		case "ancient_tunnels":
+			cfg.Game.AncientTunnels.OpenChests = values.Has("gameAncientTunnelsOpenChests")
+			cfg.Game.AncientTunnels.FocusOnElitePacks = values.Has("gameAncientTunnelsFocusOnElitePacks")
+		case "drifter_cavern":
+			cfg.Game.DrifterCavern.OpenChests = values.Has("gameDrifterCavernOpenChests")
+			cfg.Game.DrifterCavern.FocusOnElitePacks = values.Has("gameDrifterCavernFocusOnElitePacks")
+		case "spider_cavern":
+			cfg.Game.SpiderCavern.OpenChests = values.Has("gameSpiderCavernOpenChests")
+			cfg.Game.SpiderCavern.FocusOnElitePacks = values.Has("gameSpiderCavernFocusOnElitePacks")
+		case "arachnid_lair":
+			cfg.Game.ArachnidLair.OpenChests = values.Has("gameArachnidLairOpenChests")
+			cfg.Game.ArachnidLair.FocusOnElitePacks = values.Has("gameArachnidLairFocusOnElitePacks")
+		case "mephisto":
+			cfg.Game.Mephisto.KillCouncilMembers = values.Has("gameMephistoKillCouncilMembers")
+			cfg.Game.Mephisto.OpenChests = values.Has("gameMephistoOpenChests")
+			cfg.Game.Mephisto.ExitToA4 = values.Has("gameMephistoExitToA4")
+		case "tristram":
+			cfg.Game.Tristram.ClearPortal = values.Has("gameTristramClearPortal")
+			cfg.Game.Tristram.FocusOnElitePacks = values.Has("gameTristramFocusOnElitePacks")
+			cfg.Game.Tristram.OnlyFarmRejuvs = values.Has("gameTristramOnlyFarmRejuvs")
+		case "nihlathak":
+			cfg.Game.Nihlathak.ClearArea = values.Has("gameNihlathakClearArea")
+		case "summoner":
+			cfg.Game.Summoner.KillFireEye = values.Has("gameSummonerKillFireEye")
+		case "baal":
+			cfg.Game.Baal.KillBaal = values.Has("gameBaalKillBaal")
+			cfg.Game.Baal.DollQuit = values.Has("gameBaalDollQuit")
+			cfg.Game.Baal.SoulQuit = values.Has("gameBaalSoulQuit")
+			cfg.Game.Baal.ClearFloors = values.Has("gameBaalClearFloors")
+			cfg.Game.Baal.OnlyElites = values.Has("gameBaalOnlyElites")
+		case "eldritch":
+			cfg.Game.Eldritch.KillShenk = values.Has("gameEldritchKillShenk")
+		case "lower_kurast_chest":
+			cfg.Game.LowerKurastChest.OpenRacks = values.Has("gameLowerKurastChestOpenRacks")
+		case "diablo":
+			cfg.Game.Diablo.KillDiablo = values.Has("gameDiabloKillDiablo")
+			cfg.Game.Diablo.DisableItemPickupDuringBosses = values.Has("gameDiabloDisableItemPickupDuringBosses")
+			cfg.Game.Diablo.StartFromStar = values.Has("gameDiabloStartFromStar")
+			cfg.Game.Diablo.FocusOnElitePacks = values.Has("gameDiabloFocusOnElitePacks")
+			if v := values.Get("gameDiabloAttackFromDistance"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < 0 {
+						n = 0
+					} else if n > 25 {
+						n = 25
+					}
+					cfg.Game.Diablo.AttackFromDistance = n
+				}
+			}
+		case "leveling":
+			cfg.Game.Leveling.EnsurePointsAllocation = values.Has("gameLevelingEnsurePointsAllocation")
+			cfg.Game.Leveling.EnsureKeyBinding = values.Has("gameLevelingEnsureKeyBinding")
+			cfg.Game.Leveling.AutoEquip = values.Has("gameLevelingAutoEquip")
+			cfg.Game.Leveling.AutoEquipFromSharedStash = values.Has("gameLevelingAutoEquipFromSharedStash")
+			if v := values.Get("gameLevelingNightmareRequiredLevel"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < 0 {
+						n = 0
+					} else if n > 99 {
+						n = 99
+					}
+					cfg.Game.Leveling.NightmareRequiredLevel = n
+				}
+			}
+			if v := values.Get("gameLevelingHellRequiredLevel"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < 0 {
+						n = 0
+					} else if n > 99 {
+						n = 99
+					}
+					cfg.Game.Leveling.HellRequiredLevel = n
+				}
+			}
+			if v := values.Get("gameLevelingHellRequiredFireRes"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < -100 {
+						n = -100
+					} else if n > 75 {
+						n = 75
+					}
+					cfg.Game.Leveling.HellRequiredFireRes = n
+				}
+			}
+			if v := values.Get("gameLevelingHellRequiredLightRes"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					if n < -100 {
+						n = -100
+					} else if n > 75 {
+						n = 75
+					}
+					cfg.Game.Leveling.HellRequiredLightRes = n
+				}
+			}
+			// Socket Recipes
+			cfg.Game.Leveling.EnableRunewordMaker = values.Has("gameLevelingEnableRunewordMaker")
+			enabledRunewordRecipes := sanitizeEnabledRunewordSelection(values["gameLevelingEnabledRunewordRecipes"], cfg)
+			cfg.Game.Leveling.EnabledRunewordRecipes = enabledRunewordRecipes
+
+		case "leveling_sequence":
+			cfg.Game.LevelingSequence.SequenceFile = values.Get("gameLevelingSequenceFile")
+		case "quests":
+			cfg.Game.Quests.ClearDen = values.Has("gameQuestsClearDen")
+			cfg.Game.Quests.RescueCain = values.Has("gameQuestsRescueCain")
+			cfg.Game.Quests.RetrieveHammer = values.Has("gameQuestsRetrieveHammer")
+			cfg.Game.Quests.KillRadament = values.Has("gameQuestsKillRadament")
+			cfg.Game.Quests.GetCube = values.Has("gameQuestsGetCube")
+			cfg.Game.Quests.RetrieveBook = values.Has("gameQuestsRetrieveBook")
+			cfg.Game.Quests.KillIzual = values.Has("gameQuestsKillIzual")
+			cfg.Game.Quests.KillShenk = values.Has("gameQuestsKillShenk")
+			cfg.Game.Quests.RescueAnya = values.Has("gameQuestsRescueAnya")
+			cfg.Game.Quests.KillAncients = values.Has("gameQuestsKillAncients")
+		case "terror_zone":
+			cfg.Game.TerrorZone.FocusOnElitePacks = values.Has("gameTerrorZoneFocusOnElitePacks")
+			cfg.Game.TerrorZone.SkipOtherRuns = values.Has("gameTerrorZoneSkipOtherRuns")
+			cfg.Game.TerrorZone.OpenChests = values.Has("gameTerrorZoneOpenChests")
+
+			if raw, ok := values["gameTerrorZoneSkipOnImmunities[]"]; ok {
+				skips := make([]stat.Resist, 0, len(raw))
+				for _, v := range raw {
+					if v == "" {
+						continue
+					}
+					skips = append(skips, stat.Resist(v))
+				}
+				cfg.Game.TerrorZone.SkipOnImmunities = skips
+			} else {
+				cfg.Game.TerrorZone.SkipOnImmunities = nil
+			}
+
+			if raw, ok := values["gameTerrorZoneAreas[]"]; ok {
+				areas := make([]area.ID, 0, len(raw))
+				for _, v := range raw {
+					if v == "" {
+						continue
+					}
+					if id, err := strconv.Atoi(v); err == nil {
+						areas = append(areas, area.ID(id))
+					}
+				}
+				cfg.Game.TerrorZone.Areas = areas
+			} else {
+				cfg.Game.TerrorZone.Areas = nil
+			}
+		case "utility":
+			if v := values.Get("gameUtilityParkingAct"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					cfg.Game.Utility.ParkingAct = n
+				}
+			}
+		case "shopping":
+			// Handled in applyShoppingFromForm, repeated here just for run detail completeness if needed
+		}
+	}
+}
+
+func (s *HttpServer) bulkApplyCharacterSettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		SourceSupervisor  string              `json:"sourceSupervisor"`
+		TargetSupervisors []string            `json:"targetSupervisors"`
+		Sections          ConfigUpdateOptions `json:"sections"` // Use the shared struct
+		RunDetailTargets  []string            `json:"runDetailTargets"`
+		Form              map[string][]string `json:"form"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	targets := map[string]struct{}{}
+	if req.SourceSupervisor != "" {
+		targets[req.SourceSupervisor] = struct{}{}
+	}
+	for _, t := range req.TargetSupervisors {
+		if t == "" {
+			continue
+		}
+		targets[t] = struct{}{}
+	}
+
+	if len(targets) == 0 {
+		http.Error(w, "no supervisors specified", http.StatusBadRequest)
+		return
+	}
+
+	// Convert JSON Form map to url.Values
+	values := url.Values{}
+	for k, arr := range req.Form {
+		for _, v := range arr {
+			values.Add(k, v)
+		}
+	}
+
+	for name := range targets {
+		cfg, found := config.GetCharacter(name)
+		if !found || cfg == nil {
+			continue
+		}
+
+		// Ensure Identity, Muling, Shopping are NOT applied by default in Bulk Apply unless specified
+		// The client currently sends `ConfigUpdateOptions` which matches the JS struct.
+		// Muling/Shopping keys might be missing in JS struct, defaulting to false (which is safe).
+		// UpdateAllRunDetails is defaulted to false for Bulk Apply (desired).
+
+		if err := s.updateConfigFromForm(values, cfg, req.Sections, req.RunDetailTargets); err != nil {
+			s.logger.Error("failed to apply config", slog.String("supervisor", name), slog.Any("error", err))
+			continue
+		}
+
+		if err := config.SaveSupervisorConfig(name, cfg); err != nil {
+			s.logger.Error("failed to save bulk-applied config", slog.String("supervisor", name), slog.Any("error", err))
+			continue
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
 }
 
 func (s *HttpServer) resetMuling(w http.ResponseWriter, r *http.Request) {
@@ -2143,49 +2911,4 @@ func buildTZGroups() []TZGroup {
 	})
 
 	return result
-}
-
-// Wire Shopping: parse shopping-specific fields (explicit field setting)
-func (s *HttpServer) applyShoppingFromForm(r *http.Request, cfg *config.CharacterCfg) {
-	// Enable/disable
-	cfg.Shopping.Enabled = r.Form.Has("shoppingEnabled")
-
-	// Numeric fields
-	if v, err := strconv.Atoi(r.Form.Get("shoppingMaxGoldToSpend")); err == nil {
-		cfg.Shopping.MaxGoldToSpend = v
-	}
-	if v, err := strconv.Atoi(r.Form.Get("shoppingMinGoldReserve")); err == nil {
-		cfg.Shopping.MinGoldReserve = v
-	}
-	if v, err := strconv.Atoi(r.Form.Get("shoppingRefreshesPerRun")); err == nil {
-		cfg.Shopping.RefreshesPerRun = v
-	}
-
-	// Rules file
-	cfg.Shopping.ShoppingRulesFile = r.Form.Get("shoppingRulesFile")
-
-	// Item types (comma-separated string to slice)
-	if raw := strings.TrimSpace(r.Form.Get("shoppingItemTypes")); raw != "" {
-		parts := strings.Split(raw, ",")
-		items := make([]string, 0, len(parts))
-		for _, p := range parts {
-			if p = strings.TrimSpace(p); p != "" {
-				items = append(items, p)
-			}
-		}
-		cfg.Shopping.ItemTypes = items
-	} else {
-		cfg.Shopping.ItemTypes = []string{}
-	}
-
-	// Vendor checkboxes
-	cfg.Shopping.VendorAkara = r.Form.Has("shoppingVendorAkara")
-	cfg.Shopping.VendorCharsi = r.Form.Has("shoppingVendorCharsi")
-	cfg.Shopping.VendorGheed = r.Form.Has("shoppingVendorGheed")
-	cfg.Shopping.VendorFara = r.Form.Has("shoppingVendorFara")
-	cfg.Shopping.VendorDrognan = r.Form.Has("shoppingVendorDrognan")
-	cfg.Shopping.VendorElzix = r.Form.Has("shoppingVendorElzix")
-	cfg.Shopping.VendorOrmus = r.Form.Has("shoppingVendorOrmus")
-	cfg.Shopping.VendorMalah = r.Form.Has("shoppingVendorMalah")
-	cfg.Shopping.VendorAnya = r.Form.Has("shoppingVendorAnya")
 }

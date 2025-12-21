@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
+	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action/step"
@@ -14,7 +15,6 @@ import (
 	"github.com/hectorgimenez/koolo/internal/utils"
 )
 
-// interactableShrines is a list of shrine types that the bot should interact with.
 var interactableShrines = []object.ShrineType{
 	object.ExperienceShrine,
 	object.StaminaShrine,
@@ -164,9 +164,22 @@ func getMonstersInRoom(room data.Room, filter data.MonsterFilter) []data.Monster
 
 	monstersInRoom := make([]data.Monster, 0)
 	for _, m := range ctx.Data.Monsters.Enemies(filter) {
-		if m.Stats[stat.Life] > 0 && room.IsInside(m.Position) || ctx.PathFinder.DistanceFromMe(m.Position) < 30 {
-			monstersInRoom = append(monstersInRoom, m)
+		// Fix operator precedence: alive AND (in room OR close to player).
+		if m.Stats[stat.Life] <= 0 {
+			continue
 		}
+		if !(room.IsInside(m.Position) || ctx.PathFinder.DistanceFromMe(m.Position) < 30) {
+			continue
+		}
+
+		// Skip monsters that exist in data but are placed on non-walkable tiles (often "underwater/off-grid").
+		// Keep Vizier exception (Chaos Sanctuary).
+		isVizier := m.Type == data.MonsterTypeSuperUnique && m.Name == npc.StormCaster
+		if !isVizier && !ctx.Data.AreaData.IsWalkable(m.Position) {
+			continue
+		}
+
+		monstersInRoom = append(monstersInRoom, m)
 	}
 
 	return monstersInRoom

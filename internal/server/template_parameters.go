@@ -53,6 +53,7 @@ type CharacterSettings struct {
 	Version               string
 	ErrorMessage          string
 	Supervisor            string
+	CloneSource           string
 	Config                *config.CharacterCfg
 	Saved                 bool
 	DayNames              []string
@@ -66,6 +67,7 @@ type CharacterSettings struct {
 	AvailableProfiles     []string
 	FarmerProfiles        []string
 	LevelingSequenceFiles []string
+	Supervisors           []string
 }
 
 type ConfigData struct {

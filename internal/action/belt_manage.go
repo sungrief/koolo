@@ -61,13 +61,12 @@ func ManageBelt() error {
 			continue
 		}
 
-		// Just consume the potion if:
-		// - character has more than enough gold
-		// - there is no space in inventory for the potion
-		if !isLowGold() || !hasInventorySpaceForPotion(potion) {
+		// Just consume the potion if there is no space in inventory for the potion
+		if !hasInventorySpaceForPotion(potion) {
 			ctx.HID.Click(game.RightButton, screenPos.X, screenPos.Y)
 			continue
 		}
+
 		ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.ShiftKey)
 	}
 
