@@ -56,7 +56,6 @@ func (a Baal) CheckConditions(parameters *RunParameters) SequencerResult {
 	}
 	return SequencerOk
 }
-
 func (s *Baal) Run(parameters *RunParameters) error {
 	// Set filter
 	filter := data.MonsterAnyFilter()
@@ -124,20 +123,42 @@ func (s *Baal) Run(parameters *RunParameters) error {
 	s.ctx.Logger.Info("Starting Baal waves...")
 	waveTimeout := time.Now().Add(7 * time.Minute)
 
+	lastWaveDetected := false
+	isWaitingForPortal := false
+	_, isLevelingChar := s.ctx.Char.(context.LevelingCharacter)
+
 	for !s.hasBaalLeftThrone() && time.Now().Before(waveTimeout) {
 		s.ctx.PauseIfNotPriority()
 		s.ctx.RefreshGameData()
 
 		// Detect last wave for logging
 		if _, found := s.ctx.Data.Monsters.FindOne(npc.BaalsMinion, data.MonsterTypeMinion); found {
-			s.ctx.Logger.Info("Last wave (Baal's Minion) detected")
+			if !lastWaveDetected {
+				s.ctx.Logger.Info("Last wave (Baal's Minion) detected")
+				lastWaveDetected = true
+			}
+		} else if lastWaveDetected {
+
+			if !s.ctx.CharacterCfg.Game.Baal.KillBaal && !isLevelingChar {
+				s.ctx.Logger.Info("Waves cleared, skipping Baal kill (Fast Exit).")
+				return nil
+			}
+
+			if !isWaitingForPortal {
+				s.ctx.Logger.Info("Waves cleared, moving to portal position to wait...")
+				action.MoveToCoords(data.Position{X: 15090, Y: 5008})
+				isWaitingForPortal = true
+			}
+
+			utils.Sleep(500)
+			continue
 		}
 
-		// Clear throne area and preattack
-		action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter())
-		action.MoveToCoords(baalThronePosition)
-
-		s.preAttackBaalWaves()
+		if !isWaitingForPortal {
+			action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter())
+			action.MoveToCoords(baalThronePosition)
+			s.preAttackBaalWaves()
+		}
 
 		utils.Sleep(500) // Prevent excessive checking
 	}
@@ -149,20 +170,22 @@ func (s *Baal) Run(parameters *RunParameters) error {
 	// Baal has entered the chamber
 	s.ctx.Logger.Info("Baal has entered the Worldstone Chamber")
 
-	// Final cleanup
-	err = action.ClearAreaAroundPosition(baalThronePosition, 50, data.MonsterAnyFilter())
-	if err != nil {
-		return err
-	}
-
-	// Kill Baal if configured
-	_, isLevelingChar := s.ctx.Char.(context.LevelingCharacter)
+	// Kill Baal Logic
 	if s.ctx.CharacterCfg.Game.Baal.KillBaal || isLevelingChar {
-		utils.Sleep(3000) // Wait for portal to stabilize
 		action.Buff()
 
-		// Find Baal portal
-		baalPortal, found := s.ctx.Data.Objects.FindOne(object.BaalsPortal)
+		s.ctx.Logger.Info("Waiting for Baal portal...")
+		var baalPortal data.Object
+		found := false
+
+		for i := 0; i < 15; i++ {
+			baalPortal, found = s.ctx.Data.Objects.FindOne(object.BaalsPortal)
+			if found {
+				break
+			}
+			utils.Sleep(300)
+		}
+
 		if !found {
 			return errors.New("baal portal not found after waves completed")
 		}
