@@ -475,7 +475,7 @@ func shouldBePickedUp(i data.Item) bool {
 	specialRuns := slices.Contains(ctx.CharacterCfg.Game.Runs, "quests") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling") || slices.Contains(ctx.CharacterCfg.Game.Runs, "leveling_sequence")
 	if specialRuns {
 		switch i.Name {
-		case "Scroll of Inifuss", "ScrollOfInifuss", "LamEsensTome", "HoradricCube",
+		case "Scroll of Inifuss", "ScrollOfInifuss", "LamEsensTome", "HoradricCube", "HoradricMalus",
 			"AmuletoftheViper", "StaffofKings", "HoradricStaff",
 			"AJadeFigurine", "KhalimsEye", "KhalimsBrain", "KhalimsHeart", "KhalimsFlail", "HellforgeHammer", "TheGidbinn":
 			return true
