@@ -67,11 +67,11 @@ func ClearCurrentLevelEx(openChests bool, filter data.MonsterFilter, shouldInter
 				if o.Selectable {
 					// Global settings override per-run openChests.
 					switch {
+                    switch {
 					case openSuperOnly:
-						shouldOpen = isConfiguredSuperChest(o.Name)
-					case openAllChests:
-						shouldOpen = o.IsChest() || o.IsSuperChest()
-					case openChests:
+						shouldOpen = o.IsSuperChest()
+					case openAllChests,
+						openChests:
 						shouldOpen = o.IsChest()
 					}
 				}
