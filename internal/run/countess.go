@@ -3,7 +3,6 @@ package run
 import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
-	"github.com/hectorgimenez/d2go/pkg/data/object"
 	"github.com/hectorgimenez/d2go/pkg/data/quest"
 	"github.com/hectorgimenez/koolo/internal/action"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -34,9 +33,6 @@ func (a Countess) CheckConditions(parameters *RunParameters) SequencerResult {
 }
 
 func (c Countess) Run(parameters *RunParameters) error {
-	c.ctx.DisableItemPickup()
-	defer c.ctx.EnableItemPickup()
-
 	// Travel to boss level
 	err := action.WayPoint(area.BlackMarsh)
 	if err != nil {
@@ -67,24 +63,13 @@ func (c Countess) Run(parameters *RunParameters) error {
 	}
 
 	err = action.MoveTo(func() (data.Position, bool) {
-		gameData := context.Get().GameReader.GetData()
-		areaData, ok := gameData.Areas[area.TowerCellarLevel5]
-		if !ok {
+		areaData := c.ctx.Data.Areas[area.TowerCellarLevel5]
+		countessNPC, found := areaData.NPCs.FindOne(740)
+		if !found {
 			return data.Position{}, false
 		}
-		countessNPC, found := areaData.NPCs.FindOne(740)
-		if found && len(countessNPC.Positions) > 0 {
-			return countessNPC.Positions[0], true
-		}
 
-		//FALLBACK: GoodChest
-		for _, o := range areaData.Objects {
-			if o.Name == object.GoodChest {
-				return o.Position, true
-			}
-		}
-
-		return data.Position{}, false
+		return countessNPC.Positions[0], true
 	})
 	if err != nil {
 		return err
@@ -95,8 +80,6 @@ func (c Countess) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	// Re-enable item pickup after Countess is dead
-	c.ctx.EnableItemPickup()
 	action.ItemPickup(30)
 
 	if clearFloors {
