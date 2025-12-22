@@ -56,6 +56,8 @@ type KooloCfg struct {
 		BotAdmins                    []string `yaml:"botAdmins"`
 		ChannelID                    string   `yaml:"channelId"`
 		Token                        string   `yaml:"token"`
+		UseWebhook                   bool     `yaml:"useWebhook"`
+		WebhookURL                   string   `yaml:"webhookUrl"`
 	} `yaml:"discord"`
 	Telegram struct {
 		Enabled bool   `yaml:"enabled"`
