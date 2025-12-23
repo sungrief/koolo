@@ -47,7 +47,7 @@ func MakeRunewords() error {
 			continue
 		}
 
-		ctx.Logger.Debug("Socket recipe is enabled, processing", "recipe", recipe.Name)
+		ctx.Logger.Debug("Runeword recipe is enabled, processing", "recipe", recipe.Name)
 
 		continueProcessing := true
 		for continueProcessing {

@@ -708,6 +708,13 @@ func RerollRunewords() {
 					}
 				}
 			}
+			if success {
+				ctx.Logger.Info("Runeword reroll: target satisfied",
+					"runeword", string(itm.RunewordName),
+					"targetStats", targetSummary,
+					"actualStats", actualSummary,
+				)
+			}
 			event.Send(event.RunewordReroll(
 				event.Text(ctx.Name, "Runeword reroll"),
 				string(itm.RunewordName),
