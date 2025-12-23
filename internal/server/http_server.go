@@ -45,6 +45,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/utils/winproc"
 	"github.com/lxn/win"
 	"golang.org/x/sys/windows"
+	"gopkg.in/yaml.v3"
 )
 
 type HttpServer struct {
@@ -1317,6 +1318,7 @@ type ConfigUpdateOptions struct {
 	Runs                bool `json:"runs"`
 	PacketCasting       bool `json:"packetCasting"`
 	CubeRecipes         bool `json:"cubeRecipes"`
+	RunewordMaker       bool `json:"runewordMaker"`
 	Merc                bool `json:"merc"`
 	General             bool `json:"general"` // Includes class specific options too
 	GeneralExtras       bool `json:"generalExtras"`
@@ -1830,6 +1832,31 @@ func getAllRunIDs() []string {
 	}
 }
 
+func cloneCharacterCfg(cfg *config.CharacterCfg) (*config.CharacterCfg, error) {
+	if cfg == nil {
+		return nil, errors.New("nil source config")
+	}
+	raw, err := yaml.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var out config.CharacterCfg
+	if err := yaml.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func applyRunewordSettings(dst *config.CharacterCfg, src *config.CharacterCfg) {
+	if dst == nil || src == nil {
+		return
+	}
+	dst.Game.RunewordMaker = src.Game.RunewordMaker
+	dst.Game.RunewordOverrides = src.Game.RunewordOverrides
+	dst.Game.RunewordRerollRules = src.Game.RunewordRerollRules
+	dst.CubeRecipes.PrioritizeRunewords = src.CubeRecipes.PrioritizeRunewords
+}
+
 func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	sequenceFiles := s.listLevelingSequenceFiles()
 	var err error
@@ -1845,6 +1872,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		supervisorName := r.Form.Get("name")
+		cloneSource := strings.TrimSpace(r.Form.Get("cloneSource"))
 		cfg, found := config.GetCharacter(supervisorName)
 		if !found {
 			err = config.CreateFromTemplate(supervisorName)
@@ -1867,7 +1895,35 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				})
 				return
 			}
+
+			if cloneSource != "" {
+				if cloneCfg, ok := config.GetCharacter(cloneSource); ok && cloneCfg != nil {
+					cloned, err := cloneCharacterCfg(cloneCfg)
+					if err != nil {
+						s.logger.Warn("failed to clone character config", slog.String("source", cloneSource), slog.Any("error", err))
+					} else {
+						cloned.ConfigFolderName = cfg.ConfigFolderName
+						*cfg = *cloned
+					}
+				}
+			}
 		}
+
+		if v := strings.TrimSpace(r.Form.Get("characterName")); v != "" {
+			cfg.CharacterName = v
+		}
+		cfg.Game.RunewordMaker.Enabled = r.Form.Has("runewordMakerEnabled")
+		cfg.AutoCreateCharacter = r.Form.Has("autoCreateCharacter")
+		cfg.Username = r.Form.Get("username")
+		cfg.Password = r.Form.Get("password")
+		cfg.Realm = r.Form.Get("realm")
+		cfg.AuthMethod = r.Form.Get("authmethod")
+		cfg.AuthToken = r.Form.Get("AuthToken")
+		cfg.CommandLineArgs = r.Form.Get("commandLineArgs")
+		cfg.KillD2OnStop = r.Form.Has("kill_d2_process")
+		cfg.ClassicMode = r.Form.Has("classic_mode")
+		cfg.CloseMiniPanel = r.Form.Has("close_mini_panel")
+		cfg.HidePortraits = r.Form.Has("hide_portraits")
 
 		// Health config
 		cfg.Health.HealingPotionAt, _ = strconv.Atoi(r.Form.Get("healingPotionAt"))
@@ -2235,12 +2291,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Leveling.HellRequiredLightRes = s.getIntFromForm(r, "gameLevelingHellRequiredLightRes", -100, 75, -10)
 
 		cfg.Game.LevelingSequence.SequenceFile = r.Form.Get("gameLevelingSequenceFile")
-
-		// Socket Recipes
-		cfg.Game.Leveling.EnableRunewordMaker = r.Form.Has("gameLevelingEnableRunewordMaker")
-		enabledRunewordRecipes := sanitizeEnabledRunewordSelection(r.Form["gameLevelingEnabledRunewordRecipes"], cfg)
-		cfg.Game.Leveling.EnabledRunewordRecipes = enabledRunewordRecipes
- 
 
 		// Quests options for Act 1
 		cfg.Game.Quests.ClearDen = r.Form.Has("gameQuestsClearDen")
@@ -2649,11 +2699,6 @@ func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg
 					cfg.Game.Leveling.HellRequiredLightRes = n
 				}
 			}
-			// Socket Recipes
-			cfg.Game.Leveling.EnableRunewordMaker = values.Has("gameLevelingEnableRunewordMaker")
-			enabledRunewordRecipes := sanitizeEnabledRunewordSelection(values["gameLevelingEnabledRunewordRecipes"], cfg)
-			cfg.Game.Leveling.EnabledRunewordRecipes = enabledRunewordRecipes
-
 		case "leveling_sequence":
 			cfg.Game.LevelingSequence.SequenceFile = values.Get("gameLevelingSequenceFile")
 		case "quests":
@@ -2754,10 +2799,25 @@ func (s *HttpServer) bulkApplyCharacterSettings(w http.ResponseWriter, r *http.R
 		}
 	}
 
+	var runewordSource *config.CharacterCfg
+	if req.Sections.RunewordMaker && req.SourceSupervisor != "" {
+		if src, ok := config.GetCharacter(req.SourceSupervisor); ok && src != nil {
+			if cloned, err := cloneCharacterCfg(src); err == nil {
+				runewordSource = cloned
+			} else {
+				s.logger.Warn("failed to clone runeword settings", slog.String("supervisor", req.SourceSupervisor), slog.Any("error", err))
+			}
+		}
+	}
+
 	for name := range targets {
 		cfg, found := config.GetCharacter(name)
 		if !found || cfg == nil {
 			continue
+		}
+
+		if req.Sections.RunewordMaker && runewordSource != nil {
+			applyRunewordSettings(cfg, runewordSource)
 		}
 
 		// Ensure Identity, Muling, Shopping are NOT applied by default in Bulk Apply unless specified

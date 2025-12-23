@@ -20,13 +20,18 @@ import (
 func MakeRunewords() error {
 	ctx := context.Get()
 	ctx.SetLastAction("SocketAddItems")
+	cfg := ctx.CharacterCfg
+
+	if !cfg.Game.RunewordMaker.Enabled {
+		return nil
+	}
 
 	insertItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 	baseItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 
 	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 
-	enabledRecipes := ctx.CharacterCfg.Game.Leveling.EnabledRunewordRecipes
+	enabledRecipes := cfg.Game.RunewordMaker.EnabledRecipes
 	enabledSet := make(map[string]struct{}, len(enabledRecipes))
 	for _, recipe := range enabledRecipes {
 		enabledSet[recipe] = struct{}{}

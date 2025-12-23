@@ -337,9 +337,9 @@
                     <div class="runeword-list-item" data-runeword-name="{{ $recipe }}" style="padding: 4px 2px; cursor: pointer;">
                         <input type="checkbox"
                                class="rw-enabled-checkbox"
-                               name="gameLevelingEnabledRunewordRecipes"
+                               name="runewordMakerEnabledRecipes"
                                value="{{ $recipe }}"
-                               {{ if contains $.Config.Game.Leveling.EnabledRunewordRecipes $recipe }}checked{{ end }}/>
+                               {{ if contains $.Config.Game.RunewordMaker.EnabledRecipes $recipe }}checked{{ end }}/>
                         <span class="runeword-name">{{ $recipe }}</span>
                         <span class="rw-reroll-badge" title="Reroll rules configured">
                             <i class="bi bi-arrow-repeat"></i>

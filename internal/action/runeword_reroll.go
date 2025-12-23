@@ -615,6 +615,11 @@ func unsocketRuneword(itm data.Item) (bool, string) {
 func RerollRunewords() {
 	ctx := context.Get()
 
+	if !ctx.CharacterCfg.Game.RunewordMaker.Enabled {
+		ctx.Logger.Debug("Runeword reroll: runeword maker disabled; skipping")
+		return
+	}
+
 	// Skip reroll logic for leveling characters so their streamlined flow stays untouched.
 	if _, isLevelingChar := ctx.Char.(context.LevelingCharacter); isLevelingChar {
 		ctx.Logger.Debug("Runeword reroll: skipping reroll logic for leveling character")

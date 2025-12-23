@@ -371,9 +371,9 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 
 		cfg.CubeRecipes.PrioritizeRunewords = r.Form.Has("rwPrioritizeBeforeCubing")
 
-		// Enabled runeword recipes are shared with leveling settings
-		enabledRunewordRecipes := sanitizeEnabledRunewordSelection(r.Form["gameLevelingEnabledRunewordRecipes"], cfg)
-		cfg.Game.Leveling.EnabledRunewordRecipes = enabledRunewordRecipes
+		cfg.Game.RunewordMaker.Enabled = r.Form.Has("runewordMakerEnabled")
+		enabledRunewordRecipes := sanitizeEnabledRunewordSelection(r.Form["runewordMakerEnabledRecipes"], cfg)
+		cfg.Game.RunewordMaker.EnabledRecipes = enabledRunewordRecipes
 
 		// Parse and save per-runeword overrides into cfg.Game.RunewordOverrides.
 		// Currently the UI only edits a single runeword at a time, identified

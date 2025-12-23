@@ -381,6 +381,10 @@ type CharacterCfg struct {
 			HellRequiredLightRes      int      `yaml:"hellRequiredLightRes"`
 			EnabledRunewordRecipes    []string `yaml:"enabledRunewordRecipes"`
 		} `yaml:"leveling"`
+		RunewordMaker struct {
+			Enabled        bool     `yaml:"enabled"`
+			EnabledRecipes []string `yaml:"enabledRunewordRecipes"`
+		} `yaml:"runewordMaker"`
 		LevelingSequence struct {
 			SequenceFile string `yaml:"sequenceFile"`
 		} `yaml:"leveling_sequence"`
@@ -539,6 +543,15 @@ func Load() error {
 
 		if charCfg.Game.MaxFailedMenuAttempts == 0 {
 			charCfg.Game.MaxFailedMenuAttempts = 10
+		}
+
+		if len(charCfg.Game.RunewordMaker.EnabledRecipes) == 0 && len(charCfg.Game.Leveling.EnabledRunewordRecipes) > 0 {
+			charCfg.Game.RunewordMaker.EnabledRecipes = slices.Clone(charCfg.Game.Leveling.EnabledRunewordRecipes)
+		}
+		if !charCfg.Game.RunewordMaker.Enabled {
+			if charCfg.Game.Leveling.EnableRunewordMaker || len(charCfg.Game.RunewordMaker.EnabledRecipes) > 0 || len(charCfg.Game.Leveling.EnabledRunewordRecipes) > 0 || len(charCfg.Game.RunewordRerollRules) > 0 {
+				charCfg.Game.RunewordMaker.Enabled = true
+			}
 		}
 
 		var pickitPath string
