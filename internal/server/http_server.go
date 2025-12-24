@@ -1938,6 +1938,11 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 
 		// Character config section
 		cfg.Character.Class = r.Form.Get("characterClass")
+		if strings.HasSuffix(cfg.Character.Class, "_leveling") {
+			// Leveling characters should start without cloned runeword reroll/override rules.
+			cfg.Game.RunewordOverrides = nil
+			cfg.Game.RunewordRerollRules = nil
+		}
 		cfg.Character.StashToShared = r.Form.Has("characterStashToShared")
 		cfg.Character.UseTeleport = r.Form.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = r.Form.Has("characterUseExtraBuffs")
