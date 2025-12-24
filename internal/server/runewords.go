@@ -363,6 +363,7 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 				Saved:              false,
 				ErrorMessage:       err.Error(),
 				RunewordRecipeList: availableRunewordRecipesForCharacter(cfg),
+				RunewordFavoriteRecipes: config.Koolo.RunewordFavoriteRecipes,
 				RunewordRuneNames:  buildRunewordRuneNames(),
 				RunewordRerollable: buildRunewordRerollable(),
 			})
@@ -376,6 +377,8 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		enabledRunewordRecipes := sanitizeEnabledRunewordSelection(r.Form["runewordMakerEnabledRecipes"], cfg)
 		cfg.Game.RunewordMaker.EnabledRecipes = enabledRunewordRecipes
+		favoriteRunewordRecipes := sanitizeEnabledRunewordSelection(r.Form["runewordFavoriteRecipes"], cfg)
+		config.Koolo.RunewordFavoriteRecipes = favoriteRunewordRecipes
 
 		// Parse and save per-runeword overrides into cfg.Game.RunewordOverrides.
 		// Currently the UI only edits a single runeword at a time, identified
@@ -416,16 +419,17 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 
 				var rules []config.RunewordRerollRule
 				if err := json.Unmarshal([]byte(rawRules), &rules); err != nil {
-					s.templates.ExecuteTemplate(w, "runewords.gohtml", CharacterSettings{
-				Version:            config.Version,
-				Supervisor:         characterName,
-				Config:             cfg,
-				Saved:              false,
-				ErrorMessage:       fmt.Sprintf("failed to parse reroll rules: %v", err),
-				RunewordRecipeList: availableRunewordRecipesForCharacter(cfg),
-				RunewordRuneNames:  buildRunewordRuneNames(),
-				RunewordRerollable: buildRunewordRerollable(),
-					})
+				s.templates.ExecuteTemplate(w, "runewords.gohtml", CharacterSettings{
+					Version:                 config.Version,
+					Supervisor:              characterName,
+					Config:                  cfg,
+					Saved:                   false,
+					ErrorMessage:            fmt.Sprintf("failed to parse reroll rules: %v", err),
+					RunewordRecipeList:      availableRunewordRecipesForCharacter(cfg),
+					RunewordFavoriteRecipes: config.Koolo.RunewordFavoriteRecipes,
+					RunewordRuneNames:       buildRunewordRuneNames(),
+					RunewordRerollable:      buildRunewordRerollable(),
+				})
 					return
 				}
 
@@ -443,16 +447,31 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 	saveConfig:
+		if err := config.SaveKooloConfig(config.Koolo); err != nil {
+			s.templates.ExecuteTemplate(w, "runewords.gohtml", CharacterSettings{
+				Version:                 config.Version,
+				Supervisor:              characterName,
+				Config:                  cfg,
+				Saved:                   false,
+				ErrorMessage:            err.Error(),
+				RunewordRecipeList:      availableRunewordRecipesForCharacter(cfg),
+				RunewordFavoriteRecipes: config.Koolo.RunewordFavoriteRecipes,
+				RunewordRuneNames:       buildRunewordRuneNames(),
+				RunewordRerollable:      buildRunewordRerollable(),
+			})
+			return
+		}
 		if err := config.SaveSupervisorConfig(characterName, cfg); err != nil {
 			s.templates.ExecuteTemplate(w, "runewords.gohtml", CharacterSettings{
-				Version:            config.Version,
-				Supervisor:         characterName,
-				Config:             cfg,
-				Saved:              false,
-				ErrorMessage:       err.Error(),
-				RunewordRecipeList: availableRunewordRecipesForCharacter(cfg),
-				RunewordRuneNames:  buildRunewordRuneNames(),
-				RunewordRerollable: buildRunewordRerollable(),
+				Version:                 config.Version,
+				Supervisor:              characterName,
+				Config:                  cfg,
+				Saved:                   false,
+				ErrorMessage:            err.Error(),
+				RunewordRecipeList:      availableRunewordRecipesForCharacter(cfg),
+				RunewordFavoriteRecipes: config.Koolo.RunewordFavoriteRecipes,
+				RunewordRuneNames:       buildRunewordRuneNames(),
+				RunewordRerollable:      buildRunewordRerollable(),
 			})
 			return
 		}
@@ -462,13 +481,14 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.templates.ExecuteTemplate(w, "runewords.gohtml", CharacterSettings{
-		Version:            config.Version,
-		Supervisor:         characterName,
-		Config:             cfg,
-		Saved:              saved,
-		RunewordRecipeList: availableRunewordRecipesForCharacter(cfg),
-		RunewordRuneNames:  buildRunewordRuneNames(),
-		RunewordRerollable: buildRunewordRerollable(),
+		Version:                 config.Version,
+		Supervisor:              characterName,
+		Config:                  cfg,
+		Saved:                   saved,
+		RunewordRecipeList:      availableRunewordRecipesForCharacter(cfg),
+		RunewordFavoriteRecipes: config.Koolo.RunewordFavoriteRecipes,
+		RunewordRuneNames:       buildRunewordRuneNames(),
+		RunewordRerollable:      buildRunewordRerollable(),
 	})
 }
 

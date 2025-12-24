@@ -62,6 +62,7 @@ type CharacterSettings struct {
 	TerrorZoneGroups      []TZGroup
 	RecipeList            []string
 	RunewordRecipeList    []string
+	RunewordFavoriteRecipes []string
 	RunewordRuneNames     map[string]string
 	RunewordRerollable    map[string]bool
 	AvailableProfiles     []string

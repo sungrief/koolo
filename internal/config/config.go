@@ -73,6 +73,7 @@ type KooloCfg struct {
 		Enabled      bool `yaml:"enabled"`
 		DelaySeconds int  `yaml:"delaySeconds"`
 	} `yaml:"autoStart"`
+	RunewordFavoriteRecipes []string `yaml:"runewordFavoriteRecipes"`
 }
 
 type Day struct {
@@ -667,6 +668,20 @@ func ValidateAndSaveConfig(config KooloCfg) error {
 	}
 
 	return Load()
+}
+
+func SaveKooloConfig(config *KooloCfg) error {
+	if config == nil {
+		return errors.New("koolo config is nil")
+	}
+	text, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("error parsing koolo config: %w", err)
+	}
+	if err := os.WriteFile("config/koolo.yaml", text, 0644); err != nil {
+		return fmt.Errorf("error writing koolo config: %w", err)
+	}
+	return nil
 }
 
 func SaveSupervisorConfig(supervisorName string, config *CharacterCfg) error {
