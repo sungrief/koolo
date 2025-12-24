@@ -377,7 +377,7 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		enabledRunewordRecipes := sanitizeEnabledRunewordSelection(r.Form["runewordMakerEnabledRecipes"], cfg)
 		cfg.Game.RunewordMaker.EnabledRecipes = enabledRunewordRecipes
-		favoriteRunewordRecipes := sanitizeEnabledRunewordSelection(r.Form["runewordFavoriteRecipes"], cfg)
+		favoriteRunewordRecipes := sanitizeFavoriteRunewordSelection(r.Form["runewordFavoriteRecipes"])
 		config.Koolo.RunewordFavoriteRecipes = favoriteRunewordRecipes
 
 		// Parse and save per-runeword overrides into cfg.Game.RunewordOverrides.
@@ -492,31 +492,6 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// availableRerollableRunewordRecipes returns the list of runeword names that
-// actually have rollable stats defined. Runewords without any Rolls are
-// effectively fixed-value and do not benefit from reroll rules, so we
-// hide them from the reroll configuration UI.
-func availableRerollableRunewordRecipes() []string {
-	// Build a set of runeword names that have non-empty Rolls.
-	allowed := make(map[string]struct{}, len(action.Runewords))
-	for _, rw := range action.Runewords {
-		if len(rw.Rolls) == 0 {
-			continue
-		}
-		allowed[string(rw.Name)] = struct{}{}
-	}
-
-	// Preserve the display/order defined in config.AvailableRunewordRecipes.
-	filtered := make([]string, 0, len(allowed))
-	for _, name := range config.AvailableRunewordRecipes {
-		if _, ok := allowed[name]; ok {
-			filtered = append(filtered, name)
-		}
-	}
-
-	return filtered
-}
-
 // buildRunewordRerollable returns a map of runeword name -> whether
 // this runeword actually supports reroll rules (i.e. it has at least
 // one rollable stat in Rolls). The UI uses this to hide the reroll
@@ -597,4 +572,26 @@ func sanitizeEnabledRunewordSelection(selected []string, cfg *config.CharacterCf
 		return selected
 	}
 	return filterLadderRunewords(selected, cfg.Game.IsNonLadderChar)
+}
+
+func sanitizeFavoriteRunewordSelection(selected []string) []string {
+	allowed := make(map[string]struct{}, len(config.AvailableRunewordRecipes))
+	for _, name := range config.AvailableRunewordRecipes {
+		allowed[name] = struct{}{}
+	}
+
+	result := make([]string, 0, len(selected))
+	seen := make(map[string]struct{}, len(selected))
+	for _, name := range selected {
+		if _, ok := allowed[name]; !ok {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		result = append(result, name)
+	}
+
+	return result
 }

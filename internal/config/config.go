@@ -85,12 +85,9 @@ type Day struct {
 type RunewordOverrideConfig struct {
 	EthMode       string                       `yaml:"ethMode,omitempty"`       // "any", "eth", "noneth"
 	QualityMode   string                       `yaml:"qualityMode,omitempty"`   // "any", "normal", "superior"
-	MinED         int                          `yaml:"minED,omitempty"`         // 0 means no minimum
 	BaseType      string                       `yaml:"baseType,omitempty"`      // armor, bow, polearm, etc.
 	BaseTier      string                       `yaml:"baseTier,omitempty"`      // "", "normal", "exceptional", "elite"
 	BaseName      string                       `yaml:"baseName,omitempty"`      // optional specific base name
-	RerollEnabled bool                         `yaml:"rerollEnabled,omitempty"` // whether reroll logic is enabled
-	TargetStats   []RunewordTargetStatOverride `yaml:"targetStats,omitempty"`   // per-stat minimums for reroll
 }
 
 // RunewordTargetStatOverride captures the desired min/max for a stat (and optional layer) when rerolling.

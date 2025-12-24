@@ -162,11 +162,6 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 		}
 	}
 
-	requiredCounts := make(map[string]int)
-	for _, insert := range recipe.Runes {
-		requiredCounts[insert]++
-	}
-
 	usedItems := make(map[*data.Item]bool)
 	orderedItems := make([]data.Item, 0)
 

@@ -348,7 +348,7 @@
                 <div id="rw-list" style="max-height: 480px; overflow-y: auto; border: 1px solid #333; padding: 8px;">
                     {{ range $index, $recipe := .RunewordRecipeList }}
                     <div class="runeword-list-item" data-runeword-name="{{ $recipe }}" data-favorite="{{ if contains $.RunewordFavoriteRecipes $recipe }}1{{ end }}" style="padding: 4px 2px; cursor: pointer;">
-                        <button type="button" class="rw-fav-btn" aria-label="Favorite runeword">☆</button>
+                        <button type="button" class="rw-fav-btn" aria-label="Favorite runeword">&#9734;</button>
                         {{ if contains $.RunewordFavoriteRecipes $recipe }}
                         <input type="hidden" class="rw-fav-input" name="runewordFavoriteRecipes" value="{{ $recipe }}" />
                         {{ end }}
@@ -374,7 +374,7 @@
                     <!-- Header: Title & Toggles -->
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 1rem; margin-bottom: 0.3rem; padding-top: 1.25rem;">
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <button type="button" id="rwDetailFavBtn" class="rw-fav-btn" aria-label="Favorite runeword">☆</button>
+                            <button type="button" id="rwDetailFavBtn" class="rw-fav-btn" aria-label="Favorite runeword">&#9734;</button>
                             <h4 id="rw-detail-title" style="margin: 0; font-size: 1.4rem;"></h4>
                         </div>
                         <div style="display: flex; gap: 1.5rem;">
@@ -640,10 +640,10 @@
                 if (!btn) return;
                 if (isFav) {
                     btn.classList.add('active');
-                    btn.textContent = '★';
+                    btn.innerHTML = "&#9733;";
                 } else {
                     btn.classList.remove('active');
-                    btn.textContent = '☆';
+                    btn.innerHTML = "&#9734;";
                 }
             }
 
