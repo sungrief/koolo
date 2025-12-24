@@ -985,13 +985,34 @@
                     Configure runeword maker and reroll options on the dedicated Runeword Settings page.
                 </p>
                 <label style="display: flex; align-items: center; gap: 0.4rem; margin: 0 0 10px 0; font-size: 0.9em;">
-                    <input type="checkbox" name="runewordMakerEnabled" {{ if .Config.Game.RunewordMaker.Enabled }}checked{{ end }}/>
+                    <input type="checkbox" id="runewordMakerEnabled" name="runewordMakerEnabled" {{ if .Config.Game.RunewordMaker.Enabled }}checked{{ end }}/>
                     <span>Enable Runeword Maker</span>
                 </label>
                 <a href="/runewords?characterName={{ .Supervisor }}">
                     <input type="button" value="Open Runeword Settings" />
                 </a>
             </div>
+            <script>
+                (function () {
+                    const rwEnabledToggle = document.getElementById('runewordMakerEnabled');
+                    const hasActiveRecipes = {{ if gt (len .Config.Game.RunewordMaker.EnabledRecipes) 0 }}true{{ else }}false{{ end }};
+                    if (!rwEnabledToggle) {
+                        return;
+                    }
+                    rwEnabledToggle.addEventListener('change', function () {
+                        if (rwEnabledToggle.checked) {
+                            return;
+                        }
+                        if (!hasActiveRecipes) {
+                            return;
+                        }
+                        const ok = confirm('Active recipes exist. Disabling will stop all runeword crafting.');
+                        if (!ok) {
+                            rwEnabledToggle.checked = true;
+                        }
+                    });
+                })();
+            </script>
             <h3>Cube Recipes</h3>
             <label>
                 <input type="checkbox" style="padding-right: 30px" name="enableCubeRecipes" {{ if .Config.CubeRecipes.Enabled }}checked{{ end }}/>

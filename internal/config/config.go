@@ -543,15 +543,6 @@ func Load() error {
 			charCfg.Game.MaxFailedMenuAttempts = 10
 		}
 
-		if len(charCfg.Game.RunewordMaker.EnabledRecipes) == 0 && len(charCfg.Game.Leveling.EnabledRunewordRecipes) > 0 {
-			charCfg.Game.RunewordMaker.EnabledRecipes = slices.Clone(charCfg.Game.Leveling.EnabledRunewordRecipes)
-		}
-		if !charCfg.Game.RunewordMaker.Enabled {
-			if charCfg.Game.Leveling.EnableRunewordMaker || len(charCfg.Game.RunewordMaker.EnabledRecipes) > 0 || len(charCfg.Game.Leveling.EnabledRunewordRecipes) > 0 || len(charCfg.Game.RunewordRerollRules) > 0 {
-				charCfg.Game.RunewordMaker.Enabled = true
-			}
-		}
-
 		var pickitPath string
 		if Koolo.CentralizedPickitPath != "" && charCfg.UseCentralizedPickit {
 			if _, err := os.Stat(Koolo.CentralizedPickitPath); os.IsNotExist(err) {

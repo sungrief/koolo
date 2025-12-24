@@ -377,8 +377,37 @@ func (s *HttpServer) runewordSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		enabledRunewordRecipes := sanitizeEnabledRunewordSelection(r.Form["runewordMakerEnabledRecipes"], cfg)
 		cfg.Game.RunewordMaker.EnabledRecipes = enabledRunewordRecipes
+		if len(enabledRunewordRecipes) > 0 {
+			cfg.Game.RunewordMaker.Enabled = true
+		} else {
+			cfg.Game.RunewordMaker.Enabled = false
+		}
 		favoriteRunewordRecipes := sanitizeFavoriteRunewordSelection(r.Form["runewordFavoriteRecipes"])
-		config.Koolo.RunewordFavoriteRecipes = favoriteRunewordRecipes
+		visibleRunewords := availableRunewordRecipesForCharacter(cfg)
+		visibleSet := make(map[string]struct{}, len(visibleRunewords))
+		for _, name := range visibleRunewords {
+			visibleSet[name] = struct{}{}
+		}
+		mergedFavorites := make([]string, 0, len(favoriteRunewordRecipes)+len(config.Koolo.RunewordFavoriteRecipes))
+		seenFavorites := make(map[string]struct{}, len(favoriteRunewordRecipes)+len(config.Koolo.RunewordFavoriteRecipes))
+		for _, name := range favoriteRunewordRecipes {
+			if _, ok := seenFavorites[name]; ok {
+				continue
+			}
+			seenFavorites[name] = struct{}{}
+			mergedFavorites = append(mergedFavorites, name)
+		}
+		for _, name := range config.Koolo.RunewordFavoriteRecipes {
+			if _, visible := visibleSet[name]; visible {
+				continue
+			}
+			if _, ok := seenFavorites[name]; ok {
+				continue
+			}
+			seenFavorites[name] = struct{}{}
+			mergedFavorites = append(mergedFavorites, name)
+		}
+		config.Koolo.RunewordFavoriteRecipes = mergedFavorites
 
 		// Parse and save per-runeword overrides into cfg.Game.RunewordOverrides.
 		// Currently the UI only edits a single runeword at a time, identified
