@@ -102,6 +102,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error starting local server: %s", err.Error())
 	}
+	eventListener.Register(srv.HandleRunewordHistory)
 
 	g.Go(wrapWithRecover(logger, func() error {
 		defer cancel()
