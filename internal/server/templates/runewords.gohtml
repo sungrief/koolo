@@ -831,8 +831,8 @@
                 });
             }
 
-            function loadRerollHistory() {
-                if (rerollHistoryLoaded) {
+            function loadRerollHistory(force) {
+                if (rerollHistoryLoaded && !force) {
                     return Promise.resolve(rerollHistoryCache);
                 }
                 const stored = loadHistoryFromStorage();
@@ -1992,6 +1992,16 @@
                 });
             }
 
+            function startHistoryAutoSync() {
+                loadRerollHistory(true);
+                setInterval(function () {
+                    if (document.hidden) {
+                        return;
+                    }
+                    loadRerollHistory(true);
+                }, 60000);
+            }
+
             document.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') {
                     closeHistoryModal();
@@ -2049,6 +2059,7 @@
             // Initial sort so enabled runewords appear first
             sortByEnabled();
             markRunewordsWithRerollBadges();
+            startHistoryAutoSync();
         })();
     </script>
 </main>

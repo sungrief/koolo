@@ -412,7 +412,7 @@ func evaluateRunewordRules(ctx *context.Status, itm data.Item, rules []config.Ru
 	return applicableRuleFound, meetsAnyRule, historyRule
 }
 
-func findRerolledRunewordItem(original data.Item, recipe Runeword) (data.Item, bool) {
+func findRerolledRunewordItem(original data.Item, recipe Runeword, excludeIDs map[data.UnitID]struct{}) (data.Item, bool) {
 	ctx := context.Get()
 
 	items := ctx.Data.Inventory.ByLocation(
@@ -424,7 +424,23 @@ func findRerolledRunewordItem(original data.Item, recipe Runeword) (data.Item, b
 	origDesc := original.Desc()
 	origBaseCode := pickit.ToNIPName(origDesc.Name)
 
+	// Prefer the same UnitID if the base survives unsocketing and re-socketing.
 	for _, itm := range items {
+		if _, excluded := excludeIDs[itm.UnitID]; excluded {
+			continue
+		}
+		if itm.UnitID != original.UnitID {
+			continue
+		}
+		if itm.IsRuneword && itm.RunewordName == recipe.Name {
+			return itm, true
+		}
+	}
+
+	for _, itm := range items {
+		if _, excluded := excludeIDs[itm.UnitID]; excluded {
+			continue
+		}
 		if !itm.IsRuneword || itm.RunewordName != recipe.Name {
 			continue
 		}
@@ -442,6 +458,29 @@ func findRerolledRunewordItem(original data.Item, recipe Runeword) (data.Item, b
 	}
 
 	return data.Item{}, false
+}
+
+func buildExcludedRunewordUnitIDs(target data.Item, recipe Runeword) map[data.UnitID]struct{} {
+	ctx := context.Get()
+
+	items := ctx.Data.Inventory.ByLocation(
+		item.LocationInventory,
+		item.LocationStash,
+		item.LocationSharedStash,
+	)
+
+	excludeIDs := make(map[data.UnitID]struct{})
+	for _, itm := range items {
+		if !itm.IsRuneword || itm.RunewordName != recipe.Name {
+			continue
+		}
+		if itm.UnitID == target.UnitID {
+			continue
+		}
+		excludeIDs[itm.UnitID] = struct{}{}
+	}
+
+	return excludeIDs
 }
 
 // hasRunesForReroll ensures stash/inventory has the Hel rune for unsocketing plus everything needed to rebuild the recipe.
@@ -692,9 +731,10 @@ func RerollRunewords() {
 				actualSummary = "n/a"
 			}
 
+			excludeIDs := buildExcludedRunewordUnitIDs(itm, recipe)
 			success, failureReason := unsocketRuneword(itm)
 			if success {
-				remade, found := findRerolledRunewordItem(itm, recipe)
+				remade, found := findRerolledRunewordItem(itm, recipe, excludeIDs)
 				if !found {
 					success = false
 					failureReason = "Remade item not found"
