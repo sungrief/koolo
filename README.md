@@ -4,12 +4,15 @@ We're happy to announce that all classes are now supported for leveling!
 While we're still ironing a few things out in the leveling feature, we have already made major changes to other parts of the bot like:
 
 * Optional usage of packets
+* Leveling sequencer + editor (customizable leveling)
 * Complete movement overhaul
 * Torch-System (Ubers)
 * Terror zones rework
 * Shopping bot
+* Dropper
+* Auto-Mule
 * Barb improvements
-* Runeword maker (rerolling)
+* Improved Runeword maker (rerolling)
 * Pickit editor
 * Discord integration overhaul
 * Buff rework
