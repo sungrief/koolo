@@ -16,7 +16,7 @@ While we're still ironing a few things out in the leveling feature, we have alre
 * Pickit editor
 * Discord integration overhaul
 * Buff rework
-* Many qol features like mass-profile-management, improved class-selector, auto-char-creation, mass-auto-starting, etc.
+* Many qol features like mass-profile-management, improved class-selection, auto-char-creation, mass-auto-starting, etc.
 
 To name only a few!
 
