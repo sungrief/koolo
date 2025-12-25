@@ -1241,6 +1241,8 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Discord.EnableDiscordErrorMessages = r.Form.Has("enable_discord_error_messages")
 		newConfig.Discord.Token = r.Form.Get("discord_token")
 		newConfig.Discord.ChannelID = r.Form.Get("discord_channel_id")
+		newConfig.Discord.UseWebhook = r.Form.Get("discord_use_webhook") == "true"
+		newConfig.Discord.WebhookURL = strings.TrimSpace(r.Form.Get("discord_webhook_url"))
 
 		// Discord admins who can use bot commands
 		discordAdmins := r.Form.Get("discord_admins")
