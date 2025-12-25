@@ -57,9 +57,18 @@ func (gd *MemoryReader) MapSeed() uint {
 
 func (gd *MemoryReader) FetchMapData() error {
 	d := gd.GameReader.GetData()
+	if d.PlayerUnit.Address == 0 {
+		return errors.New("player unit not found, game may not be fully loaded")
+	}
+
 	gd.mapSeed, _ = gd.getMapSeed(d.PlayerUnit.Address)
 	t := time.Now()
-	cfg, _ := config.GetCharacter(gd.supervisorName)
+
+	cfg, found := config.GetCharacter(gd.supervisorName)
+	if !found {
+		return errors.New("character config not found")
+	}
+
 	gd.logger.Debug("Fetching map data...", slog.Uint64("seed", uint64(gd.mapSeed)), slog.String("difficulty", string(cfg.Game.Difficulty)))
 
 	mapData, err := map_client.GetMapData(strconv.Itoa(int(gd.mapSeed)), cfg.Game.Difficulty)
@@ -232,6 +241,10 @@ func (gd *MemoryReader) updateWindowPositionData() {
 func (gd *MemoryReader) GetData() Data {
 	d := gd.GameReader.GetData()
 	currentArea, ok := gd.cachedMapData[d.PlayerUnit.Area]
+
+	// Resolve actual player area based on position (fixes stale memory reads on slow computers)
+	currentArea, d.PlayerUnit.Area, ok = gd.resolvePlayerArea(d.PlayerUnit.Position, d.PlayerUnit.Area, currentArea, ok)
+
 	if ok {
 		// This hacky thing is because sometimes if the objects are far away we can not fetch them, basically WP.
 		memObjects := gd.Objects(d.PlayerUnit.Position, d.HoverData)
@@ -267,6 +280,31 @@ func (gd *MemoryReader) GetData() Data {
 		AreaData:     currentArea,
 		Areas:        gd.cachedMapData,
 	}
+}
+
+func (gd *MemoryReader) resolvePlayerArea(pos data.Position, reportedAreaID area.ID, reportedArea AreaData, ok bool) (AreaData, area.ID, bool) {
+	if !ok || reportedArea.IsInside(pos) || reportedAreaID.IsTown() {
+		return reportedArea, reportedAreaID, ok
+	}
+
+	// Search adjacent areas first
+	for _, adj := range reportedArea.AdjacentLevels {
+		if adjArea, found := gd.cachedMapData[adj.Area]; found {
+			if adjArea.IsInside(pos) {
+				return adjArea, adjArea.Area, true
+			}
+		}
+	}
+
+	// Broader search if not found in adjacent areas
+	for _, areaData := range gd.cachedMapData {
+		if areaData.IsInside(pos) {
+			return areaData, areaData.Area, true
+		}
+	}
+
+	// No correction found, return original
+	return reportedArea, reportedAreaID, ok
 }
 
 func (gd *MemoryReader) getMapSeed(playerUnit uintptr) (uint, error) {
