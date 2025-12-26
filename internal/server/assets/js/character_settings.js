@@ -1,7 +1,12 @@
+let activeRunFilter = 'all';
+let currentSearchTerm = '';
+let runFilterTabs = [];
+
 window.onload = function () {
     let enabled_runs_ul = document.getElementById('enabled_runs');
     let disabled_runs_ul = document.getElementById('disabled_runs');
     let searchInput = document.getElementById('search-disabled-runs');
+    runFilterTabs = document.querySelectorAll('.run-filter-tab');
 
     new Sortable(enabled_runs_ul, {
         group: 'runs',
@@ -23,11 +28,22 @@ window.onload = function () {
     });
 
     searchInput.addEventListener('input', function () {
-        filterDisabledRuns(searchInput.value);
+        currentSearchTerm = searchInput.value;
+        filterDisabledRuns(currentSearchTerm);
     });
 
     // Add event listeners for add and remove buttons
     document.addEventListener('click', function (e) {
+        const favButton = e.target.closest('.run-fav-btn');
+        if (favButton) {
+            e.preventDefault();
+            e.stopPropagation();
+            const runItem = favButton.closest('li');
+            if (runItem) {
+                toggleRunFavorite(runItem);
+            }
+            return;
+        }
         if (e.target.closest('.remove-run')) {
             e.preventDefault();
             const runElement = e.target.closest('li');
@@ -39,6 +55,8 @@ window.onload = function () {
         }
     });
 
+    initializeRunFilters();
+    initializeRunFavorites();
     updateEnabledRunsHiddenField();
 
     const buildSelectElement = document.querySelector('select[name="characterClass"]');
@@ -75,17 +93,169 @@ function updateEnabledRunsHiddenField() {
     }
 }
 
-function filterDisabledRuns(searchTerm) {
-    let listItems = document.querySelectorAll('#disabled_runs li');
-    searchTerm = searchTerm.toLowerCase();
-    listItems.forEach(function (item) {
-        let runName = item.getAttribute("value").toLowerCase();
-        if (runName.includes(searchTerm)) {
-            item.style.display = '';
-        } else {
-            item.style.display = 'none';
+function getRunCategory(runName) {
+    const name = runName.toLowerCase();
+
+    if (name.includes('leveling') || name.includes('quests')) {
+        return 'leveling';
+    }
+
+    if (name.includes('key') || name.includes('countess') || name.includes('summoner') || name.includes('nihl')) {
+        return 'key';
+    }
+
+    if (
+        name.includes('andariel') ||
+        name.includes('duriel') ||
+        name.includes('mephisto') ||
+        name.includes('diablo') ||
+        name.includes('baal')
+    ) {
+        return 'act-boss';
+    }
+
+    if (
+        name.includes('pit') ||
+        name.includes('tunnels') ||
+        name.includes('ancient_tunnels') ||
+        name.includes('chaos') ||
+        name.includes('river') ||
+        name.includes('worldstone') ||
+        name.includes('wsk') ||
+        name.includes('stony_tomb') ||
+        name.includes('mausoleum') ||
+        name.includes('arachnid_lair') ||
+        name.includes('drifter_cavern')
+    ) {
+        return 'a85';
+    }
+
+    if (
+        name.includes('pindle') ||
+        name.includes('eldritch') ||
+        name.includes('shenk') ||
+        name.includes('thresh') ||
+        name.includes('bishibosh') ||
+        name.includes('rakanishu') ||
+        name.includes('endugu') ||
+        name.includes('fire_eye') ||
+        name.includes('travincal')
+    ) {
+        return 'super-unique';
+    }
+
+    if (
+        name.includes('cows') ||
+        name.includes('lower_kurast_chest') ||
+        name.includes('terror_zone') ||
+        name.includes('tristram') ||
+        name.includes('council') ||
+        name.includes('dclone') ||
+        name.includes('uber')
+    ) {
+        return 'special';
+    }
+
+    if (
+        name.includes('spider_cavern') ||
+        name.includes('tal_rasha_tombs') ||
+        name.includes('lower_kurast')
+    ) {
+        return 'all-only';
+    }
+
+    return 'other';
+}
+
+function assignRunCategories() {
+    const allRuns = document.querySelectorAll('#enabled_runs li, #disabled_runs li');
+    allRuns.forEach((item) => {
+        const runName = (item.getAttribute('value') || '').toLowerCase();
+        if (!runName) {
+            return;
         }
+        item.dataset.runName = runName;
+        item.dataset.runCategory = getRunCategory(runName);
     });
+}
+
+function applyRunFilter() {
+    const element = document.getElementById('disabled_runs');
+    if (!element) {
+        return;
+    }
+    const listItems = element.querySelectorAll('li');
+    listItems.forEach((item) => {
+        const runName = item.dataset.runName || (item.getAttribute('value') || '').toLowerCase();
+        const category = item.dataset.runCategory || getRunCategory(runName);
+        const isFavorite = item.dataset.favorite === '1';
+        const matchesCategory =
+            activeRunFilter === 'all' ||
+            (activeRunFilter === 'favorite' && isFavorite) ||
+            (category !== 'all-only' && category === activeRunFilter);
+        const matchesSearch = !currentSearchTerm || runName.includes(currentSearchTerm.toLowerCase());
+        item.style.display = matchesCategory && matchesSearch ? '' : 'none';
+    });
+}
+
+function updateRunFavoriteUI(runItem, isFavorite) {
+    const favButton = runItem.querySelector('.run-fav-btn');
+    if (favButton) {
+        favButton.classList.toggle('active', isFavorite);
+        const icon = favButton.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('bi-star-fill', isFavorite);
+            icon.classList.toggle('bi-star', !isFavorite);
+        }
+    }
+    runItem.dataset.favorite = isFavorite ? '1' : '0';
+
+    const existingInput = runItem.querySelector('.run-fav-input');
+    if (isFavorite && !existingInput) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.className = 'run-fav-input';
+        input.name = 'runFavoriteRuns';
+        input.value = runItem.getAttribute('value') || '';
+        runItem.prepend(input);
+    } else if (!isFavorite && existingInput) {
+        existingInput.remove();
+    }
+    applyRunFilter();
+}
+
+function toggleRunFavorite(runItem) {
+    const isFavorite = runItem.dataset.favorite === '1';
+    updateRunFavoriteUI(runItem, !isFavorite);
+}
+
+function initializeRunFavorites() {
+    const runItems = document.querySelectorAll('#enabled_runs li, #disabled_runs li');
+    runItems.forEach((item) => {
+        const isFavorite = item.dataset.favorite === '1';
+        updateRunFavoriteUI(item, isFavorite);
+    });
+}
+
+function initializeRunFilters() {
+    assignRunCategories();
+    if (!runFilterTabs || !runFilterTabs.length) {
+        return;
+    }
+    runFilterTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+            activeRunFilter = tab.dataset.runFilter || 'all';
+            runFilterTabs.forEach((btn) => btn.classList.remove('active'));
+            tab.classList.add('active');
+            applyRunFilter();
+        });
+    });
+    applyRunFilter();
+}
+
+function filterDisabledRuns(searchTerm) {
+    currentSearchTerm = searchTerm || '';
+    applyRunFilter();
 }
 
 function checkLevelingProfile() {
@@ -115,6 +285,7 @@ function moveRunToDisabled(runElement) {
     updateButtonForDisabledRun(runElement);
     disabledRunsUl.appendChild(runElement);
     updateEnabledRunsHiddenField();
+    applyRunFilter();
 }
 
 function moveRunToEnabled(runElement) {
@@ -122,6 +293,7 @@ function moveRunToEnabled(runElement) {
     updateButtonForEnabledRun(runElement);
     enabledRunsUl.appendChild(runElement);
     updateEnabledRunsHiddenField();
+    applyRunFilter();
 }
 
 function updateButtonForEnabledRun(runElement) {

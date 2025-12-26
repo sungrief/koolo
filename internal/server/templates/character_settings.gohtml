@@ -853,6 +853,17 @@
             <label>
                 Choose the runs that you want the bot to run. You can either drag & drop runs below to enable or disable them, or use the + - buttons. Click on any of the runs to expand them and see more details and options.
             </label><br>
+            <div class="run-filter-tabs" role="tablist" aria-label="Run filters">
+                <button type="button" class="run-filter-tab active" data-run-filter="all">All</button>
+                <button type="button" class="run-filter-tab" data-run-filter="favorite">Favorites</button>
+                <button type="button" class="run-filter-tab" data-run-filter="leveling">Leveling</button>
+                <button type="button" class="run-filter-tab" data-run-filter="act-boss">Act Boss</button>
+                <button type="button" class="run-filter-tab" data-run-filter="super-unique">S.Unique</button>
+                <button type="button" class="run-filter-tab" data-run-filter="a85">A85</button>
+                <button type="button" class="run-filter-tab" data-run-filter="key">Key</button>
+                <button type="button" class="run-filter-tab" data-run-filter="special">Special</button>
+                <button type="button" class="run-filter-tab" data-run-filter="other">Utils</button>
+            </div>
             <label>
                 <input type="checkbox" name="gameRandomizeRuns" {{ if .Config.Game.RandomizeRuns }}checked{{ end }}/>
                 Randomize run order
@@ -864,9 +875,15 @@
                     <ul style="padding-top: 52px" class="run-list" id="enabled_runs">
                         {{ range $index, $run := .EnabledRuns }}
                         {{ if or (eq $topLevelContext.Version "dev") (ne $run "development") }}
-                        <li value="{{ $run }}">
+                        <li value="{{ $run }}" data-favorite="{{ if contains $topLevelContext.RunFavoriteRuns $run }}1{{ else }}0{{ end }}">
+                            {{ if contains $topLevelContext.RunFavoriteRuns $run }}
+                            <input type="hidden" class="run-fav-input" name="runFavoriteRuns" value="{{ $run }}" />
+                            {{ end }}
                             <details>
                                 <summary role="button" class="outline secondary">
+                                    <button type="button" class="run-fav-btn {{ if contains $topLevelContext.RunFavoriteRuns $run }}active{{ end }}" title="Favorite run" aria-label="Favorite run">
+                                        <i class="bi {{ if contains $topLevelContext.RunFavoriteRuns $run }}bi-star-fill{{ else }}bi-star{{ end }}"></i>
+                                    </button>
                                     <span>{{ runDisplayName $run }}</span>
                                     <button type="button" class="remove-run" title="Remove run"><i class="bi bi-dash"></i></button>
                                 </summary>
@@ -883,9 +900,15 @@
                     <ul class="run-list" id="disabled_runs">
                         {{ range $index, $run := .DisabledRuns }}
                         {{ if or (eq $topLevelContext.Version "dev") (ne $run "development") }}
-                        <li value="{{ $run }}">
+                        <li value="{{ $run }}" data-favorite="{{ if contains $topLevelContext.RunFavoriteRuns $run }}1{{ else }}0{{ end }}">
+                            {{ if contains $topLevelContext.RunFavoriteRuns $run }}
+                            <input type="hidden" class="run-fav-input" name="runFavoriteRuns" value="{{ $run }}" />
+                            {{ end }}
                             <details>
                                 <summary role="button" class="outline secondary">
+                                    <button type="button" class="run-fav-btn {{ if contains $topLevelContext.RunFavoriteRuns $run }}active{{ end }}" title="Favorite run" aria-label="Favorite run">
+                                        <i class="bi {{ if contains $topLevelContext.RunFavoriteRuns $run }}bi-star-fill{{ else }}bi-star{{ end }}"></i>
+                                    </button>
                                     <span>{{ runDisplayName $run }}</span>
                                     <button type="button" class="add-run" title="Add run"><i class="bi bi-plus"></i></button>
                                 </summary>

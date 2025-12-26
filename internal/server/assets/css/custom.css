@@ -386,6 +386,39 @@
 /* ========================================
    RUN LIST
    ======================================== */
+.run-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0.35rem 0 0.75rem 0;
+}
+
+.run-filter-tab {
+  flex: 1 1 0;
+  min-width: 72px;
+  border: 1px solid var(--border-color, #d7dbe3);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary, #6b7280);
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  text-align: center;
+}
+
+.run-filter-tab:hover {
+  color: var(--text-primary, #111827);
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
+.run-filter-tab.active {
+  color: var(--text-primary, #111827);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(15, 23, 42, 0.25);
+}
+
 .run-list {
   padding: 0;
   list-style: none;
@@ -455,6 +488,27 @@
   outline: none;
   font-weight: 600;
   flex-shrink: 0;
+}
+
+.run-list li summary .run-fav-btn {
+  margin: 0;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b7280);
+  border-radius: 0;
+  font-size: 0.8rem;
+}
+
+.run-list li summary .run-fav-btn.active {
+  color: #f59e0b;
+  background: transparent;
+}
+
+.run-list li summary .run-fav-btn:hover {
+  transform: none;
+  box-shadow: none;
+  color: var(--text-primary, #111827);
 }
 
 .run-list li summary button.remove-run {
