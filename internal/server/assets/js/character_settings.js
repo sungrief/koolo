@@ -737,6 +737,97 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     updateLevelingSequenceActionState();
+
+    const navLinks = Array.from(document.querySelectorAll('.settings-nav a'));
+    const navContainer = document.querySelector('.settings-nav');
+    const hoverToggle = document.getElementById('navHoverToggle');
+    const hoverToggleIcon = document.getElementById('navHoverToggleIcon');
+    const hoverToggleText = document.getElementById('navHoverToggleText');
+    const HOVER_EXPAND_KEY = 'koolo:navHoverExpand';
+
+    if (navContainer && hoverToggle) {
+        const updateHoverToggleUI = (enabled) => {
+            if (hoverToggleIcon) {
+                hoverToggleIcon.classList.toggle('bi-arrows-angle-expand', !enabled);
+                hoverToggleIcon.classList.toggle('bi-arrows-angle-contract', enabled);
+            }
+            if (hoverToggleText) {
+                hoverToggleText.textContent = enabled ? 'Hover expand on' : 'Hover expand off';
+            }
+        };
+
+        let hoverEnabled = true;
+        try {
+            hoverEnabled = window.localStorage.getItem(HOVER_EXPAND_KEY) !== '0';
+        } catch (error) {
+            hoverEnabled = true;
+        }
+        navContainer.classList.toggle('hover-expand', hoverEnabled);
+        hoverToggle.checked = hoverEnabled;
+        updateHoverToggleUI(hoverEnabled);
+        hoverToggle.addEventListener('change', () => {
+            const enabled = hoverToggle.checked;
+            navContainer.classList.toggle('hover-expand', enabled);
+            updateHoverToggleUI(enabled);
+            try {
+                window.localStorage.setItem(HOVER_EXPAND_KEY, enabled ? '1' : '0');
+            } catch (error) {
+                // Ignore storage errors; toggle still works for the session.
+            }
+        });
+    }
+    const sectionLinks = new Map();
+
+    navLinks.forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        if (!href.startsWith('#')) {
+            return;
+        }
+        const targetId = href.slice(1);
+        const section = document.getElementById(targetId);
+        if (!section) {
+            return;
+        }
+        sectionLinks.set(section, link);
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            history.replaceState(null, '', href);
+        });
+    });
+
+    const setActiveLink = (active) => {
+        navLinks.forEach((link) => {
+            link.classList.toggle('active', link === active);
+        });
+    };
+
+    if (sectionLinks.size) {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) {
+                        return;
+                    }
+                    const activeLink = sectionLinks.get(entry.target);
+                    if (activeLink) {
+                        setActiveLink(activeLink);
+                    }
+                });
+            },
+            {
+                rootMargin: '-20% 0px -70% 0px',
+                threshold: 0,
+            }
+        );
+
+        sectionLinks.forEach((_, section) => observer.observe(section));
+
+        const hashLink = window.location.hash
+            ? navLinks.find((link) => link.getAttribute('href') === window.location.hash)
+            : null;
+        setActiveLink(hashLink || navLinks[0]);
+    }
 });
 
 function handleBossStaticThresholdChange() {
