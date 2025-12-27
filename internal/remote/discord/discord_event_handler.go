@@ -94,19 +94,6 @@ func (b *Bot) Handle(ctx context.Context, e event.Event) error {
 	return b.sendScreenshot(ctx, message, buf.Bytes())
 }
 
-func formatItemStashMessage(evt event.ItemStashedEvent) string {
-	item := evt.Item.Item
-	itemName := string(item.Name)
-	if item.IdentifiedName != "" {
-		itemName = item.IdentifiedName
-	}
-
-	var message strings.Builder
-	message.WriteString(fmt.Sprintf("## %s\n", itemName))
-	message.WriteString(buildItemStashDescription(evt))
-	return strings.TrimSpace(message.String())
-}
-
 func (b *Bot) sendItemStashEmbed(evt event.ItemStashedEvent) error {
 	embed := buildItemStashEmbed(evt)
 	_, err := b.discordSession.ChannelMessageSendEmbed(b.itemChannel(), embed)
@@ -249,24 +236,24 @@ func buildItemStashDescription(evt event.ItemStashedEvent) string {
 		}
 
 		if defense > 0 {
-			description.WriteString(fmt.Sprintf("• Defense: %d\n", defense))
+			description.WriteString(fmt.Sprintf("Defense: %d\n", defense))
 		}
 		if allStatsCombined && strVal != 0 {
-			description.WriteString(fmt.Sprintf("• +%d to All Attributes\n", strVal))
+			description.WriteString(fmt.Sprintf("+%d to All Attributes\n", strVal))
 		}
 		if allResistsCombined && frVal != 0 {
-			description.WriteString(fmt.Sprintf("• All Resistances %+d\n", frVal))
+			description.WriteString(fmt.Sprintf("All Resistances %+d\n", frVal))
 		} else if partialResistsCombined && partialResistValue != 0 {
-			description.WriteString(fmt.Sprintf("• All Resistances %+d\n", partialResistValue))
-			description.WriteString(fmt.Sprintf("• %s %+d\n", resistLabel(partialResistID), resistValueForID(partialResistID, frVal, crVal, lrVal, prVal)))
+			description.WriteString(fmt.Sprintf("All Resistances %+d\n", partialResistValue))
+			description.WriteString(fmt.Sprintf("%s %+d\n", resistLabel(partialResistID), resistValueForID(partialResistID, frVal, crVal, lrVal, prVal)))
 		}
 		if eMin > 0 || eMax > 0 {
 			if eMin > 0 && eMax > 0 {
-				description.WriteString(fmt.Sprintf("• +%d-%d%% Enhanced Damage\n", eMin, eMax))
+				description.WriteString(fmt.Sprintf("+%d-%d%% Enhanced Damage\n", eMin, eMax))
 			} else if eMax > 0 {
-				description.WriteString(fmt.Sprintf("• +%d%% Enhanced Damage\n", eMax))
+				description.WriteString(fmt.Sprintf("+%d%% Enhanced Damage\n", eMax))
 			} else {
-				description.WriteString(fmt.Sprintf("• +%d%% Enhanced Damage\n", eMin))
+				description.WriteString(fmt.Sprintf("+%d%% Enhanced Damage\n", eMin))
 			}
 		}
 
@@ -292,16 +279,16 @@ func buildItemStashDescription(evt event.ItemStashedEvent) string {
 				if strings.Contains(statText, "Socketed") || strings.Contains(statText, "Sockets") {
 					hasSocketStat = true
 				}
-				description.WriteString(fmt.Sprintf("• %s\n", statText))
+				description.WriteString(fmt.Sprintf("%s\n", statText))
 			}
 		}
 	}
 
 	if isEthereal {
-		description.WriteString("• Ethereal\n")
+		description.WriteString("Ethereal\n")
 	}
 	if socketCount > 0 && !hasSocketStat {
-		description.WriteString(fmt.Sprintf("• Sockets: %d\n", socketCount))
+		description.WriteString(fmt.Sprintf("Sockets: %d\n", socketCount))
 	}
 
 	description.WriteString(fmt.Sprintf("\n`%s | %s`", evt.Supervisor(), time.Now().Format("2006-01-02 15:04:05")))
@@ -333,7 +320,7 @@ func getCategoryColor(category string) int {
 
 func formatDamageLine(min, max int, damageType string) string {
 	if min > 0 || max > 0 {
-		return fmt.Sprintf("• Adds %d-%d %s Damage\n", min, max, damageType)
+		return fmt.Sprintf("Adds %d-%d %s Damage\n", min, max, damageType)
 	}
 	return ""
 }
