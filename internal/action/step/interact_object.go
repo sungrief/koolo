@@ -117,7 +117,11 @@ func InteractObjectMouse(obj data.Object, isCompletedFn func() bool) error {
 		if obj.ID != 0 {
 			o, found = ctx.Data.Objects.FindByID(obj.ID)
 			if !found {
-				return fmt.Errorf("object %v not found", obj)
+				// Fallback by name in case the object ID changes during sync (e.g., portal opening).
+				o, found = ctx.Data.Objects.FindOne(obj.Name)
+				if !found {
+					return fmt.Errorf("object %v not found", obj)
+				}
 			}
 		} else {
 			o, found = ctx.Data.Objects.FindOne(obj.Name)
