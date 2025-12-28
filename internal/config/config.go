@@ -79,6 +79,7 @@ type KooloCfg struct {
 		DelaySeconds int  `yaml:"delaySeconds"`
 	} `yaml:"autoStart"`
 	RunewordFavoriteRecipes []string `yaml:"runewordFavoriteRecipes"`
+	RunFavoriteRuns         []string `yaml:"runFavoriteRuns"`
 }
 
 type Day struct {

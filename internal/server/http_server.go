@@ -1837,6 +1837,26 @@ func getAllRunIDs() []string {
 	}
 }
 
+func sanitizeFavoriteRunSelection(selected []string) []string {
+	seen := make(map[string]struct{}, len(selected))
+	result := make([]string, 0, len(selected))
+	for _, name := range selected {
+		trimmed := strings.TrimSpace(name)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := config.AvailableRuns[config.Run(trimmed)]; !ok {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+	return result
+}
+
 func cloneCharacterCfg(cfg *config.CharacterCfg) (*config.CharacterCfg, error) {
 	if cfg == nil {
 		return nil, errors.New("nil source config")
@@ -1872,6 +1892,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				Version:               config.Version,
 				ErrorMessage:          err.Error(),
 				LevelingSequenceFiles: sequenceFiles,
+				RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 			})
 			return
 		}
@@ -1887,6 +1908,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 					ErrorMessage:          err.Error(),
 					Supervisor:            supervisorName,
 					LevelingSequenceFiles: sequenceFiles,
+					RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 				})
 				return
 			}
@@ -1897,6 +1919,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 					ErrorMessage:          "failed to load newly created configuration",
 					Supervisor:            supervisorName,
 					LevelingSequenceFiles: sequenceFiles,
+					RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 				})
 				return
 			}
@@ -2386,6 +2409,11 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Muling.MuleProfiles = validMuleProfiles
 
 		cfg.Muling.ReturnTo = r.FormValue("mulingReturnTo")
+		favoriteRuns := sanitizeFavoriteRunSelection(r.Form["runFavoriteRuns"])
+		config.Koolo.RunFavoriteRuns = favoriteRuns
+		if err := config.SaveKooloConfig(config.Koolo); err != nil {
+			s.logger.Error("Failed to save run favorites", slog.Any("error", err))
+		}
 		config.SaveSupervisorConfig(supervisorName, cfg)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -2477,6 +2505,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		TerrorZoneGroups:      buildTZGroups(),
 		RecipeList:            config.AvailableRecipes,
 		RunewordRecipeList:    availableRunewordRecipesForCharacter(cfg),
+		RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 		AvailableProfiles:     muleProfiles,
 		FarmerProfiles:        farmerProfiles,
 		LevelingSequenceFiles: sequenceFiles,
