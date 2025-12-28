@@ -22,7 +22,9 @@ To name only a few!
 
 If you're interested in more features or want to give us your feedback, you can join our Discord server: https://discord.gg/5GCdFDbJnx
 
-Please know that this project is still in development, so you may encounter bugs. Please report them if you do. While we can't give you any direct support, we will eventually pick them up and resolve them. You are of course also very much invited to add possible fixes or new features via pull requests yourself. 
+Please know that this project is still in development, so you may encounter bugs. Please report them if you do. While we can't give you any direct support, we will eventually pick them up and resolve them. You are of course also very much invited to add possible fixes or new features via pull requests yourself.
+
+Quick video tutorial "full setup & start leveling": https://www.youtube.com/watch?v=uD4V7pxtjwE
 
 Important information:
 
