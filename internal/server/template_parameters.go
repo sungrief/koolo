@@ -55,12 +55,17 @@ type CharacterSettings struct {
 	Supervisor            string
 	CloneSource           string
 	Config                *config.CharacterCfg
+	Saved                 bool
 	DayNames              []string
 	EnabledRuns           []string
 	DisabledRuns          []string
 	TerrorZoneGroups      []TZGroup
 	RecipeList            []string
 	RunewordRecipeList    []string
+	RunewordFavoriteRecipes []string
+	RunFavoriteRuns       []string
+	RunewordRuneNames     map[string]string
+	RunewordRerollable    map[string]bool
 	AvailableProfiles     []string
 	FarmerProfiles        []string
 	LevelingSequenceFiles []string

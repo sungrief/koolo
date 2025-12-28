@@ -288,32 +288,69 @@
                     </label>
                 </fieldset>
                 <h4>Discord integration</h4>
-                <label>
+                <div style="display:flex; gap:1rem; align-items:center;">
+                    <label>
+                        <input
+                                {{ if .Discord.Enabled }}
+                                    checked="checked"
+                                {{ end }}
+                                type="checkbox"
+                                name="discord_enabled"
+                                value="true"
+                        />
+                        Enabled (Restart required)
+                    </label>
+                    <label>
+                        <input
+                                {{ if .Discord.UseWebhook }}
+                                    checked="checked"
+                                {{ end }}
+                                type="checkbox"
+                                name="discord_use_webhook"
+                                value="true"
+                                id="discord-use-webhook"
+                        />
+                        Use Webhook (alerts only, no commands needed)
+                    </label>
+                </div>
+                <p><small style="color:#fff">
+                        Use Webhook mode offers simple setup but does not support commands and advanced features.
+                    </small>
+                </p>
+                <div id="discord-bot-config" style="{{ if .Discord.UseWebhook }}display:none;{{ end }}">
                     <input
-                            {{ if .Discord.Enabled }}
-                                checked="checked"
-                            {{ end }}
-                            type="checkbox"
-                            name="discord_enabled"
-                            value="true"
+                            name="discord_admins"
+                            placeholder="Discord User IDs who can use bot commands separated by commas"
+                            value="{{.Discord.BotAdmins}}"
                     />
-                    Enabled (Restart required)
-                </label>
-                 <input
-                        name="discord_admins"
-                        placeholder="Discord User IDs who can use bot commands separated by commas"
-                        value="{{.Discord.BotAdmins}}"
-                />
-                <input
-                        name="discord_token"
-                        placeholder="Token"
-                        value="{{.Discord.Token}}"
-                />
-                <input
-                        name="discord_channel_id"
-                        placeholder="Channel ID"
-                        value="{{ .Discord.ChannelID }}"
-                />
+                    <input
+                            name="discord_token"
+                            placeholder="Token"
+                            value="{{.Discord.Token}}"
+                    />
+                    <input
+                            name="discord_channel_id"
+                            placeholder="Channel ID"
+                            value="{{ .Discord.ChannelID }}"
+                    />
+                    <input
+                            name="discord_item_channel_id"
+                            placeholder="Item Channel ID (optional)"
+                            value="{{ .Discord.ItemChannelID }}"
+                    />
+                </div>
+                <div id="discord-webhook-config" style="{{ if not .Discord.UseWebhook }}display:none;{{ end }}">
+                    <input
+                            name="discord_webhook_url"
+                            placeholder="Webhook URL"
+                            value="{{ .Discord.WebhookURL }}"
+                    />
+                    <input
+                            name="discord_item_webhook_url"
+                            placeholder="Item Webhook URL (optional)"
+                            value="{{ .Discord.ItemWebhookURL }}"
+                    />
+                </div>
                 <fieldset class="grid">
                     <label>
                         <input type="checkbox" name="enable_game_created_messages" value="{{ .Discord.EnableGameCreatedMessages }}" {{ if .Discord.EnableGameCreatedMessages }} checked="checked" {{ end }} />
@@ -334,6 +371,10 @@
                     <label>
                         <input type="checkbox" name="enable_discord_error_messages" value="{{ .Discord.EnableDiscordErrorMessages }}" {{ if .Discord.EnableDiscordErrorMessages }} checked="checked" {{ end }} />
                         Enable Error Messages
+                    </label>
+                    <label>
+                        <input type="checkbox" name="discord_disable_item_stash_screenshots" value="{{ .Discord.DisableItemStashScreenshots }}" {{ if .Discord.DisableItemStashScreenshots }} checked="checked" {{ end }} />
+                        Disable Item Stash Screenshots (send text only)
                     </label>
                 </fieldset>
                 <h4>Telegram integration</h4>
@@ -431,5 +472,25 @@
         </form>
     </div>
 </main>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const webhookCheckbox = document.getElementById("discord-use-webhook");
+    const webhookConfig = document.getElementById("discord-webhook-config");
+    const botConfig = document.getElementById("discord-bot-config");
+
+    if (!webhookCheckbox || !webhookConfig || !botConfig) {
+        return;
+    }
+
+    function updateDiscordFields() {
+        const useWebhook = webhookCheckbox.checked;
+        webhookConfig.style.display = useWebhook ? "" : "none";
+        botConfig.style.display = useWebhook ? "none" : "";
+    }
+
+    webhookCheckbox.addEventListener("change", updateDiscordFields);
+    updateDiscordFields();
+});
+</script>
 </body>
 </html>
