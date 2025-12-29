@@ -97,14 +97,9 @@ func InteractObjectPacket(obj data.Object, isCompletedFn func() bool) error {
 		var found bool
 		if obj.ID != 0 {
 			o, found = ctx.Data.Objects.FindByID(obj.ID)
-			if !found {
-				// Fallback by name in case the object ID changes during sync (e.g., portal opening).
-				o, found = ctx.Data.Objects.FindOne(obj.Name)
-				if !found {
-					return fmt.Errorf("object %v not found", obj)
-				}
-			}
-		} else {
+		}
+		if !found {
+			// Fallback by name in case the object ID changes during sync (e.g., portal opening).
 			o, found = ctx.Data.Objects.FindOne(obj.Name)
 			if !found {
 				return fmt.Errorf("object %v not found", obj)
