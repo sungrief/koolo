@@ -388,6 +388,10 @@ func CheckForScaryAura() {
 		panic(fmt.Errorf("%w: Player has lower resist curse", health.ErrChicken))
 	}
 
+	if cursesCfg.BloodMana && ctx.Data.PlayerUnit.States.HasState(state.BloodMana) {
+		panic(fmt.Errorf("%w: Player has blood mana curse", health.ErrChicken))
+	}
+
 	for _, m := range ctx.Data.Monsters.Enemies() {
 		if ctx.PathFinder.DistanceFromMe(m.Position) <= rangeForMonster {
 			var scaryAura string

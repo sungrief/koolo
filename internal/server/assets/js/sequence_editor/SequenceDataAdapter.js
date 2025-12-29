@@ -702,6 +702,7 @@ export class SequenceDataAdapter {
       ["chickenAmplifyDamage", "Amplify Damage", "Amp Dmg"],
       ["chickenDecrepify", "Decrepify", "Decrep"],
       ["chickenLowerResist", "Lower Resist", "Lower Res"],
+      ["chickenBloodMana", "Blood Mana", "Blood Mana"],
     ];
   }
 

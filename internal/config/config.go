@@ -169,6 +169,7 @@ type CharacterCfg struct {
 		AmplifyDamage bool `yaml:"amplifyDamage"`
 		Decrepify     bool `yaml:"decrepify"`
 		LowerResist   bool `yaml:"lowerResist"`
+		BloodMana     bool `yaml:"bloodMana"`
 	} `yaml:"chickenOnCurses"`
 	ChickenOnAuras struct {
 		Fanaticism bool `yaml:"fanaticism"`

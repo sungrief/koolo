@@ -82,6 +82,7 @@ type HealthLevelingSettings struct {
 	ChickenAmplifyDamage *bool     `json:"chickenAmplifyDamage,omitempty"`
 	ChickenDecrepify     *bool     `json:"chickenDecrepify,omitempty"`
 	ChickenLowerResist   *bool     `json:"chickenLowerResist,omitempty"`
+	ChickenBloodMana     *bool     `json:"chickenBloodMana,omitempty"`
 	ChickenFanaticism    *bool     `json:"chickenFanaticism,omitempty"`
 	ChickenMight         *bool     `json:"chickenMight,omitempty"`
 	ChickenConviction    *bool     `json:"chickenConviction,omitempty"`
@@ -419,6 +420,9 @@ func (ls LevelingSequence) ApplyHealthSetting(healthSetting HealthLevelingSettin
 	}
 	if healthSetting.ChickenLowerResist != nil {
 		ls.ctx.CharacterCfg.ChickenOnCurses.LowerResist = *healthSetting.ChickenLowerResist
+	}
+	if healthSetting.ChickenBloodMana != nil {
+		ls.ctx.CharacterCfg.ChickenOnCurses.BloodMana = *healthSetting.ChickenBloodMana
 	}
 	if healthSetting.ChickenFanaticism != nil {
 		ls.ctx.CharacterCfg.ChickenOnAuras.Fanaticism = *healthSetting.ChickenFanaticism
