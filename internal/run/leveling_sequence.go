@@ -66,19 +66,29 @@ type ConfigLevelingSettings struct {
 }
 
 type HealthLevelingSettings struct {
-	HealingPotionAt     *int      `json:"healingPotionAt,omitempty"`
-	ManaPotionAt        *int      `json:"manaPotionAt,omitempty"`
-	RejuvPotionAtLife   *int      `json:"rejuvPotionAtLife,omitempty"`
-	RejuvPotionAtMana   *int      `json:"rejuvPotionAtMana,omitempty"`
-	MercHealingPotionAt *int      `json:"mercHealingPotionAt,omitempty"`
-	MercRejuvPotionAt   *int      `json:"mercRejuvPotionAt,omitempty"`
-	ChickenAt           *int      `json:"chickenAt,omitempty"`
-	TownChickenAt       *int      `json:"townChickenAt,omitempty"`
-	MercChickenAt       *int      `json:"mercChickenAt,omitempty"`
-	HealingPotionCount  *int      `json:"healingPotionCount,omitempty"`
-	ManaPotionCount     *int      `json:"manaPotionCount,omitempty"`
-	RejuvPotionCount    *int      `json:"rejuvPotionCount,omitempty"`
-	BeltColumns         *[]string `json:"beltColumns,omitempty"`
+	HealingPotionAt      *int      `json:"healingPotionAt,omitempty"`
+	ManaPotionAt         *int      `json:"manaPotionAt,omitempty"`
+	RejuvPotionAtLife    *int      `json:"rejuvPotionAtLife,omitempty"`
+	RejuvPotionAtMana    *int      `json:"rejuvPotionAtMana,omitempty"`
+	MercHealingPotionAt  *int      `json:"mercHealingPotionAt,omitempty"`
+	MercRejuvPotionAt    *int      `json:"mercRejuvPotionAt,omitempty"`
+	ChickenAt            *int      `json:"chickenAt,omitempty"`
+	TownChickenAt        *int      `json:"townChickenAt,omitempty"`
+	MercChickenAt        *int      `json:"mercChickenAt,omitempty"`
+	HealingPotionCount   *int      `json:"healingPotionCount,omitempty"`
+	ManaPotionCount      *int      `json:"manaPotionCount,omitempty"`
+	RejuvPotionCount     *int      `json:"rejuvPotionCount,omitempty"`
+	BeltColumns          *[]string `json:"beltColumns,omitempty"`
+	ChickenAmplifyDamage *bool     `json:"chickenAmplifyDamage,omitempty"`
+	ChickenDecrepify     *bool     `json:"chickenDecrepify,omitempty"`
+	ChickenLowerResist   *bool     `json:"chickenLowerResist,omitempty"`
+	ChickenFanaticism    *bool     `json:"chickenFanaticism,omitempty"`
+	ChickenMight         *bool     `json:"chickenMight,omitempty"`
+	ChickenConviction    *bool     `json:"chickenConviction,omitempty"`
+	ChickenHolyFire      *bool     `json:"chickenHolyFire,omitempty"`
+	ChickenBlessedAim    *bool     `json:"chickenBlessedAim,omitempty"`
+	ChickenHolyFreeze    *bool     `json:"chickenHolyFreeze,omitempty"`
+	ChickenHolyShock     *bool     `json:"chickenHolyShock,omitempty"`
 }
 
 func NewLevelingSequence() *LevelingSequence {
@@ -400,6 +410,36 @@ func (ls LevelingSequence) ApplyHealthSetting(healthSetting HealthLevelingSettin
 	}
 	if healthSetting.BeltColumns != nil {
 		ls.applyBeltColumnsOverride(*healthSetting.BeltColumns)
+	}
+	if healthSetting.ChickenAmplifyDamage != nil {
+		ls.ctx.CharacterCfg.ChickenOnCurses.AmplifyDamage = *healthSetting.ChickenAmplifyDamage
+	}
+	if healthSetting.ChickenDecrepify != nil {
+		ls.ctx.CharacterCfg.ChickenOnCurses.Decrepify = *healthSetting.ChickenDecrepify
+	}
+	if healthSetting.ChickenLowerResist != nil {
+		ls.ctx.CharacterCfg.ChickenOnCurses.LowerResist = *healthSetting.ChickenLowerResist
+	}
+	if healthSetting.ChickenFanaticism != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.Fanaticism = *healthSetting.ChickenFanaticism
+	}
+	if healthSetting.ChickenMight != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.Might = *healthSetting.ChickenMight
+	}
+	if healthSetting.ChickenConviction != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.Conviction = *healthSetting.ChickenConviction
+	}
+	if healthSetting.ChickenHolyFire != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.HolyFire = *healthSetting.ChickenHolyFire
+	}
+	if healthSetting.ChickenBlessedAim != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.BlessedAim = *healthSetting.ChickenBlessedAim
+	}
+	if healthSetting.ChickenHolyFreeze != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.HolyFreeze = *healthSetting.ChickenHolyFreeze
+	}
+	if healthSetting.ChickenHolyShock != nil {
+		ls.ctx.CharacterCfg.ChickenOnAuras.HolyShock = *healthSetting.ChickenHolyShock
 	}
 
 	return nil
