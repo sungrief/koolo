@@ -437,15 +437,6 @@ func (pf *PathFinder) GetClosestChest(position data.Position, losCheck bool) (*d
 	return nil, false
 }
 
-func isConfiguredSuperChest(name object.Name) bool {
-	switch int(name) {
-	case 387, 389, 390, 391, 397, 455, 580:
-		return true
-	default:
-		return false
-	}
-}
-
 func (pf *PathFinder) GetClosestSuperChest(position data.Position, losCheck bool) (*data.Object, bool) {
 	var closestObject *data.Object
 	minDistance := 20.0
@@ -455,9 +446,9 @@ func (pf *PathFinder) GetClosestSuperChest(position data.Position, losCheck bool
 			continue
 		}
 
-		// Only consider a small allow-list of "super chests" to avoid interacting with
-		// weapon racks, armor stands and other containers.
-		if !isConfiguredSuperChest(o.Name) {
+		// Rely on d2go classification for super chests.
+		// NOTE: This intentionally includes racks/stands if d2go marks them as SuperChest.
+		if !o.IsSuperChest() {
 			continue
 		}
 
