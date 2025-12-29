@@ -1421,6 +1421,16 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		if v := values.Get("townChickenAt"); v != "" {
 			cfg.Health.TownChickenAt, _ = strconv.Atoi(v)
 		}
+		cfg.ChickenOnCurses.AmplifyDamage = values.Has("chickenAmplifyDamage")
+		cfg.ChickenOnCurses.Decrepify = values.Has("chickenDecrepify")
+		cfg.ChickenOnCurses.LowerResist = values.Has("chickenLowerResist")
+		cfg.ChickenOnAuras.Fanaticism = values.Has("chickenFanaticism")
+		cfg.ChickenOnAuras.Might = values.Has("chickenMight")
+		cfg.ChickenOnAuras.Conviction = values.Has("chickenConviction")
+		cfg.ChickenOnAuras.HolyFire = values.Has("chickenHolyFire")
+		cfg.ChickenOnAuras.BlessedAim = values.Has("chickenBlessedAim")
+		cfg.ChickenOnAuras.HolyFreeze = values.Has("chickenHolyFreeze")
+		cfg.ChickenOnAuras.HolyShock = values.Has("chickenHolyShock")
 		// Back to town config handled with Health or General?
 		// It was in General in bulkApply but logic is closer to Health/Safety.
 		// Let's allow updating it if either General or Health is selected, or stick to General.
@@ -1963,6 +1973,18 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Health.MercHealingPotionAt, _ = strconv.Atoi(r.Form.Get("mercHealingPotionAt"))
 		cfg.Health.MercRejuvPotionAt, _ = strconv.Atoi(r.Form.Get("mercRejuvPotionAt"))
 		cfg.Health.MercChickenAt, _ = strconv.Atoi(r.Form.Get("mercChickenAt"))
+
+		// Chicken on Curses/Auras
+		cfg.ChickenOnCurses.AmplifyDamage = r.Form.Has("chickenAmplifyDamage")
+		cfg.ChickenOnCurses.Decrepify = r.Form.Has("chickenDecrepify")
+		cfg.ChickenOnCurses.LowerResist = r.Form.Has("chickenLowerResist")
+		cfg.ChickenOnAuras.Fanaticism = r.Form.Has("chickenFanaticism")
+		cfg.ChickenOnAuras.Might = r.Form.Has("chickenMight")
+		cfg.ChickenOnAuras.Conviction = r.Form.Has("chickenConviction")
+		cfg.ChickenOnAuras.HolyFire = r.Form.Has("chickenHolyFire")
+		cfg.ChickenOnAuras.BlessedAim = r.Form.Has("chickenBlessedAim")
+		cfg.ChickenOnAuras.HolyFreeze = r.Form.Has("chickenHolyFreeze")
+		cfg.ChickenOnAuras.HolyShock = r.Form.Has("chickenHolyShock")
 
 		// Character config section
 		cfg.Character.Class = r.Form.Get("characterClass")

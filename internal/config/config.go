@@ -89,11 +89,11 @@ type Day struct {
 
 // RunewordOverrideConfig stores a character's overrides keyed by the display name (e.g. "Enigma").
 type RunewordOverrideConfig struct {
-	EthMode       string                       `yaml:"ethMode,omitempty"`       // "any", "eth", "noneth"
-	QualityMode   string                       `yaml:"qualityMode,omitempty"`   // "any", "normal", "superior"
-	BaseType      string                       `yaml:"baseType,omitempty"`      // armor, bow, polearm, etc.
-	BaseTier      string                       `yaml:"baseTier,omitempty"`      // "", "normal", "exceptional", "elite"
-	BaseName      string                       `yaml:"baseName,omitempty"`      // optional specific base name
+	EthMode     string `yaml:"ethMode,omitempty"`     // "any", "eth", "noneth"
+	QualityMode string `yaml:"qualityMode,omitempty"` // "any", "normal", "superior"
+	BaseType    string `yaml:"baseType,omitempty"`    // armor, bow, polearm, etc.
+	BaseTier    string `yaml:"baseTier,omitempty"`    // "", "normal", "exceptional", "elite"
+	BaseName    string `yaml:"baseName,omitempty"`    // optional specific base name
 }
 
 // RunewordTargetStatOverride captures the desired min/max for a stat (and optional layer) when rerolling.
@@ -165,6 +165,20 @@ type CharacterCfg struct {
 		TownChickenAt       int `yaml:"townChickenAt"`
 		MercChickenAt       int `yaml:"mercChickenAt"`
 	} `yaml:"health"`
+	ChickenOnCurses struct {
+		AmplifyDamage bool `yaml:"amplifyDamage"`
+		Decrepify     bool `yaml:"decrepify"`
+		LowerResist   bool `yaml:"lowerResist"`
+	} `yaml:"chickenOnCurses"`
+	ChickenOnAuras struct {
+		Fanaticism bool `yaml:"fanaticism"`
+		Might      bool `yaml:"might"`
+		Conviction bool `yaml:"conviction"`
+		HolyFire   bool `yaml:"holyFire"`
+		BlessedAim bool `yaml:"blessedAim"`
+		HolyFreeze bool `yaml:"holyFreeze"`
+		HolyShock  bool `yaml:"holyShock"`
+	} `yaml:"chickenOnAuras"`
 	Inventory struct {
 		InventoryLock      [][]int     `yaml:"inventoryLock"`
 		BeltColumns        BeltColumns `yaml:"beltColumns"`
@@ -378,12 +392,12 @@ type CharacterCfg struct {
 			EnsureKeyBinding         bool     `yaml:"ensureKeyBinding"`
 			AutoEquip                bool     `yaml:"autoEquip"`
 			AutoEquipFromSharedStash bool     `yaml:"autoEquipFromSharedStash"`
-			EnableRunewordMaker       bool     `yaml:"enableRunewordMaker"`
-			NightmareRequiredLevel    int      `yaml:"nightmareRequiredLevel"`
-			HellRequiredLevel         int      `yaml:"hellRequiredLevel"`
-			HellRequiredFireRes       int      `yaml:"hellRequiredFireRes"`
-			HellRequiredLightRes      int      `yaml:"hellRequiredLightRes"`
-			EnabledRunewordRecipes    []string `yaml:"enabledRunewordRecipes"`
+			EnableRunewordMaker      bool     `yaml:"enableRunewordMaker"`
+			NightmareRequiredLevel   int      `yaml:"nightmareRequiredLevel"`
+			HellRequiredLevel        int      `yaml:"hellRequiredLevel"`
+			HellRequiredFireRes      int      `yaml:"hellRequiredFireRes"`
+			HellRequiredLightRes     int      `yaml:"hellRequiredLightRes"`
+			EnabledRunewordRecipes   []string `yaml:"enabledRunewordRecipes"`
 		} `yaml:"leveling"`
 		RunewordMaker struct {
 			Enabled        bool     `yaml:"enabled"`

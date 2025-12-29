@@ -90,8 +90,8 @@ func ensureAreaSync(ctx *context.Status, expectedArea area.ID) error {
 
 		if ctx.Data.PlayerUnit.Area == expectedArea {
 			// Area ID matches, now verify collision data is loaded
-			if ctx.Data.AreaData.Grid != nil && 
-				ctx.Data.AreaData.Grid.CollisionGrid != nil && 
+			if ctx.Data.AreaData.Grid != nil &&
+				ctx.Data.AreaData.Grid.CollisionGrid != nil &&
 				len(ctx.Data.AreaData.Grid.CollisionGrid) > 0 {
 				// Additional check: ensure we have adjacent level data if this is a cross-area operation
 				// Give it one more refresh cycle to ensure all data is populated
@@ -369,6 +369,66 @@ func getPathOffsets(to data.Position) (int, int) {
 	return minOffsetX, minOffsetY
 }
 
+const rangeForMonster = 25
+
+func CheckForScaryAura() {
+	ctx := context.Get()
+	cursesCfg := ctx.CharacterCfg.ChickenOnCurses
+	aurasCfg := ctx.CharacterCfg.ChickenOnAuras
+
+	if cursesCfg.AmplifyDamage && ctx.Data.PlayerUnit.States.HasState(state.Amplifydamage) {
+		panic(fmt.Errorf("%w: Player has amplify damage curse", health.ErrChicken))
+	}
+
+	if cursesCfg.Decrepify && ctx.Data.PlayerUnit.States.HasState(state.Decrepify) {
+		panic(fmt.Errorf("%w: Player has decrepify curse", health.ErrChicken))
+	}
+
+	if cursesCfg.LowerResist && ctx.Data.PlayerUnit.States.HasState(state.Lowerresist) {
+		panic(fmt.Errorf("%w: Player has lower resist curse", health.ErrChicken))
+	}
+
+	for _, m := range ctx.Data.Monsters.Enemies() {
+		if ctx.PathFinder.DistanceFromMe(m.Position) <= rangeForMonster {
+			var scaryAura string
+
+			if aurasCfg.Fanaticism && m.States.HasState(state.Fanaticism) {
+				scaryAura = "Fanaticism"
+			}
+
+			if aurasCfg.Might && m.States.HasState(state.Might) {
+				scaryAura = "Might"
+			}
+
+			if aurasCfg.Conviction && m.States.HasState(state.Conviction) {
+				scaryAura = "Conviction"
+			}
+
+			if aurasCfg.HolyFire && m.States.HasState(state.Holyfire) {
+				scaryAura = "Holy Fire"
+			}
+
+			if aurasCfg.BlessedAim && m.States.HasState(state.Blessedaim) {
+				scaryAura = "Blessed Aim"
+			}
+
+			if aurasCfg.HolyFreeze && m.States.HasState(state.Holywindcold) {
+				scaryAura = "Holy Freeze"
+			}
+
+			if aurasCfg.HolyShock && m.States.HasState(state.Holyshock) {
+				scaryAura = "Holy Shock"
+			}
+
+			if scaryAura != "" {
+				message := fmt.Errorf("%w: Mob has %s aura", health.ErrChicken, scaryAura)
+				ctx.Logger.Debug(message.Error())
+				panic(message)
+			}
+		}
+	}
+}
+
 func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) error {
 	ctx := context.Get()
 	ctx.SetLastAction("MoveTo")
@@ -454,6 +514,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 		isSafe := true
 		if !ctx.Data.AreaData.Area.IsTown() {
+			CheckForScaryAura()
+
 			//Safety first, handle enemies
 			if !opts.IgnoreMonsters() && (!ctx.Data.CanTeleport() || overrideClearPathDist) && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 				actionLastMonsterHandlingTime = time.Now()
