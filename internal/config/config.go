@@ -89,11 +89,11 @@ type Day struct {
 
 // RunewordOverrideConfig stores a character's overrides keyed by the display name (e.g. "Enigma").
 type RunewordOverrideConfig struct {
-	EthMode       string                       `yaml:"ethMode,omitempty"`       // "any", "eth", "noneth"
-	QualityMode   string                       `yaml:"qualityMode,omitempty"`   // "any", "normal", "superior"
-	BaseType      string                       `yaml:"baseType,omitempty"`      // armor, bow, polearm, etc.
-	BaseTier      string                       `yaml:"baseTier,omitempty"`      // "", "normal", "exceptional", "elite"
-	BaseName      string                       `yaml:"baseName,omitempty"`      // optional specific base name
+	EthMode     string `yaml:"ethMode,omitempty"`     // "any", "eth", "noneth"
+	QualityMode string `yaml:"qualityMode,omitempty"` // "any", "normal", "superior"
+	BaseType    string `yaml:"baseType,omitempty"`    // armor, bow, polearm, etc.
+	BaseTier    string `yaml:"baseTier,omitempty"`    // "", "normal", "exceptional", "elite"
+	BaseName    string `yaml:"baseName,omitempty"`    // optional specific base name
 }
 
 // RunewordTargetStatOverride captures the desired min/max for a stat (and optional layer) when rerolling.
@@ -378,12 +378,12 @@ type CharacterCfg struct {
 			EnsureKeyBinding         bool     `yaml:"ensureKeyBinding"`
 			AutoEquip                bool     `yaml:"autoEquip"`
 			AutoEquipFromSharedStash bool     `yaml:"autoEquipFromSharedStash"`
-			EnableRunewordMaker       bool     `yaml:"enableRunewordMaker"`
-			NightmareRequiredLevel    int      `yaml:"nightmareRequiredLevel"`
-			HellRequiredLevel         int      `yaml:"hellRequiredLevel"`
-			HellRequiredFireRes       int      `yaml:"hellRequiredFireRes"`
-			HellRequiredLightRes      int      `yaml:"hellRequiredLightRes"`
-			EnabledRunewordRecipes    []string `yaml:"enabledRunewordRecipes"`
+			EnableRunewordMaker      bool     `yaml:"enableRunewordMaker"`
+			NightmareRequiredLevel   int      `yaml:"nightmareRequiredLevel"`
+			HellRequiredLevel        int      `yaml:"hellRequiredLevel"`
+			HellRequiredFireRes      int      `yaml:"hellRequiredFireRes"`
+			HellRequiredLightRes     int      `yaml:"hellRequiredLightRes"`
+			EnabledRunewordRecipes   []string `yaml:"enabledRunewordRecipes"`
 		} `yaml:"leveling"`
 		RunewordMaker struct {
 			Enabled        bool     `yaml:"enabled"`
@@ -516,6 +516,9 @@ func Load() error {
 	if err = d.Decode(&Koolo); err != nil {
 		return fmt.Errorf("error reading config %s: %w", kooloPath, err)
 	}
+	if Koolo != nil {
+		sanitizeDiscordConfig(Koolo)
+	}
 
 	configDir := getAbsPath("config")
 	entries, err := os.ReadDir(configDir)
@@ -597,6 +600,20 @@ func Load() error {
 	return nil
 }
 
+func sanitizeDiscordConfig(cfg *KooloCfg) {
+	if !cfg.Discord.Enabled {
+		return
+	}
+	useWebhook := cfg.Discord.UseWebhook
+	webhookURL := strings.TrimSpace(cfg.Discord.WebhookURL)
+	token := strings.TrimSpace(cfg.Discord.Token)
+	channelID := strings.TrimSpace(cfg.Discord.ChannelID)
+
+	if (useWebhook && webhookURL == "") || (!useWebhook && (token == "" || channelID == "")) {
+		cfg.Discord.Enabled = false
+	}
+}
+
 // Helper function to read a single NIP file using the temp directory workaround
 func readSinglePickitFile(filePath string) (nip.Rules, error) {
 	tempDir := filepath.Join(filepath.Dir(filePath), "temp_single_read")
@@ -649,6 +666,10 @@ func ValidateAndSaveConfig(config KooloCfg) error {
 
 	if _, err := os.Stat(config.D2RPath + "/d2r.exe"); os.IsNotExist(err) {
 		return errors.New("D2RPath is not valid")
+	}
+
+	if config.Discord.Enabled {
+		sanitizeDiscordConfig(&config)
 	}
 
 	text, err := yaml.Marshal(config)
