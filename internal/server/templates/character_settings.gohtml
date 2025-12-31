@@ -122,7 +122,7 @@
                 </label>
                 <label>
                     Character name
-                   <input name="characterName" placeholder="{{ .Config.CharacterName }}" value="{{ .Config.CharacterName }}" minlength="2" maxlength="16" oninput="this.value = this.value.replace(/[0-9]/g, ''); if(this.value.length > 15) this.value = this.value.slice(0, 15);"/>                </label>
+                   <input name="characterName" placeholder="{{ .Config.CharacterName }}" value="{{ .Config.CharacterName }}" data-last-valid="{{ .Config.CharacterName }}" minlength="2" maxlength="16" oninput="validateCharacterName(this)"/>                </label>
                 <label>
                     <input type="checkbox" name="isNonLadderChar" {{ if .Config.Game.IsNonLadderChar }}checked{{ end }}/>
                     Non-Ladder
@@ -1126,5 +1126,29 @@
         </div>
     </div>
 </main>
+<script>
+function validateCharacterName(input) {
+    const original = input.value || "";
+    let cleaned = original.replace(/[0-9]/g, "");
+    if (cleaned.length > 15) {
+        cleaned = cleaned.slice(0, 15);
+    }
+
+    const hasLatin = /[A-Za-z]/.test(cleaned);
+    const hasHangul = /[가-힣]/.test(cleaned);
+    const hasHan = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/.test(cleaned);
+    const scriptCount = (hasLatin ? 1 : 0) + (hasHangul ? 1 : 0) + (hasHan ? 1 : 0);
+    const hyphenCount = (cleaned.match(/-/g) || []).length;
+    const underscoreCount = (cleaned.match(/_/g) || []).length;
+
+    if (scriptCount > 1 || hyphenCount + underscoreCount > 1) {
+        input.value = input.dataset.lastValid || "";
+        return;
+    }
+
+    input.value = cleaned;
+    input.dataset.lastValid = input.value;
+}
+</script>
 </body>
 </html>
