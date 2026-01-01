@@ -513,7 +513,21 @@ func (a Leveling) openMephistoStairs() error {
 		utils.Sleep(500)
 	}
 
-	time.Sleep(12000 * time.Millisecond)
+	// Wait for quest/stairs state update, but do not block longer than needed.
+	waitDeadline := time.Now().Add(12 * time.Second)
+	for {
+		a.ctx.RefreshGameData()
+		if a.ctx.Data.Quests[quest.Act3TheBlackenedTemple].Completed() {
+			break
+		}
+		if _, found := a.ctx.Data.Objects.FindOne(object.StairSR); found {
+			break
+		}
+		if time.Now().After(waitDeadline) {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 
 	if a.ctx.Data.Quests[quest.Act3TheBlackenedTemple].Completed() {
 		// Interact with the stairs to go to Durance of Hate Level 1
