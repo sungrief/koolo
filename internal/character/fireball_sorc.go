@@ -228,7 +228,7 @@ func (f FireballSorceress) KillDiablo() error {
 			}
 
 			// Keep waiting...
-			time.Sleep(200)
+			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 

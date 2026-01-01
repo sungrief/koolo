@@ -225,7 +225,7 @@ func (s HydraOrbSorceress) KillDiablo() error {
 			}
 
 			// Keep waiting...
-			time.Sleep(200)
+			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 

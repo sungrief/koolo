@@ -978,7 +978,7 @@ func (s SorceressLeveling) KillDiablo() error {
 			if diabloFound {
 				return nil
 			}
-			time.Sleep(200)
+			time.Sleep(200 * time.Millisecond)
 			continue
 		}
 

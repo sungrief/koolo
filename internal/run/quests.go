@@ -684,7 +684,7 @@ func (a Quests) killIzualQuest() error {
 		return err
 	}
 
-	time.Sleep(500)
+	time.Sleep(500 * time.Millisecond)
 
 	return nil
 }
@@ -810,7 +810,7 @@ func (a Quests) rescueAnyaQuest() error {
 		return err
 	}
 
-	time.Sleep(8000)
+	time.Sleep(8000 * time.Millisecond)
 
 	err = action.InteractNPC(npc.Malah)
 	if err != nil {

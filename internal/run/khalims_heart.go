@@ -92,7 +92,7 @@ func (kh KhalimsHeart) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	time.Sleep(4000)
+	time.Sleep(4000 * time.Millisecond)
 
 	err = action.MoveToArea(area.SewersLevel2Act3)
 	if err != nil {
