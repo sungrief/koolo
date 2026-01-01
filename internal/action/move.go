@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hectorgimenez/koolo/internal/chicken"
 	"github.com/hectorgimenez/koolo/internal/pather"
 	"github.com/hectorgimenez/koolo/internal/town"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -518,7 +519,9 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 		isSafe := true
 		if !ctx.Data.AreaData.Area.IsTown() {
-			CheckForScaryAura()
+			if !ctx.Data.CanTeleport() {
+				chicken.CheckForScaryAuraAndCurse()
+			}
 
 			//Safety first, handle enemies
 			if !opts.IgnoreMonsters() && (!ctx.Data.CanTeleport() || overrideClearPathDist) && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {

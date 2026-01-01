@@ -11,6 +11,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/utils"
+	"github.com/hectorgimenez/koolo/internal/chicken"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/packet"
@@ -169,6 +170,7 @@ func attack(settings attackSettings) error {
 
 	for {
 		ctx.PauseIfNotPriority()
+		chicken.CheckForScaryAuraAndCurse()
 
 		if numOfAttacksRemaining <= 0 {
 			return nil
@@ -246,6 +248,7 @@ func burstAttack(settings attackSettings) error {
 	startedAt := time.Now()
 	for {
 		ctx.PauseIfNotPriority()
+		chicken.CheckForScaryAuraAndCurse()
 
 		if !startedAt.IsZero() && time.Since(startedAt) > settings.timeout {
 			return nil // Timeout reached, finish attack sequence
