@@ -84,7 +84,7 @@ func PreRun(firstRun bool) error {
 		}
 	}
 
-	DropMouseItem()
+	DropAndRecoverCursorItem()
 	step.SetSkill(skill.Vigor)
 	RecoverCorpse()
 	ManageBelt()

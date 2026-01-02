@@ -1040,6 +1040,16 @@ func equip(itm data.Item, bodyloc item.LocationType, target item.LocationType) e
 				break
 			}
 		}
+		// Also check cursor - item may have gone there if inventory was full
+		if !found {
+			for _, cursorItem := range ctx.Data.Inventory.ByLocation(item.LocationCursor) {
+				if cursorItem.UnitID == itm.UnitID {
+					itm = cursorItem
+					found = true
+					break
+				}
+			}
+		}
 		if !found {
 			return fmt.Errorf("item %s not found in inventory after moving from stash", itm.IdentifiedName)
 		}
