@@ -233,7 +233,8 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 				ctx.HID.Click(game.LeftButton, basescreenPos.X, basescreenPos.Y)
 				utils.Sleep(300)
 				if itm.Location.LocationType == item.LocationCursor {
-					DropMouseItem()
+					step.CloseAllMenus()
+					DropAndRecoverCursorItem()
 					return fmt.Errorf("failed to insert item %s into base %s", itm.Name, base.Name)
 				}
 			}

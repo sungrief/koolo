@@ -321,12 +321,7 @@ func OptimizeInventory(location item.LocationType) error {
 	step.CloseAllMenus()
 
 	// if something is left on cursor, drop it and pick it up again
-	ctx.RefreshInventory()
-	if len(ctx.Data.Inventory.ByLocation(item.LocationCursor)) > 0 {
-		DropMouseItem()
-		utils.PingSleep(utils.Light, 200)
-		ItemPickup(-1)
-	}
+	DropAndRecoverCursorItem()
 
 	return nil
 }

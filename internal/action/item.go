@@ -51,6 +51,93 @@ func DropMouseItem() {
 	}
 }
 
+// DropAndRecoverCursorItem drops any item on cursor and immediately picks it back up,
+// bypassing pickit rules. Use this to recover accidentally stuck cursor items.
+func DropAndRecoverCursorItem() {
+	ctx := context.Get()
+	ctx.SetLastAction("DropAndRecoverCursorItem")
+
+	ctx.RefreshInventory()
+	cursorItems := ctx.Data.Inventory.ByLocation(item.LocationCursor)
+	if len(cursorItems) == 0 {
+		return
+	}
+
+	droppedItem := cursorItems[0]
+	droppedUnitID := droppedItem.UnitID
+	ctx.Logger.Debug("Dropping cursor item for recovery", "item", droppedItem.Name, "unitID", droppedUnitID)
+
+	// Drop the item
+	utils.Sleep(500)
+	ctx.HID.Click(game.LeftButton, 500, 500)
+	utils.Sleep(500)
+
+	// Wait for game to register the dropped item on ground
+	ctx.RefreshGameData()
+	utils.Sleep(300)
+
+	// Retry loop to find and pick up the dropped item
+	const maxAttempts = 5
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		ctx.RefreshGameData()
+
+		// Try to find by UnitID first
+		var groundItem data.Item
+		var found bool
+		for _, gi := range ctx.Data.Inventory.ByLocation(item.LocationGround) {
+			if gi.UnitID == droppedUnitID {
+				groundItem = gi
+				found = true
+				break
+			}
+		}
+
+		// Fallback: find by name near player if UnitID changed
+		if !found {
+			for _, gi := range ctx.Data.Inventory.ByLocation(item.LocationGround) {
+				if gi.Name == droppedItem.Name {
+					dist := ctx.PathFinder.DistanceFromMe(gi.Position)
+					if dist < 10 {
+						groundItem = gi
+						found = true
+						break
+					}
+				}
+			}
+		}
+
+		if !found {
+			ctx.Logger.Debug("Item not found on ground yet, retrying", "attempt", attempt)
+			utils.Sleep(300)
+			continue
+		}
+
+		ctx.Logger.Debug("Recovering dropped cursor item", "item", groundItem.Name, "attempt", attempt)
+		if err := step.PickupItem(groundItem, attempt); err != nil {
+			ctx.Logger.Warn("Pickup attempt failed", "error", err, "attempt", attempt)
+			utils.Sleep(300)
+			continue
+		}
+
+		// Verify pickup succeeded
+		utils.Sleep(300)
+		ctx.RefreshGameData()
+		stillOnGround := false
+		for _, gi := range ctx.Data.Inventory.ByLocation(item.LocationGround) {
+			if gi.UnitID == groundItem.UnitID {
+				stillOnGround = true
+				break
+			}
+		}
+		if !stillOnGround {
+			ctx.Logger.Debug("Successfully recovered cursor item", "item", groundItem.Name)
+			return
+		}
+	}
+
+	ctx.Logger.Warn("Failed to recover cursor item after max attempts", "item", droppedItem.Name)
+}
+
 func DropInventoryItem(i data.Item) error {
 	ctx := context.Get()
 	ctx.SetLastAction("DropInventoryItem")
