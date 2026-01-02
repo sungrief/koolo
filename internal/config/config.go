@@ -275,6 +275,7 @@ type CharacterCfg struct {
 		DisableIdentifyTome    bool                  `yaml:"disableIdentifyTome"`
 		InteractWithShrines    bool                  `yaml:"interactWithShrines"`
 		InteractWithChests     bool                  `yaml:"interactWithChests"`
+		InteractWithSuperChests bool                 `yaml:"interactWithSuperChests"`
 		StopLevelingAt         int                   `yaml:"stopLevelingAt"`
 		IsNonLadderChar        bool                  `yaml:"isNonLadderChar"`
 		ClearTPArea            bool                  `yaml:"clearTPArea"`
