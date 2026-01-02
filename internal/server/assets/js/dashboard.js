@@ -4,7 +4,8 @@ const maxReconnectAttempts = 5;
 const reconnectDelay = 3000;
 
 function connectWebSocket() {
-  socket = new WebSocket("ws://" + window.location.host + "/ws");
+  const wsScheme = window.location.protocol === "https:" ? "wss://" : "ws://";
+  socket = new WebSocket(wsScheme + window.location.host + "/ws");
 
   socket.onopen = function () {
     console.log("WebSocket connected");

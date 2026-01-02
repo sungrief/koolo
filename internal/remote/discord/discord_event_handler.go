@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	d2stat "github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/event"
-	d2stat "github.com/hectorgimenez/d2go/pkg/data/stat"
 )
 
 var excludedStatIDs = map[int]bool{
@@ -60,6 +60,8 @@ func (b *Bot) Handle(ctx context.Context, e event.Event) error {
 	case event.RunFinishedEvent:
 		message := fmt.Sprintf("**[%s]** finished run: **%s** (%s)", evt.Supervisor(), evt.RunName, evt.Reason)
 		return b.sendEventMessage(ctx, message)
+	case event.NgrokTunnelEvent:
+		return b.sendEventMessage(ctx, evt.Message())
 	case event.ItemStashedEvent:
 		if config.Koolo.Discord.DisableItemStashScreenshots {
 			if b.useWebhook {
@@ -420,6 +422,8 @@ func (b *Bot) shouldPublish(e event.Event) bool {
 		return config.Koolo.Discord.EnableNewRunMessages
 	case event.RunFinishedEvent:
 		return config.Koolo.Discord.EnableRunFinishMessages
+	case event.NgrokTunnelEvent:
+		return true
 	default:
 		break
 	}

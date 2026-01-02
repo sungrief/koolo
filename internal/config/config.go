@@ -69,6 +69,15 @@ type KooloCfg struct {
 		ChatID  int64  `yaml:"chatId"`
 		Token   string `yaml:"token"`
 	}
+	Ngrok struct {
+		Enabled       bool   `yaml:"enabled"`
+		SendURL       bool   `yaml:"sendUrl"`
+		Authtoken     string `yaml:"authtoken"`
+		Region        string `yaml:"region"`
+		Domain        string `yaml:"domain"`
+		BasicAuthUser string `yaml:"basicAuthUser"`
+		BasicAuthPass string `yaml:"basicAuthPass"`
+	} `yaml:"ngrok"`
 	PingMonitor struct {
 		Enabled           bool `yaml:"enabled"`
 		HighPingThreshold int  `yaml:"highPingThreshold"` // Ping threshold in ms (default 500-1000)

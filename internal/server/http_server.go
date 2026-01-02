@@ -1380,6 +1380,26 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		}
 		newConfig.Telegram.ChatID = telegramChatId
 
+		newConfig.Ngrok.Enabled = r.Form.Get("ngrok_enabled") == "true"
+		newConfig.Ngrok.SendURL = r.Form.Get("ngrok_send_url") == "true"
+		newConfig.Ngrok.Authtoken = strings.TrimSpace(r.Form.Get("ngrok_authtoken"))
+		newConfig.Ngrok.Region = strings.TrimSpace(r.Form.Get("ngrok_region"))
+		newConfig.Ngrok.Domain = strings.TrimSpace(r.Form.Get("ngrok_domain"))
+		newConfig.Ngrok.BasicAuthUser = strings.TrimSpace(r.Form.Get("ngrok_basic_auth_user"))
+		newConfig.Ngrok.BasicAuthPass = strings.TrimSpace(r.Form.Get("ngrok_basic_auth_pass"))
+		if newConfig.Ngrok.BasicAuthUser != "" && newConfig.Ngrok.BasicAuthPass == "" {
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: &newConfig, ErrorMessage: "ngrok basic auth password is required when a username is set"})
+			return
+		}
+		if newConfig.Ngrok.BasicAuthPass != "" && newConfig.Ngrok.BasicAuthUser == "" {
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: &newConfig, ErrorMessage: "ngrok basic auth username is required when a password is set"})
+			return
+		}
+		if newConfig.Ngrok.BasicAuthPass != "" && len(newConfig.Ngrok.BasicAuthPass) < 8 {
+			s.templates.ExecuteTemplate(w, "config.gohtml", ConfigData{KooloCfg: &newConfig, ErrorMessage: "ngrok basic auth password must be at least 8 characters"})
+			return
+		}
+
 		// Ping Monitor
 		newConfig.PingMonitor.Enabled = r.Form.Get("ping_monitor_enabled") == "true"
 		pingThreshold, err := strconv.Atoi(r.Form.Get("ping_monitor_threshold"))

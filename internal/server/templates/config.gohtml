@@ -399,6 +399,79 @@
                         placeholder="Chat ID"
                         value="{{ .Telegram.ChatID }}"
                 />
+                <h4>ngrok tunnel</h4>
+                <p><small style="color:#f5ab00">
+                        ⚠️ Warning: ngrok exposes your local dashboard publicly. Anyone with the URL can access it without authentication unless you configure basic auth. On free plans, the URL is randomly generated and can change each time you start the app.
+                    </small>
+                </p>
+                <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                    <label>
+                        <input
+                                {{ if .Ngrok.Enabled }}
+                                    checked="checked"
+                                {{ end }}
+                                type="checkbox"
+                                name="ngrok_enabled"
+                                value="true"
+                                id="ngrok-enabled"
+                        />
+                        Enabled (Restart required)
+                    </label>
+                    <label>
+                        <input
+                                {{ if .Ngrok.SendURL }}
+                                    checked="checked"
+                                {{ end }}
+                                type="checkbox"
+                                name="ngrok_send_url"
+                                value="true"
+                        />
+                        Send ngrok URL to notifications
+                    </label>
+                </div>
+                <input
+                        name="ngrok_authtoken"
+                        type="password"
+                        placeholder="Authtoken (optional, can use NGROK_AUTHTOKEN env var)"
+                        value="{{ .Ngrok.Authtoken }}"
+                />
+                <div id="ngrok-config" style="{{ if not .Ngrok.Enabled }}display:none;{{ end }}">
+                    <fieldset class="grid">
+                        <label>
+                            Basic auth user (optional)
+                            <input
+                                    name="ngrok_basic_auth_user"
+                                    placeholder="username"
+                                    value="{{ .Ngrok.BasicAuthUser }}"
+                            />
+                        </label>
+                        <label>
+                            Basic auth pass (optional)
+                            <input
+                                    name="ngrok_basic_auth_pass"
+                                    type="password"
+                                    placeholder="password"
+                                    value="{{ .Ngrok.BasicAuthPass }}"
+                            />
+                        </label>
+                        <label>
+                            Region (optional)
+                            <input
+                                    name="ngrok_region"
+                                    placeholder="us, eu, ap, etc."
+                                    value="{{ .Ngrok.Region }}"
+                            />
+                        </label>
+                        <label>
+                            Domain (optional, reserved)
+                            <input
+                                    name="ngrok_domain"
+                                    placeholder="example.ngrok.app"
+                                    value="{{ .Ngrok.Domain }}"
+                            />
+                        </label>
+                    </fieldset>
+                </div>
                 <h4>Ping Monitor</h4>
                 <label>
                     <input
@@ -477,6 +550,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const webhookCheckbox = document.getElementById("discord-use-webhook");
     const webhookConfig = document.getElementById("discord-webhook-config");
     const botConfig = document.getElementById("discord-bot-config");
+    const ngrokEnabled = document.getElementById("ngrok-enabled");
+    const ngrokConfig = document.getElementById("ngrok-config");
 
     if (!webhookCheckbox || !webhookConfig || !botConfig) {
         return;
@@ -490,6 +565,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     webhookCheckbox.addEventListener("change", updateDiscordFields);
     updateDiscordFields();
+
+    if (!ngrokEnabled || !ngrokConfig) {
+        return;
+    }
+
+    function updateNgrokFields() {
+        ngrokConfig.style.display = ngrokEnabled.checked ? "" : "none";
+    }
+
+    ngrokEnabled.addEventListener("change", updateNgrokFields);
+    updateNgrokFields();
 });
 </script>
 </body>

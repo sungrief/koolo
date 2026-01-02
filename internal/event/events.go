@@ -172,6 +172,19 @@ func RunewordReroll(be BaseEvent, runeword string, targetStats string, actualSta
 	}
 }
 
+type NgrokTunnelEvent struct {
+	BaseEvent
+	URL string
+}
+
+func NgrokTunnel(url string) NgrokTunnelEvent {
+	message := "ngrok URL: " + url + "\nWarning: ngrok exposes your local dashboard publicly. Anyone with the URL can access it without authentication unless you configure basic auth."
+	return NgrokTunnelEvent{
+		BaseEvent: Text("system", message),
+		URL:       url,
+	}
+}
+
 // RequestCompanionJoinGameEvent is sent when the leader creates a new game and wants the companions to join it
 type RequestCompanionJoinGameEvent struct {
 	BaseEvent
