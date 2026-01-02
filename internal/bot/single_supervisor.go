@@ -528,7 +528,7 @@ func (s *SinglePlayerSupervisor) HandleMenuFlow() error {
 	if s.bot.ctx.GameReader.IsInCharacterCreationScreen() {
 		s.bot.ctx.Logger.Debug("[Menu Flow]: We're in character creation screen, exiting ...")
 		s.bot.ctx.HID.PressKey(0x1B)
-		time.Sleep(2000)
+		time.Sleep(2000 * time.Millisecond)
 		if s.bot.ctx.GameReader.IsInCharacterCreationScreen() {
 			return errors.New("[Menu Flow]: Failed to exit character creation screen")
 		}
@@ -543,7 +543,7 @@ func (s *SinglePlayerSupervisor) HandleMenuFlow() error {
 	if isDismissableModalPresent {
 		s.bot.ctx.Logger.Debug("[Menu Flow]: Detected dismissable modal with text: " + text)
 		s.bot.ctx.HID.PressKey(0x1B)
-		time.Sleep(1000)
+		time.Sleep(1000 * time.Millisecond)
 
 		isDismissableModalStillPresent, _ := s.bot.ctx.GameReader.IsDismissableModalPresent()
 		if isDismissableModalStillPresent {
@@ -613,7 +613,7 @@ func (s *SinglePlayerSupervisor) HandleStandardMenuFlow() error {
 		s.bot.ctx.Logger.Debug("[Menu Flow]: We're at the lobby screen, but we shouldn't be, going back to character selection screen ...")
 
 		s.bot.ctx.HID.PressKey(0x1B)
-		time.Sleep(2000)
+		time.Sleep(2000 * time.Millisecond)
 
 		if s.bot.ctx.GameReader.IsInLobby() {
 			return fmt.Errorf("[Menu Flow]: Failed to exit lobby")

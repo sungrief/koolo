@@ -356,7 +356,7 @@ func (a Leveling) findKhalimsHeart() error {
 		return err
 	}
 
-	time.Sleep(4000)
+	time.Sleep(4000 * time.Millisecond)
 
 	err = action.MoveToArea(area.SewersLevel2Act3)
 	if err != nil {
@@ -513,7 +513,21 @@ func (a Leveling) openMephistoStairs() error {
 		utils.Sleep(500)
 	}
 
-	time.Sleep(12000)
+	// Wait for quest/stairs state update, but do not block longer than needed.
+	waitDeadline := time.Now().Add(12 * time.Second)
+	for {
+		a.ctx.RefreshGameData()
+		if a.ctx.Data.Quests[quest.Act3TheBlackenedTemple].Completed() {
+			break
+		}
+		if _, found := a.ctx.Data.Objects.FindOne(object.StairSR); found {
+			break
+		}
+		if time.Now().After(waitDeadline) {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 
 	if a.ctx.Data.Quests[quest.Act3TheBlackenedTemple].Completed() {
 		// Interact with the stairs to go to Durance of Hate Level 1

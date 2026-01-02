@@ -270,13 +270,13 @@ func (s *baseSupervisor) ensureOnline() error {
 		s.bot.ctx.HID.Click(game.LeftButton, 1090, 32)
 		s.bot.ctx.Logger.Debug("[Ensure Online]: We're at the character selection screen but not online")
 
-		time.Sleep(2000)
+		time.Sleep(2000 * time.Millisecond)
 
 		maxRetries := 5
 		for i := 0; i < maxRetries; i++ {
 			s.bot.ctx.Logger.Debug(fmt.Sprintf("[Ensure Online]: Trying to connect to bnet attempt %d of %d", i+1, maxRetries))
 			s.bot.ctx.HID.Click(game.LeftButton, 1090, 32)
-			time.Sleep(2000)
+			time.Sleep(2000 * time.Millisecond)
 
 			for {
 				blockingPanel := s.bot.ctx.GameReader.GetPanel("BlockingPanel")
@@ -284,14 +284,14 @@ func (s *baseSupervisor) ensureOnline() error {
 
 				if blockingPanel.PanelName != "" && blockingPanel.PanelEnabled && blockingPanel.PanelVisible {
 					s.bot.ctx.Logger.Debug("[Ensure Online]: Loading panel detected, waiting for it to disappear")
-					time.Sleep(2000)
+					time.Sleep(2000 * time.Millisecond)
 					continue
 				}
 
 				if popuPanel.PanelName != "" && popuPanel.PanelEnabled && popuPanel.PanelVisible {
 					s.bot.ctx.Logger.Debug("[Ensure Online]: Dismissable modal detected, dismissing it and trying to connect again ...")
 					s.bot.ctx.HID.PressKey(0x1B)
-					time.Sleep(1000)
+					time.Sleep(1000 * time.Millisecond)
 					break
 				}
 
