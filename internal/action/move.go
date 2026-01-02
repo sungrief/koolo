@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hectorgimenez/koolo/internal/chicken"
 	"github.com/hectorgimenez/koolo/internal/pather"
 	"github.com/hectorgimenez/koolo/internal/town"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -90,8 +91,8 @@ func ensureAreaSync(ctx *context.Status, expectedArea area.ID) error {
 
 		if ctx.Data.PlayerUnit.Area == expectedArea {
 			// Area ID matches, now verify collision data is loaded
-			if ctx.Data.AreaData.Grid != nil && 
-				ctx.Data.AreaData.Grid.CollisionGrid != nil && 
+			if ctx.Data.AreaData.Grid != nil &&
+				ctx.Data.AreaData.Grid.CollisionGrid != nil &&
 				len(ctx.Data.AreaData.Grid.CollisionGrid) > 0 {
 				// Additional check: ensure we have adjacent level data if this is a cross-area operation
 				// Give it one more refresh cycle to ensure all data is populated
@@ -454,6 +455,10 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 		isSafe := true
 		if !ctx.Data.AreaData.Area.IsTown() {
+			if !ctx.Data.CanTeleport() {
+				chicken.CheckForScaryAuraAndCurse()
+			}
+
 			//Safety first, handle enemies
 			if !opts.IgnoreMonsters() && (!ctx.Data.CanTeleport() || overrideClearPathDist) && time.Since(actionLastMonsterHandlingTime) > monsterHandleCooldown {
 				actionLastMonsterHandlingTime = time.Now()

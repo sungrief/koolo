@@ -165,6 +165,21 @@ type CharacterCfg struct {
 		TownChickenAt       int `yaml:"townChickenAt"`
 		MercChickenAt       int `yaml:"mercChickenAt"`
 	} `yaml:"health"`
+	ChickenOnCurses struct {
+		AmplifyDamage bool `yaml:"amplifyDamage"`
+		Decrepify     bool `yaml:"decrepify"`
+		LowerResist   bool `yaml:"lowerResist"`
+		BloodMana     bool `yaml:"bloodMana"`
+	} `yaml:"chickenOnCurses"`
+	ChickenOnAuras struct {
+		Fanaticism bool `yaml:"fanaticism"`
+		Might      bool `yaml:"might"`
+		Conviction bool `yaml:"conviction"`
+		HolyFire   bool `yaml:"holyFire"`
+		BlessedAim bool `yaml:"blessedAim"`
+		HolyFreeze bool `yaml:"holyFreeze"`
+		HolyShock  bool `yaml:"holyShock"`
+	} `yaml:"chickenOnAuras"`
 	Inventory struct {
 		InventoryLock      [][]int     `yaml:"inventoryLock"`
 		BeltColumns        BeltColumns `yaml:"beltColumns"`

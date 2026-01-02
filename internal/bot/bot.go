@@ -247,7 +247,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 				// Check-Then-Lock Pattern
 				// We pre-calculate if we need to switch priority to High.
 				// This prevents locking the main thread (Low Priority Loop) when there is nothing to do.
-				
+
 				shouldPickup := false
 				if b.ctx.CurrentGame.PickupItems {
 					// Peek if there are items without locking
@@ -377,11 +377,15 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 	})
 
 	// Low priority loop, this will keep executing main run scripts
-	g.Go(func() error {
+	g.Go(func() (returnErr error) {
 		defer func() {
 			cancel()
 			b.Stop()
-			recover()
+			if r := recover(); r != nil {
+				if e, ok := r.(error); ok && errors.Is(e, health.ErrChicken) {
+					returnErr = e
+				}
+			}
 		}()
 
 		b.ctx.AttachRoutine(botCtx.PriorityNormal)

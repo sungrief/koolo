@@ -23,6 +23,7 @@
             <a href="#battle-net-settings" aria-label="Battle.net" title="Battle.net"><i class="bi bi-globe2"></i><span class="nav-text">Battle.net</span></a>
             <a href="#scheduler-section" aria-label="Scheduler" title="Scheduler"><i class="bi bi-calendar-week"></i><span class="nav-text">Scheduler</span></a>
             <a href="#health-settings" aria-label="Health" title="Health"><i class="bi bi-heart"></i><span class="nav-text">Health</span></a>
+            <a href="#chicken-curses-auras" aria-label="Chicken Curses/Auras" title="Chicken Curses/Auras"><i class="bi bi-exclamation-triangle"></i><span class="nav-text">Curses/Auras</span></a>
             <a href="#merc-settings" aria-label="Merc" title="Merc"><i class="bi bi-person-badge"></i><span class="nav-text">Merc</span></a>
             <a href="#inventory-settings" aria-label="Inventory" title="Inventory"><i class="bi bi-grid-3x3-gap"></i><span class="nav-text">Inventory</span></a>
             <a href="#game-settings" aria-label="Game" title="Game"><i class="bi bi-controller"></i><span class="nav-text">Game</span></a>
@@ -354,11 +355,11 @@
                     <fieldset class="grid">
                         <label>
                             <input type="checkbox" id="blizzardUseMoatTrick" name="blizzardUseMoatTrick" {{ if .Config.Character.BlizzardSorceress.UseMoatTrick }}checked{{ end }}/>
-                            Use moat trick                        
+                            Use moat trick
                         </label>
                         <label>
                             <input type="checkbox" id="blizzardUseStaticOnMephisto" name="blizzardUseStaticOnMephisto" {{ if .Config.Character.BlizzardSorceress.UseStaticOnMephisto }}checked{{ end }}/>
-                            Use static on Mephisto    
+                            Use static on Mephisto
                         </label>
                     </fieldset>
                 </div>
@@ -366,11 +367,11 @@
                     <fieldset class="grid">
                         <label>
                             <input type="checkbox" id="levelingUseMoatTrick" name="levelingUseMoatTrick" {{ if .Config.Character.SorceressLeveling.UseMoatTrick }}checked{{ end }}/>
-                            Use moat trick                        
+                            Use moat trick
                         </label>
                         <label>
                             <input type="checkbox" id="levelingUseStaticOnMephisto" name="levelingUseStaticOnMephisto" {{ if .Config.Character.SorceressLeveling.UseStaticOnMephisto }}checked{{ end }}/>
-                            Use static on Mephisto                       
+                            Use static on Mephisto
                         </label>
                         <label>
                             <input type="checkbox" id="levelingUsePacketLearning" name="levelingUsePacketLearning" {{ if .Config.Character.SorceressLeveling.UsePacketLearning }}checked{{ end }}/>
@@ -789,6 +790,56 @@
                 <label>
                     Rejuv Potions
                     <input type="number" name="rejuvPotionCount" min="0" max="99" placeholder="{{ .Config.Inventory.RejuvPotionCount }}" value="{{ .Config.Inventory.RejuvPotionCount }}"/>
+                </label>
+            </fieldset>
+            <h3 id="chicken-curses-auras">Chicken on Curses/Auras</h3>            <h4>Curses (on player)</h4>
+            <fieldset class="grid">
+                <label>
+                    <input type="checkbox" name="chickenAmplifyDamage" {{ if .Config.ChickenOnCurses.AmplifyDamage }}checked{{ end }}/>
+                    Amplify Damage
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenDecrepify" {{ if .Config.ChickenOnCurses.Decrepify }}checked{{ end }}/>
+                    Decrepify
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenLowerResist" {{ if .Config.ChickenOnCurses.LowerResist }}checked{{ end }}/>
+                    Lower Resist
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenBloodMana" {{ if .Config.ChickenOnCurses.BloodMana }}checked{{ end }}/>
+                    Blood Mana
+                </label>
+            </fieldset>
+            <h4>Auras (on nearby monsters)</h4>
+            <fieldset class="grid">
+                <label>
+                    <input type="checkbox" name="chickenFanaticism" {{ if .Config.ChickenOnAuras.Fanaticism }}checked{{ end }}/>
+                    Fanaticism
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenMight" {{ if .Config.ChickenOnAuras.Might }}checked{{ end }}/>
+                    Might
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenConviction" {{ if .Config.ChickenOnAuras.Conviction }}checked{{ end }}/>
+                    Conviction
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenHolyFire" {{ if .Config.ChickenOnAuras.HolyFire }}checked{{ end }}/>
+                    Holy Fire
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenBlessedAim" {{ if .Config.ChickenOnAuras.BlessedAim }}checked{{ end }}/>
+                    Blessed Aim
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenHolyFreeze" {{ if .Config.ChickenOnAuras.HolyFreeze }}checked{{ end }}/>
+                    Holy Freeze
+                </label>
+                <label>
+                    <input type="checkbox" name="chickenHolyShock" {{ if .Config.ChickenOnAuras.HolyShock }}checked{{ end }}/>
+                    Holy Shock
                 </label>
             </fieldset>
             <h3 id="merc-settings">Merc Settings</h3><br>
