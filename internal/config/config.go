@@ -71,6 +71,7 @@ type KooloCfg struct {
 	}
 	Ngrok struct {
 		Enabled       bool   `yaml:"enabled"`
+		SendURL       bool   `yaml:"sendUrl"`
 		Authtoken     string `yaml:"authtoken"`
 		Region        string `yaml:"region"`
 		Domain        string `yaml:"domain"`

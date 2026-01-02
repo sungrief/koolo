@@ -1281,6 +1281,7 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Telegram.ChatID = telegramChatId
 
 		newConfig.Ngrok.Enabled = r.Form.Get("ngrok_enabled") == "true"
+		newConfig.Ngrok.SendURL = r.Form.Get("ngrok_send_url") == "true"
 		newConfig.Ngrok.Authtoken = strings.TrimSpace(r.Form.Get("ngrok_authtoken"))
 		newConfig.Ngrok.Region = strings.TrimSpace(r.Form.Get("ngrok_region"))
 		newConfig.Ngrok.Domain = strings.TrimSpace(r.Form.Get("ngrok_domain"))

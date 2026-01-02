@@ -34,6 +34,7 @@ telegram:
 
 ngrok:
   enabled: false
+  sendUrl: false      # If true, send ngrok URL to Discord/Telegram when established
   authtoken: ''      # Optional; if empty, NGROK_AUTHTOKEN env var is used
   region: ''         # Optional (e.g. "us", "eu")
   domain: ''         # Optional reserved domain

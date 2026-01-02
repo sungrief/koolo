@@ -401,21 +401,34 @@
                 />
                 <h4>ngrok tunnel</h4>
                 <p><small style="color:#f5ab00">
-                        ⚠️ Warning: ngrok exposes your local dashboard publicly. Anyone with the URL can access it without authentication unless you configure basic auth.
+                        ⚠️ Warning: ngrok exposes your local dashboard publicly. Anyone with the URL can access it without authentication unless you configure basic auth. On free plans, the URL is randomly generated and can change each time you start the app.
                     </small>
                 </p>
-                <label>
-                    <input
-                            {{ if .Ngrok.Enabled }}
-                                checked="checked"
-                            {{ end }}
-                            type="checkbox"
-                            name="ngrok_enabled"
-                            value="true"
-                            id="ngrok-enabled"
-                    />
-                    Enabled (Restart required)
-                </label>
+                <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                    <label>
+                        <input
+                                {{ if .Ngrok.Enabled }}
+                                    checked="checked"
+                                {{ end }}
+                                type="checkbox"
+                                name="ngrok_enabled"
+                                value="true"
+                                id="ngrok-enabled"
+                        />
+                        Enabled (Restart required)
+                    </label>
+                    <label>
+                        <input
+                                {{ if .Ngrok.SendURL }}
+                                    checked="checked"
+                                {{ end }}
+                                type="checkbox"
+                                name="ngrok_send_url"
+                                value="true"
+                        />
+                        Send ngrok URL to notifications
+                    </label>
+                </div>
                 <input
                         name="ngrok_authtoken"
                         type="password"

@@ -123,6 +123,9 @@ func main() {
 				logger.Error("ngrok tunnel failed to start", slog.Any("error", err))
 			} else {
 				logger.Info("ngrok tunnel established", slog.String("url", tunnel.URL()))
+				if config.Koolo.Ngrok.SendURL {
+					go event.Send(event.NgrokTunnel(tunnel.URL()))
+				}
 			}
 			ngrokTunnel = tunnel
 		}
