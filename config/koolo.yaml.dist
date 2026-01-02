@@ -31,6 +31,14 @@ telegram:
   enabled: false
   chatId: 0
   token: ''
+
+ngrok:
+  enabled: false
+  authtoken: ''      # Optional; if empty, NGROK_AUTHTOKEN env var is used
+  region: ''         # Optional (e.g. "us", "eu")
+  domain: ''         # Optional reserved domain
+  basicAuthUser: ''  # Optional
+  basicAuthPass: ''  # Optional
 # Ping Monitor - Automatically stop bot on sustained high ping
 pingMonitor:
   enabled: false             # Set to true to enable ping monitoring

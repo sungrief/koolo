@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	_ "net/http/pprof"
+	"os"
 	"path/filepath"
 	"runtime/debug"
 	"syscall"
@@ -18,6 +19,7 @@ import (
 	"github.com/hectorgimenez/koolo/internal/event"
 	"github.com/hectorgimenez/koolo/internal/remote/discord"
 	"github.com/hectorgimenez/koolo/internal/remote/droplog"
+	ngrokremote "github.com/hectorgimenez/koolo/internal/remote/ngrok"
 	"github.com/hectorgimenez/koolo/internal/remote/telegram"
 	"github.com/hectorgimenez/koolo/internal/server"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -103,6 +105,28 @@ func main() {
 		log.Fatalf("Error starting local server: %s", err.Error())
 	}
 	eventListener.Register(srv.HandleRunewordHistory)
+	var ngrokTunnel *ngrokremote.Tunnel
+	if config.Koolo.Ngrok.Enabled {
+		if config.Koolo.Ngrok.Authtoken == "" && os.Getenv("NGROK_AUTHTOKEN") == "" {
+			logger.Warn("ngrok enabled but no authtoken set; skipping tunnel start")
+		} else {
+			opts := ngrokremote.Options{
+				LocalAddr:     "http://localhost:8087",
+				Authtoken:     config.Koolo.Ngrok.Authtoken,
+				Region:        config.Koolo.Ngrok.Region,
+				Domain:        config.Koolo.Ngrok.Domain,
+				BasicAuthUser: config.Koolo.Ngrok.BasicAuthUser,
+				BasicAuthPass: config.Koolo.Ngrok.BasicAuthPass,
+			}
+			tunnel, err := ngrokremote.Start(ctx, opts)
+			if err != nil {
+				logger.Error("ngrok tunnel failed to start", slog.Any("error", err))
+			} else {
+				logger.Info("ngrok tunnel established", slog.String("url", tunnel.URL()))
+			}
+			ngrokTunnel = tunnel
+		}
+	}
 
 	g.Go(wrapWithRecover(logger, func() error {
 		defer cancel()
@@ -242,6 +266,11 @@ func main() {
 		err = srv.Stop()
 		if err != nil {
 			logger.Error("error stopping local server", slog.Any("error", err))
+		}
+		if ngrokTunnel != nil {
+			if closeErr := ngrokTunnel.Close(); closeErr != nil {
+				logger.Error("error stopping ngrok tunnel", slog.Any("error", closeErr))
+			}
 		}
 
 		return err
