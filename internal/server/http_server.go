@@ -2443,6 +2443,10 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.StopLevelingAt, _ = strconv.Atoi(r.Form.Get("stopLevelingAt"))
 		cfg.Game.IsNonLadderChar = r.Form.Has("isNonLadderChar")
 
+		if v := r.Form.Get("maxGameLength"); v != "" {
+			cfg.MaxGameLength, _ = strconv.Atoi(v)
+		}
+
 		// Packet Casting
 		cfg.PacketCasting.UseForEntranceInteraction = r.Form.Has("packetCastingUseForEntranceInteraction")
 		cfg.PacketCasting.UseForItemPickup = r.Form.Has("packetCastingUseForItemPickup")
