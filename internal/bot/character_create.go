@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"strings"
 	"syscall"
-	"unicode"
 	"unsafe"
 
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -155,17 +154,9 @@ func inputCharacterName(ctx *context.Status, name string) error {
 
 func inputASCIIName(ctx *context.Status, name string) error {
 	for _, r := range name {
-		switch r {
-		case '-':
-			ctx.HID.PressKey(win.VK_OEM_MINUS)
-		case '_':
-			win.PostMessage(ctx.GameReader.HWND, win.WM_KEYDOWN, win.VK_LSHIFT, 0)
-			utils.Sleep(20)
-			ctx.HID.PressKey(win.VK_OEM_MINUS)
-			utils.Sleep(20)
-			win.PostMessage(ctx.GameReader.HWND, win.WM_KEYUP, win.VK_LSHIFT, 0)
-		default:
-			ctx.HID.PressKey(byte(unicode.ToUpper(r)))
+		if err := sendUnicodeChar(r); err != nil {
+			ctx.Logger.Error("Failed to send char", slog.String("char", string(r)), slog.Any("error", err))
+			return err
 		}
 		utils.Sleep(60)
 	}

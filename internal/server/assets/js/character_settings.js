@@ -297,7 +297,10 @@ function moveRunToEnabled(runElement) {
 }
 
 function updateButtonForEnabledRun(runElement) {
-    const button = runElement.querySelector('button');
+    const button = runElement.querySelector('button.add-run, button.remove-run');
+    if (!button) {
+        return;
+    }
     button.classList.remove('add-run');
     button.classList.add('remove-run');
     button.title = "Remove run";
@@ -305,7 +308,10 @@ function updateButtonForEnabledRun(runElement) {
 }
 
 function updateButtonForDisabledRun(runElement) {
-    const button = runElement.querySelector('button');
+    const button = runElement.querySelector('button.add-run, button.remove-run');
+    if (!button) {
+        return;
+    }
     button.classList.remove('remove-run');
     button.classList.add('add-run');
     button.title = "Add run";
