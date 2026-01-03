@@ -11,6 +11,9 @@ window.onload = function () {
     new Sortable(enabled_runs_ul, {
         group: 'runs',
         animation: 150,
+        delay: 180,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 5,
         onSort: function (evt) {
             updateEnabledRunsHiddenField();
         },
@@ -22,6 +25,9 @@ window.onload = function () {
     new Sortable(disabled_runs_ul, {
         group: 'runs',
         animation: 150,
+        delay: 180,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 5,
         onAdd: function (evt) {
             updateButtonForDisabledRun(evt.item);
         }

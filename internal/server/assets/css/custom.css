@@ -422,6 +422,7 @@
 .run-list {
   padding: 0;
   list-style: none;
+  touch-action: pan-y;
 }
 
 .run-list li {
@@ -453,6 +454,7 @@
   border: none;
   cursor: pointer;
   gap: var(--spacing-md);
+  touch-action: pan-y;
 }
 
 .run-list li summary:hover {
@@ -700,7 +702,7 @@
   font-weight: 600;
   cursor: pointer;
   align-self: center;
-  margin-top: 0.9rem;
+  margin-top: 0.9frem;
 }
 
 .non-ladder-checkbox-container input[type="checkbox"] {
@@ -964,17 +966,77 @@
    RESPONSIVE DESIGN
    ======================================== */
 @media (max-width: 768px) {
+  body,
+  .settings-page {
+    overflow-x: clip;
+  }
+
   .settings-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 0.6rem;
   }
 
   .settings-nav {
-    position: static;
-    max-height: none;
+    position: sticky;
+    top: 0.6rem;
+    height: calc(100vh - 1.2rem);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    width: 44px;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    gap: 0;
+  }
+
+  .settings-nav.icon-only {
+    width: 44px;
+  }
+
+  .settings-nav.icon-only a {
+    justify-content: center;
+    padding: 0.35rem 0;
+    min-width: 0;
+  }
+
+  .settings-nav a {
+    flex: 1 1 0;
+  }
+
+  .settings-nav.hover-expand.icon-only:hover {
+    width: 44px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .settings-nav.hover-expand.icon-only:hover .nav-text {
+    opacity: 0;
+    max-width: 0;
+    margin-left: 0;
+  }
+
+  .settings-nav-toggle {
+    display: none;
+  }
+
+  .sticky-bottom {
+    display: flex;
     flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    height: auto;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: nowrap;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .sticky-bottom > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .sticky-bottom > :last-child {
+    flex: 1 1 0;
   }
 
   #scheduler-settings {
