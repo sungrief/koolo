@@ -46,9 +46,9 @@ Use better_build.bat to build the application.
   <h2 style="margin: 0;">⚠️ Warning: People using this tool have been reporting bans. Do not use it.</h2>
 </div>
 <p align="center">
-  <img src="assets/koolo.webp" alt="Koolo" width="150">
+  <img src="assets/koolo.webp" alt="Koolo Resurrected" width="150">
 </p>
-<h3 align="center">Koolo</h3>
+<h3 align="center">Koolo Resurrected</h3>
 
 ---
 
@@ -56,7 +56,7 @@ Koolo is a small bot for Diablo II: Resurrected (Expansion). Koolo project was b
 only, it's not intended for online usage. Feel free to contribute opening pull requests with new features or bugfixes.
 Koolo reads game memory and interacts with the game injecting clicks/keystrokes to the game window. As good as it can.
 
-Feel free to join our Discord community to report bugs, ask for help or just to chat: [Koolo Discord]( https://discord.gg/zgFMyzAFHE)
+Feel free to join our Discord community to report bugs, ask for help or just to chat: [Koolo Resurrected Discord]( https://discord.gg/zgFMyzAFHE)
 
 ## Disclaimer
 Can I get banned for using Koolo? The answer is a crystal clear yes, you can get banned although at this point I'm
