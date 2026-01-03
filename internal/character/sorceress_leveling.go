@@ -33,8 +33,8 @@ const (
 	SorceressLevelingThreatDistance     = 15
 	AndarielRepositionLength            = 9
 
-	SorceressLevelingDangerDistance = 4
-	SorceressLevelingSafeDistance   = 6
+	SorceressLevelingDangerDistance = 6
+	SorceressLevelingSafeDistance   = 15
 
 	StaticFieldEffectiveRange = 4 // Maximum distance for Static Field to reliably hit
 )
@@ -324,7 +324,7 @@ func (s SorceressLeveling) KillMonsterSequence(
 				if found {
 					//s.Logger.Info(fmt.Sprintf("Teleporting to safe position: %v", safePos))
 					if s.Data.PlayerUnit.Skills[skill.Teleport].Level > 0 {
-						if _, ok := s.Data.KeyBindings.KeyBindingForSkill(skill.Teleport); ok && !s.Data.PlayerUnit.States.HasState(state.Cooldown) {
+						if _, ok := s.Data.KeyBindings.KeyBindingForSkill(skill.Teleport); ok {
 							if s.Context.Data.PlayerUnit.IsDead() {
 								//s.Logger.Info("Player detected as dead, stopping KillMonsterSequence.")
 								return nil
@@ -643,10 +643,11 @@ func (s SorceressLeveling) ShouldResetSkills() bool {
 func (s SorceressLeveling) SkillsToBind() (skill.ID, []skill.ID) {
 	level, _ := s.Data.PlayerUnit.FindStat(stat.Level, 0)
 
-	skillBindings := []skill.ID{
-		skill.FireBolt,
-	}
+	skillBindings := []skill.ID{}
 
+	if level.Value < 24 {
+		skillBindings = append(skillBindings, skill.FireBolt)
+	}
 	if level.Value >= 2 {
 		skillBindings = append(skillBindings, skill.FrozenArmor)
 	}
