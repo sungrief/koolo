@@ -116,7 +116,7 @@
 }
 
 .settings-nav-toggle {
-  margin-top: 0.1rem;
+  margin-top: 0.9rem;
   padding-top: 0;
 }
 
@@ -695,14 +695,12 @@
 .non-ladder-checkbox-container {
   display: flex;
   align-items: center;
-  padding-top: var(--spacing-md);
   gap: var(--spacing-sm);
-}
-
-.non-ladder-checkbox-container label {
   color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
+  align-self: center;
+  margin-top: 0.9rem;
 }
 
 .non-ladder-checkbox-container input[type="checkbox"] {
@@ -1611,6 +1609,65 @@
     border: 1px solid #444;
     border-radius: 6px;
     font-size: 0.85rem;
+    width: 100%;
+    max-width: 320px;
+    justify-self: end;
+}
+
+.general-settings-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+}
+
+.general-settings-grid .chest-toggle-group {
+    grid-row: span 2;
+    align-self: start;
+}
+
+.packet-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem 1.2rem;
+    align-items: start;
+}
+
+@media (max-width: 768px) {
+  .packet-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.health-settings-grid {
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  align-items: start;
+}
+
+.health-settings-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.health-settings-grid .label-text {
+  display: block;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.cube-options {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: var(--spacing-sm);
+}
+
+.cube-options fieldset {
+  margin: 0.4rem 0 0 0;
+}
+
+.cube-option-item {
+  font-weight: 500;
+  color: #1f2937;
 }
 
 .chest-toggle-title {

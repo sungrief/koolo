@@ -55,7 +55,7 @@
             </div>
             {{ end }}
             <div class="notification">
-                <h3 id="general-settings">General Settings</h3><br>
+                <h3 id="general-settings">Character Settings for {{ .Supervisor }}</h3><br>
                 <form method="post" autocomplete="off" class="compact-form">
             <input type="hidden" name="cloneSource" value="{{ .CloneSource }}"/>
             <div class="supervisor-input-row">
@@ -124,7 +124,7 @@
                 <label>
                     Character name
                    <input name="characterName" placeholder="{{ .Config.CharacterName }}" value="{{ .Config.CharacterName }}" data-last-valid="{{ .Config.CharacterName }}" minlength="2" maxlength="16" oninput="validateCharacterName(this)"/>                </label>
-                <label>
+                <label class="non-ladder-checkbox-container">
                     <input type="checkbox" name="isNonLadderChar" {{ if .Config.Game.IsNonLadderChar }}checked{{ end }}/>
                     Non-Ladder
                 </label>
@@ -471,7 +471,7 @@
                         Always stash to shared tab
                     </label>
                 </fieldset>
-                <fieldset class="grid">
+                <fieldset class="grid general-settings-grid">
                     <label>
                         <input type="checkbox" name="useCentralizedPickit" {{ if .Config.UseCentralizedPickit }}checked{{ end }}/>
                         Use centralized pickit
@@ -491,6 +491,14 @@
                             Super chests only
                         </label>
                     </div>
+                    <label>
+                        <input type="checkbox" name="useCainIdentify" {{ if .Config.Game.UseCainIdentify }}checked{{ end }}/>
+                        Identify with Cain (forced for levelers)
+                    </label>
+                    <label>
+                        <input type="checkbox" id="game.disableIdentifyTome" name="game.disableIdentifyTome" {{ if .Config.Game.DisableIdentifyTome }}checked{{ end }}/>
+                        Dont Buy ID Tome
+                    </label>
                 </fieldset>
                 <fieldset class="grid">
                     <label>
@@ -500,16 +508,6 @@
                     <label>
                         Minimum Gold (will pick up Magic+ to sell for gold if below)
                         <input min="0" type="number" name="gameMinGoldPickupThreshold" placeholder="{{ .Config.Game.MinGoldPickupThreshold }}" value="{{ .Config.Game.MinGoldPickupThreshold }}"/>
-                    </label>
-                </fieldset>
-                <fieldset class="grid">
-                    <label>
-                        <input type="checkbox" name="useCainIdentify" {{ if .Config.Game.UseCainIdentify }}checked{{ end }}/>
-                        Identify with Cain (forced for levelers)
-                        <span style="margin-left: 16px;">
-                            <input type="checkbox" id="game.disableIdentifyTome" name="game.disableIdentifyTome" {{ if .Config.Game.DisableIdentifyTome }}checked{{ end }}/>
-                            Dont Buy ID Tome
-                        </span>
                     </label>
                 </fieldset>
                 <div id="clearPathDistContainer" class="conditional-field" {{ if .Config.Character.UseTeleport }}style="display: none;"{{ end }}>
@@ -529,22 +527,15 @@
                     <strong>Mouse clicking is generally safer</strong> and less detectable.
                     Enable packet usage only if you understand the risks. Disabled by default.
                 </p>
-                <fieldset class="grid">
+                <fieldset class="grid packet-settings-grid">
                     <label>
                         <input type="checkbox" name="packetCastingUseForItemPickup" {{ if .Config.PacketCasting.UseForItemPickup }}checked{{ end }}/>
                         Use packets for item pickup
                     </label>
-                </fieldset>
-                <fieldset class="grid">
                     <label>
                         <input type="checkbox" name="packetCastingUseForTpInteraction" {{ if .Config.PacketCasting.UseForTpInteraction }}checked{{ end }}/>
                         Use packets for TP interaction
                     </label>
-                    <label style="visibility: hidden;">
-                        <!-- Spacer for grid alignment -->
-                    </label>
-                </fieldset>
-                <fieldset class="grid">
                     <label>
                         <input type="checkbox" name="packetCastingUseForEntranceInteraction" {{ if .Config.PacketCasting.UseForEntranceInteraction }}checked{{ end }}/>
                         Use packets for entrance interaction
@@ -557,8 +548,6 @@
                         <input type="checkbox" name="packetCastingUseForEntitySkills" {{ if .Config.PacketCasting.UseForEntitySkills }}checked{{ end }}/>
                         Use packets for attacks and skills
                     </label>
-                </fieldset>
-                <fieldset class="grid">
                     <label>
                         <input type="checkbox" name="packetCastingUseForSkillSelection" {{ if .Config.PacketCasting.UseForSkillSelection }}checked{{ end }}/>
                         Use packets for skill selection
@@ -870,30 +859,30 @@
                     </div>
                 </div>
             </div>
-            <fieldset class="grid">
+            <fieldset class="grid health-settings-grid">
                 <label>
-                    Healing at (%)
+                    <span class="label-text">Healing at (%)</span>
                     <input type="number" name="healingPotionAt" min="0" max="99" placeholder="{{ .Config.Health.HealingPotionAt }}" value="{{ .Config.Health.HealingPotionAt }}"/>
                 </label>
                 <label>
-                    Mana at (%)
+                    <span class="label-text">Mana at (%)</span>
                     <input type="number" name="manaPotionAt" min="0" max="99" placeholder="{{ .Config.Health.ManaPotionAt }}" value="{{ .Config.Health.ManaPotionAt }}"/>
                 </label>
                 <label>
-                    Rejuv at (% of life)
+                    <span class="label-text">Rejuv at (% of life)</span>
                     <input type="number" name="rejuvPotionAtLife" min="0" max="99" placeholder="{{ .Config.Health.RejuvPotionAtLife }}" value="{{ .Config.Health.RejuvPotionAtLife }}"/>
                 </label>
                 <label>
-                    Rejuv at (% of mana)
+                    <span class="label-text">Rejuv at (% of mana)</span>
                     <input type="number" name="rejuvPotionAtMana" min="0" max="99" placeholder="{{ .Config.Health.RejuvPotionAtMana }}" value="{{ .Config.Health.RejuvPotionAtMana }}"/>
                 </label>
                 <label>
-                    Chicken at (%)
+                    <span class="label-text">Chicken at (%)</span>
                     <input type="number" name="chickenAt" min="0" max="99" placeholder="{{ .Config.Health.ChickenAt }}"
                            value="{{ .Config.Health.ChickenAt }}"/>
                 </label>
                 <label>
-                    Town Chicken at (%)
+                    <span class="label-text">Town Chicken at (%)</span>
                     <input type="number" name="townChickenAt" min="0" max="99" placeholder="{{ .Config.Health.TownChickenAt }}"
                            value="{{ .Config.Health.TownChickenAt }}"/>
                 </label>
@@ -1256,18 +1245,22 @@
                 })();
             </script>
             <h3 id="cube-recipes">Cube Recipes</h3>
-            <label>
-                <input type="checkbox" style="padding-right: 30px" name="enableCubeRecipes" {{ if .Config.CubeRecipes.Enabled }}checked{{ end }}/>
-                Enable the bot to automatically cube item recipes.
-            </label><br>
-            <label>
-                <input type="checkbox" name="skipPerfectAmethysts" {{ if .Config.CubeRecipes.SkipPerfectAmethysts }}checked{{ end }}/>
-                Don't use Perfect Amethysts when rolling charms
-            </label><br>
-            <label>
-                <input type="checkbox" name="skipPerfectRubies" {{ if .Config.CubeRecipes.SkipPerfectRubies }}checked{{ end }}/>
-                Don't use Perfect Rubies when rolling charms
-            </label><br>
+            <div class="cube-options">
+                <label class="cube-option-item">
+                    <input type="checkbox" style="padding-right: 30px" name="enableCubeRecipes" {{ if .Config.CubeRecipes.Enabled }}checked{{ end }}/>
+                    Enable the bot to automatically cube item recipes.
+                </label>
+                <fieldset class="grid">
+                    <label class="cube-option-item">
+                        <input type="checkbox" name="skipPerfectAmethysts" {{ if .Config.CubeRecipes.SkipPerfectAmethysts }}checked{{ end }}/>
+                        Don't use Perfect Amethysts when rolling charms
+                    </label>
+                    <label class="cube-option-item">
+                        <input type="checkbox" name="skipPerfectRubies" {{ if .Config.CubeRecipes.SkipPerfectRubies }}checked{{ end }}/>
+                        Don't use Perfect Rubies when rolling charms
+                    </label>
+                </fieldset>
+            </div>
             <div class="recipe-grid">
                 {{ range $index, $recipe := .RecipeList }}
                 <label>
