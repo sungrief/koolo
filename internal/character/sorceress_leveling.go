@@ -369,8 +369,6 @@ func (s SorceressLeveling) KillMonsterSequence(
 				}
 			}
 
-			//n00b
-
 			if s.staticPhaseCompleted[id] {
 				//s.Logger.Debug("Boss: Static Field phase already completed, proceeding to main attack.")
 			} else {
