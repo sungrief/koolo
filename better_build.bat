@@ -18,7 +18,7 @@ set "GOCACHE=%STATIC_BUILD_DIR%\gocache"
 set "GOTMPDIR=%STATIC_BUILD_DIR%"
 call :print_info "Using static build folder: %STATIC_BUILD_DIR%"
 
-call :print_header "Starting Koolo Build Process"
+call :print_header "Starting Koolo Resurrected Build Process"
 
 :: Check for Go installation
 call :check_go_installation
