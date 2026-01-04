@@ -180,9 +180,15 @@
 }
 
 .settings-nav a.active {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 2px var(--primary);
+  color: #1d4ed8 !important;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 800;
+}
+
+.settings-nav a.active i {
+  color: #1d4ed8 !important;
+  font-weight: 800;
 }
 
 .settings-content {
@@ -702,7 +708,7 @@
   font-weight: 600;
   cursor: pointer;
   align-self: center;
-  margin-top: 0.9frem;
+  margin-top: 0.9rem;
 }
 
 .non-ladder-checkbox-container input[type="checkbox"] {
@@ -1730,6 +1736,47 @@
 .cube-option-item {
   font-weight: 500;
   color: #1f2937;
+}
+
+.section-icon {
+  margin-right: 0.6rem;
+  font-size: 0.95em;
+  vertical-align: -0.05em;
+}
+
+.extra-buffs-container {
+  overflow: hidden;
+  max-height: 420px;
+  opacity: 1;
+  transition: max-height 0.2s ease, opacity 0.2s ease;
+  margin-top: 0.5rem;
+  grid-column: 1 / -1;
+}
+
+.extra-buffs-container .walking-radius-container {
+  margin-bottom: 0.35rem;
+}
+
+.extra-buffs-container > div:last-child {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem 1rem;
+  align-items: center;
+}
+
+.extra-buffs-container > div:last-child label {
+  margin-bottom: 0;
+}
+
+.extra-buffs-container hr,
+.extra-buffs-container .input-info {
+  grid-column: 1 / -1;
+}
+
+.extra-buffs-container.is-hidden {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .chest-toggle-title {

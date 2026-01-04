@@ -678,11 +678,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     function toggleUseExtraBuffsVisibility() {
         if (useExtraBuffsCheckbox && useExtraBuffsDistContainer) {
-            if (useExtraBuffsCheckbox.checked) {
-                useExtraBuffsDistContainer.style.display = 'block';
-            } else {
-                useExtraBuffsDistContainer.style.display = 'none';
-            }
+            useExtraBuffsDistContainer.classList.toggle('is-hidden', !useExtraBuffsCheckbox.checked);
         }
     }
 

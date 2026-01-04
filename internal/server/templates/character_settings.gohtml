@@ -55,7 +55,7 @@
             </div>
             {{ end }}
             <div class="notification">
-                <h3 id="general-settings">Character Settings for {{ .Supervisor }}</h3><br>
+                <h3 id="general-settings"><i class="bi bi-gear section-icon" aria-hidden="true"></i>Character Settings for {{ .Supervisor }}</h3><br>
                 <form method="post" autocomplete="off" class="compact-form">
             <input type="hidden" name="cloneSource" value="{{ .CloneSource }}"/>
             <div class="supervisor-input-row">
@@ -461,7 +461,8 @@
                 <h5>General Settings</h5>
                 <fieldset class="grid">
                     <label>
-                        <input type="checkbox" id="characterUseExtraBuffs" name="characterUseExtraBuffs" {{ if .Config.Character.UseExtraBuffs }}checked{{ end }}/>Enable extra buff features
+                        <input type="checkbox" name="useCainIdentify" {{ if .Config.Game.UseCainIdentify }}checked{{ end }}/>
+                        Identify with Cain (forced for levelers)
                     </label>
                     <label>
                         <input type="checkbox" id="characterUseTeleport" name="characterUseTeleport" {{ if .Config.Character.UseTeleport }}checked{{ end }}/>Use teleport when available
@@ -473,8 +474,8 @@
                 </fieldset>
                 <fieldset class="grid general-settings-grid">
                     <label>
-                        <input type="checkbox" name="useCentralizedPickit" {{ if .Config.UseCentralizedPickit }}checked{{ end }}/>
-                        Use centralized pickit
+                        <input type="checkbox" id="game.disableIdentifyTome" name="game.disableIdentifyTome" {{ if .Config.Game.DisableIdentifyTome }}checked{{ end }}/>
+                        Dont Buy ID Tome
                     </label>
                     <label>
                         <input type="checkbox" name="interactWithShrines" {{ if .Config.Game.InteractWithShrines }}checked{{ end }}/>
@@ -492,14 +493,31 @@
                         </label>
                     </div>
                     <label>
-                        <input type="checkbox" name="useCainIdentify" {{ if .Config.Game.UseCainIdentify }}checked{{ end }}/>
-                        Identify with Cain (forced for levelers)
+                        <input type="checkbox" id="characterUseExtraBuffs" name="characterUseExtraBuffs" {{ if .Config.Character.UseExtraBuffs }}checked{{ end }}/>Enable extra buff features
                     </label>
                     <label>
-                        <input type="checkbox" id="game.disableIdentifyTome" name="game.disableIdentifyTome" {{ if .Config.Game.DisableIdentifyTome }}checked{{ end }}/>
-                        Dont Buy ID Tome
+                        <input type="checkbox" name="useCentralizedPickit" {{ if .Config.UseCentralizedPickit }}checked{{ end }}/>
+                        Use centralized pickit
                     </label>
                 </fieldset>
+                <div id="useExtraBuffsDistContainer" class="conditional-field extra-buffs-container {{ if not .Config.Character.UseExtraBuffs }}is-hidden{{ end }}">
+                    <div class="walking-radius-container">
+                        <label>Extra buffs</label>
+                    </div>
+                    <div>
+                        <label>
+                            <input type="checkbox" id="characterBuffOnNewArea" name="characterBuffOnNewArea" {{ if .Config.Character.BuffOnNewArea }}checked{{ end }}/>Buff after entering areas
+                        </label>
+                        <label>
+                            <input type="checkbox" id="characterBuffAfterWP" name="characterBuffAfterWP" {{ if .Config.Character.BuffAfterWP }}checked{{ end }}/>Buff after taking WP
+                        </label>
+                        <label>
+                            <input type="checkbox" id="useSwapForBuffs" name="useSwapForBuffs" {{ if .Config.Character.UseSwapForBuffs }}checked{{ end }}>ClassBuffs from SwapHand
+                        </label>
+                        <hr/>
+                        <div class="input-info">Enable additional buffing for all runs.</div>
+                    </div>
+                </div>
                 <fieldset class="grid">
                     <label>
                         Level until (put 0 for no limit)
@@ -555,29 +573,7 @@
                 </fieldset>
             </article>
 
-            <fieldset class="grid">
-                <label style="width: auto;">
-                    <div id="useExtraBuffsDistContainer" class="conditional-field" {{ if .Config.Character.UseExtraBuffs }}style="display: none;"{{ end }}>
-                        <div class="walking-radius-container">
-                            <label>Extra buffs</label>
-                        </div>
-                        <div>
-                            <label>
-                                <input type="checkbox" id="characterBuffOnNewArea" name="characterBuffOnNewArea" {{ if .Config.Character.BuffOnNewArea }}checked{{ end }}/>Buff after entering areas
-                            </label>
-                            <label>
-                                <input type="checkbox" id="characterBuffAfterWP" name="characterBuffAfterWP" {{ if .Config.Character.BuffAfterWP }}checked{{ end }}/>Buff after taking WP
-                            </label>
-                            <label>
-                                <input type="checkbox" id="useSwapForBuffs" name="useSwapForBuffs" {{ if .Config.Character.UseSwapForBuffs }}checked{{ end }}>ClassBuffs from SwapHand
-                            </label>
-                            <hr/>
-                            <div class="input-info">Enable additional buffing for all runs.</div>
-                        </div>
-                    </div>
-                </label>
-            </fieldset>
-            <h3 id="client-settings">Client Settings</h3><br>
+            <h3 id="client-settings"><i class="bi bi-window section-icon" aria-hidden="true"></i>Client Settings</h3><br>
             <fieldset class="grid">
                 <label>
                     Client launch options (arguments)
@@ -602,7 +598,7 @@
                     Hide Portraits
                 </label>
             </fieldset>
-            <h3 id="battle-net-settings">Battle.net settings</h3><br>
+            <h3 id="battle-net-settings"><i class="bi bi-globe2 section-icon" aria-hidden="true"></i>Battle.net settings</h3><br>
             <fieldset class="grid">
                 <label>
                     Username
@@ -635,7 +631,7 @@
                     <input type="password" name="AuthToken" placeholder="{{ .Config.AuthToken }}" value="{{ .Config.AuthToken }}"/>
                 </label>
             </fieldset>
-            <h3 id="scheduler-section">Scheduler</h3><br>
+            <h3 id="scheduler-section"><i class="bi bi-calendar-week section-icon" aria-hidden="true"></i>Scheduler</h3><br>
             <label>Automate when the bot runs. Choose between Time Slots (specific hours) or Duration (human-like play patterns).</label><br>
             <fieldset class="grid">
                 <label>
@@ -799,7 +795,7 @@
                 </details>
             </div>
             <div style="display:flex; align-items:center; gap:0.5rem;">
-                <h3 id="health-settings" style="margin:0">Health settings</h3>
+                <h3 id="health-settings" style="margin:0"><i class="bi bi-heart section-icon" aria-hidden="true"></i>Health settings</h3>
             </div>
             <br>
 
@@ -915,7 +911,7 @@
                     <input type="number" name="rejuvPotionCount" min="0" max="99" placeholder="{{ .Config.Inventory.RejuvPotionCount }}" value="{{ .Config.Inventory.RejuvPotionCount }}"/>
                 </label>
             </fieldset>
-            <h3 id="chicken-curses-auras">Chicken on Curses/Auras</h3>            <h4>Curses (on player)</h4>
+            <h3 id="chicken-curses-auras"><i class="bi bi-exclamation-triangle section-icon" aria-hidden="true"></i>Chicken on Curses/Auras</h3>            <h4>Curses (on player)</h4>
             <fieldset class="grid">
                 <label>
                     <input type="checkbox" name="chickenAmplifyDamage" {{ if .Config.ChickenOnCurses.AmplifyDamage }}checked{{ end }}/>
@@ -965,7 +961,7 @@
                     Holy Shock
                 </label>
             </fieldset>
-            <h3 id="merc-settings">Merc Settings</h3><br>
+            <h3 id="merc-settings"><i class="bi bi-person-badge section-icon" aria-hidden="true"></i>Merc Settings</h3><br>
             <label>
                 <input id="use_merc" type="checkbox" name="useMerc" {{ if .Config.Character.UseMerc }}checked{{ end }}/>
                 Use merc
@@ -984,7 +980,7 @@
                     <input type="number" min="0" max="99" name="mercChickenAt" placeholder="{{ .Config.Health.MercChickenAt }}" value="{{ .Config.Health.MercChickenAt }}"/>
                 </label>
             </fieldset>
-            <h3 id="inventory-settings">Inventory (Checked means locked)</h3>
+            <h3 id="inventory-settings"><i class="bi bi-grid-3x3-gap section-icon" aria-hidden="true"></i>Inventory (Checked means locked)</h3>
             <table>
                 {{ range $rowIndex, $row := .Config.Inventory.InventoryLock }}
                 <tr>
@@ -996,7 +992,7 @@
                 </tr>
                 {{ end }}
             </table>
-            <h3 id="game-settings">Game Settings</h3><br>
+            <h3 id="game-settings"><i class="bi bi-controller section-icon" aria-hidden="true"></i>Game Settings</h3><br>
             <label>
                 <input type="checkbox" name="createLobbyGames" {{ if .Config.Game.CreateLobbyGames }}checked{{ end }}/>
                 Create Lobby Games
@@ -1025,12 +1021,12 @@
                     <input name="maxGameLength" min="50" type="number" placeholder="{{ .Config.MaxGameLength }}" value="{{ .Config.MaxGameLength }}"/>
                 </label>
             </fieldset>
-            <h3 id="companion-settings">Companion System</h3><br>
+            <h3 id="companion-settings"><i class="bi bi-people section-icon" aria-hidden="true"></i>Companion System</h3><br>
             <label>
                 <input type="checkbox" name="companionLeader" id="companionLeader" {{ if .Config.Companion.Leader }}checked{{ end }}/>
                 Open tp for manual player
             </label>
-            <h4 id="run-settings">Run Settings</h4><br>
+            <h3 id="run-settings"><i class="bi bi-play-circle section-icon" aria-hidden="true"></i>Run Settings</h3><br>
             <label>
                 Choose the runs that you want the bot to run. You can either drag & drop runs below to enable or disable them, or use the + - buttons. Click on any of the runs to expand them and see more details and options.
             </label><br>
@@ -1101,12 +1097,12 @@
                     </ul>
                 </div>
             </div>
-            <h3 id="gambling-settings">Gambling</h3>
+            <h3 id="gambling-settings"><i class="bi bi-cash-coin section-icon" aria-hidden="true"></i>Gambling</h3>
             <label>
                 <input type="checkbox" name="gamblingEnabled" {{ if .Config.Gambling.Enabled }}checked{{ end }}/>
                 Enabled
             </label>
-            <h3 id="muling-settings">Muling</h3>
+            <h3 id="muling-settings"><i class="bi bi-box-seam section-icon" aria-hidden="true"></i>Muling</h3>
             <p>Configure automatic muling to transfer items from this character to mule characters. Items will be moved from shared stash tabs (2-4) to the mule's private stash (tab 1).</p>
             <label>
                 <input type="checkbox" name="mulingEnabled" id="mulingEnabled" {{ if .Config.Muling.Enabled }}checked{{ end }}/>
@@ -1210,7 +1206,7 @@
                     });
                 });
             </script>
-            <h3 id="runeword-settings">Runeword Maker</h3>
+            <h3 id="runeword-settings"><i class="bi bi-gem section-icon" aria-hidden="true"></i>Runeword Maker</h3>
             <div style="margin-left: 20px; margin-bottom: 20px;">
                 <p style="font-size: 0.9em; color: #aaa; margin-bottom: 10px;">
                     Configure runeword maker and reroll options on the dedicated Runeword Settings page.
@@ -1244,7 +1240,7 @@
                     });
                 })();
             </script>
-            <h3 id="cube-recipes">Cube Recipes</h3>
+            <h3 id="cube-recipes"><i class="bi bi-box section-icon" aria-hidden="true"></i>Cube Recipes</h3>
             <div class="cube-options">
                 <label class="cube-option-item">
                     <input type="checkbox" style="padding-right: 30px" name="enableCubeRecipes" {{ if .Config.CubeRecipes.Enabled }}checked{{ end }}/>
@@ -1276,7 +1272,7 @@
                     value="{{ .Config.CubeRecipes.JewelsToKeep }}" />
                 <small>Number of magic jewels to stash for crafting</small>
             </label>
-            <h3 id="back-to-town-settings">Back to Town Settings:</h3>
+            <h3 id="back-to-town-settings"><i class="bi bi-house-door section-icon" aria-hidden="true"></i>Back to Town Settings:</h3>
             <fieldset class="grid">
                 <label>
                     <input id="no_hp_potions" type="checkbox" name="noHpPotions" {{ if .Config.BackToTown.NoHpPotions }}checked{{ end }}/>
