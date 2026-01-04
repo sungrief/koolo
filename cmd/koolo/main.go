@@ -146,7 +146,7 @@ func main() {
 		}
 
 		w, err := gowebview.New(&gowebview.Config{URL: "http://localhost:8087", WindowConfig: &gowebview.WindowConfig{
-			Title: "Koolo",
+			Title: "Koolo Resurrected",
 			Size: &gowebview.Point{
 				X: int64(float64(width) * displayScale),
 				Y: int64(float64(height) * displayScale),
