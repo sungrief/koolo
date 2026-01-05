@@ -1750,7 +1750,24 @@
   opacity: 1;
   transition: max-height 0.2s ease, opacity 0.2s ease;
   margin-top: 0.5rem;
+  margin-left: 1.2rem;
   grid-column: 1 / -1;
+}
+
+.extra-buffs-toggle-row {
+  margin-top: 0.4rem;
+  margin-bottom: 0.1rem;
+}
+
+.extra-buffs-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.extra-buffs-toggle-label input[type="checkbox"] {
+  margin-left: 0.6rem;
 }
 
 .extra-buffs-container .walking-radius-container {

@@ -493,29 +493,32 @@
                         </label>
                     </div>
                     <label>
-                        <input type="checkbox" id="characterUseExtraBuffs" name="characterUseExtraBuffs" {{ if .Config.Character.UseExtraBuffs }}checked{{ end }}/>Enable extra buff features
-                    </label>
-                    <label>
                         <input type="checkbox" name="useCentralizedPickit" {{ if .Config.UseCentralizedPickit }}checked{{ end }}/>
                         Use centralized pickit
                     </label>
                 </fieldset>
+                <div class="extra-buffs-toggle-row">
+                    <label class="extra-buffs-toggle-label">
+                        <span>Enable extra buff features</span>
+                        <input type="checkbox" id="characterUseExtraBuffs" name="characterUseExtraBuffs" {{ if .Config.Character.UseExtraBuffs }}checked{{ end }}/>
+                    </label>
+                    <small><i class="bi bi-info-circle" aria-hidden="true"></i> Enables and shows additional buff options used in all runs.</small>
+                </div>
                 <div id="useExtraBuffsDistContainer" class="conditional-field extra-buffs-container {{ if not .Config.Character.UseExtraBuffs }}is-hidden{{ end }}">
-                    <div class="walking-radius-container">
-                        <label>Extra buffs</label>
-                    </div>
                     <div>
                         <label>
-                            <input type="checkbox" id="characterBuffOnNewArea" name="characterBuffOnNewArea" {{ if .Config.Character.BuffOnNewArea }}checked{{ end }}/>Buff after entering areas
+                            <input type="checkbox" id="characterBuffOnNewArea" name="characterBuffOnNewArea" {{ if .Config.Character.BuffOnNewArea }}checked{{ end }}/>
+                            <span title="If true, bot will apply buffs when entering a new area">Buff after entering areas</span>
                         </label>
                         <label>
-                            <input type="checkbox" id="characterBuffAfterWP" name="characterBuffAfterWP" {{ if .Config.Character.BuffAfterWP }}checked{{ end }}/>Buff after taking WP
+                            <input type="checkbox" id="characterBuffAfterWP" name="characterBuffAfterWP" {{ if .Config.Character.BuffAfterWP }}checked{{ end }}/>
+                            <span title="If true, bot will apply buffs after using a waypoint">Buff after taking WP</span>
                         </label>
                         <label>
-                            <input type="checkbox" id="useSwapForBuffs" name="useSwapForBuffs" {{ if .Config.Character.UseSwapForBuffs }}checked{{ end }}>ClassBuffs from SwapHand
+                            <input type="checkbox" id="useSwapForBuffs" name="useSwapForBuffs" {{ if .Config.Character.UseSwapForBuffs }}checked{{ end }}>
+                            <span title="If true, swap to offhand (CTA / buff weapon) before class buffs.">ClassBuffs from SwapHand</span>
                         </label>
                         <hr/>
-                        <div class="input-info">Enable additional buffing for all runs.</div>
                     </div>
                 </div>
                 <fieldset class="grid">
