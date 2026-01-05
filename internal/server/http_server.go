@@ -2169,6 +2169,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Health.RejuvPotionAtLife, _ = strconv.Atoi(r.Form.Get("rejuvPotionAtLife"))
 		cfg.Health.RejuvPotionAtMana, _ = strconv.Atoi(r.Form.Get("rejuvPotionAtMana"))
 		cfg.Health.ChickenAt, _ = strconv.Atoi(r.Form.Get("chickenAt"))
+		cfg.Health.TownChickenAt, _ = strconv.Atoi(r.Form.Get("townChickenAt"))
 		cfg.Character.UseMerc = r.Form.Has("useMerc")
 		cfg.Health.MercHealingPotionAt, _ = strconv.Atoi(r.Form.Get("mercHealingPotionAt"))
 		cfg.Health.MercRejuvPotionAt, _ = strconv.Atoi(r.Form.Get("mercRejuvPotionAt"))
@@ -2452,6 +2453,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.DisableIdentifyTome = r.PostFormValue("game.disableIdentifyTome") == "on"
 		cfg.Game.InteractWithShrines = r.Form.Has("interactWithShrines")
 		cfg.Game.InteractWithChests = r.Form.Has("interactWithChests")
+		cfg.Game.InteractWithSuperChests = r.Form.Has("interactWithSuperChests")
 		cfg.Game.StopLevelingAt, _ = strconv.Atoi(r.Form.Get("stopLevelingAt"))
 		cfg.Game.IsNonLadderChar = r.Form.Has("isNonLadderChar")
 
