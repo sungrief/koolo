@@ -195,7 +195,6 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 
 		b.ctx.AttachRoutine(botCtx.PriorityHigh)
 		ticker := time.NewTicker(time.Millisecond * 100)
-		lastAreaCorrection := time.Now()
 
 		for {
 			select {
@@ -310,10 +309,7 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 					}
 				}
 
-				shouldCorrectArea := false
-				if b.ctx.CurrentGame.AreaCorrection.Enabled && time.Since(lastAreaCorrection) > 1*time.Second {
-					shouldCorrectArea = true
-				}
+				shouldCorrectArea := b.ctx.CurrentGame.AreaCorrection.Enabled
 
 				// Action Execution
 				// Only switch to High Priority if we actually have work to do.
@@ -325,7 +321,6 @@ func (b *Bot) Run(ctx context.Context, firstRun bool, runs []run.Run) error {
 						if err = action.AreaCorrection(); err != nil {
 							b.ctx.Logger.Warn("Area correction failed", "error", err)
 						}
-						lastAreaCorrection = time.Now()
 					}
 
 					// Execute Pickup
