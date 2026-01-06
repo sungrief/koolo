@@ -351,6 +351,30 @@
         </label>
     </fieldset>
 </div>
+
+<div class="javazon-options" style="display: none;">
+    <fieldset class="grid">
+        <label style="font-weight: bold; margin-bottom: 10px; display: block;">
+            <input type="checkbox"
+                   id="javazonDensityKillerEnabled"
+                   name="javazonDensityKillerEnabled"
+                   {{ if .Config.Character.Javazon.DensityKillerEnabled }}checked{{ end }}/>
+            Density Killer (Fury packs / ignore leftovers)
+        </label>
+        <label>
+            Ignore leftovers (whites) <=
+            <input type="number"
+                   id="javazonDensityKillerIgnoreWhitesBelow"
+                   name="javazonDensityKillerIgnoreWhitesBelow"
+                   min="0"
+                   max="20"
+                   step="1"
+                   value="{{ if .Config.Character.Javazon.DensityKillerIgnoreWhitesBelow }}{{ .Config.Character.Javazon.DensityKillerIgnoreWhitesBelow }}{{ else }}4{{ end }}">
+        </label>
+        <small style="opacity: 0.8;">Loot safety: when picking an item, the bot clears a 10-tile radius around it to avoid pickup retries/blacklist.</small>
+    </fieldset>
+</div>
+
                 <div class="blizzard-sorceress-options" style="display: none;">
                     <fieldset class="grid">
                         <label>

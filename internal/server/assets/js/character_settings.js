@@ -600,6 +600,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const necromancerLevelingOptions = document.querySelector('.necromancer-options');
         const paladinLevelingOptions = document.querySelector('.paladin-options');
         const smiterOptions = document.querySelector('.smiter-options');
+        const javazonOptions = document.querySelector('.javazon-options');
 
         // Hide all options first
         if (berserkerBarbOptions) berserkerBarbOptions.style.display = 'none';
@@ -621,6 +622,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (necromancerLevelingOptions) necromancerLevelingOptions.style.display = 'none';
         if (paladinLevelingOptions) paladinLevelingOptions.style.display = 'none';
         if (smiterOptions) smiterOptions.style.display = 'none';
+        if (javazonOptions) javazonOptions.style.display = 'none';
         if (noSettingsMessage) noSettingsMessage.style.display = 'none';
 
         // Show relevant options based on class
@@ -657,6 +659,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (paladinLevelingOptions) paladinLevelingOptions.style.display = 'block';
         } else if (selectedClass === 'smiter') {
             if (smiterOptions) smiterOptions.style.display = 'block';
+        } else if (selectedClass === 'javazon') {
+            if (javazonOptions) javazonOptions.style.display = 'block';
         } else {
             if (noSettingsMessage) noSettingsMessage.style.display = 'block';
         }

@@ -22,14 +22,103 @@ const (
 	maxJavazonAttackLoops = 10
 	minJavazonDistance    = 10
 	maxJavazonDistance    = 30
+
+	// Density killer (endgame pack clearing) internal knobs.
+	// User-facing settings are in CharacterCfg.Character.Javazon.
+	jzDkDefaultIgnoreWhitesBelow = 5
+	jzDkScreenRadius             = 17 // Roughly "on-screen" in game tiles.
+	jzDkPackRadius               = 8
+	jzDkApproachIfFurtherThan    = 8
+	jzDkStandoffDistance         = 4  // Distance character -> target
+	jzDkFuryMaxDistance          = 10 // Distance of Furry attack
+	jzDkEliteCleanupMaxEnemies   = 3
+
+	// Hard stops to avoid infinite loops when a forced elite cannot be reached.
+	jzDkMaxForcedEliteMoveAttempts = 6
 )
 
 type Javazon struct {
 	BaseCharacter
 }
 
+func (s Javazon) densityKillerEnabled() bool {
+	ctx := context.Get()
+	if ctx == nil || ctx.CharacterCfg == nil {
+		return false
+	}
+	return ctx.CharacterCfg.Character.Javazon.DensityKillerEnabled
+}
+
+func (s Javazon) densityIgnoreWhitesBelow() int {
+	ctx := context.Get()
+	if ctx == nil || ctx.CharacterCfg == nil {
+		return jzDkDefaultIgnoreWhitesBelow
+	}
+	val := ctx.CharacterCfg.Character.Javazon.DensityKillerIgnoreWhitesBelow
+	if val <= 0 {
+		return jzDkDefaultIgnoreWhitesBelow
+	}
+	// Keep sanity bounds to avoid extreme values breaking navigation.
+	if val > 25 {
+		return 25
+	}
+	return val
+}
+
 func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
-	return false
+	// Default (safe) Javazon should behave exactly like upstream, without ignoring.
+	if !s.densityKillerEnabled() {
+		return false
+	}
+
+	// Never ignore elites.
+	if m.IsElite() {
+		return false
+	}
+
+	// Keep the immediate vicinity safe: if a normal monster is close, don't ignore it.
+	// This avoids getting "combat-locked" by stragglers when we want to move on.
+	const closeThreatRadius = 6
+	me := context.Get().Data.PlayerUnit.Position
+	if pather.DistanceFromPoint(m.Position, me) <= closeThreatRadius {
+		return false
+	}
+
+	// Ignore normal monsters when there is no dense white pack on screen.
+	ignoreBelow := s.densityIgnoreWhitesBelow()
+	whites := make([]data.Monster, 0, 16)
+	for _, mo := range context.Get().Data.Monsters {
+		if mo.IsPet() || mo.IsMerc() || mo.IsGoodNPC() || mo.IsSkip() {
+			continue
+		}
+		if mo.Stats[stat.Life] <= 0 {
+			continue
+		}
+		if mo.IsElite() {
+			continue
+		}
+		if pather.DistanceFromPoint(mo.Position, me) <= jzDkScreenRadius {
+			whites = append(whites, mo)
+		}
+	}
+
+	bestCluster := 0
+	for _, c := range whites {
+		cluster := 0
+		for _, o := range whites {
+			if jzDkGridDist(c.Position, o.Position) <= jzDkPackRadius {
+				cluster++
+			}
+		}
+		if cluster > bestCluster {
+			bestCluster = cluster
+		}
+		if bestCluster >= ignoreBelow {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s Javazon) CheckKeyBindings() []skill.ID {
@@ -50,6 +139,16 @@ func (s Javazon) CheckKeyBindings() []skill.ID {
 }
 
 func (s Javazon) KillMonsterSequence(
+	monsterSelector func(d game.Data) (data.UnitID, bool),
+	skipOnImmunities []stat.Resist,
+) error {
+	if s.densityKillerEnabled() {
+		return s.killMonsterSequenceDensity(monsterSelector, skipOnImmunities)
+	}
+	return s.killMonsterSequenceSafe(monsterSelector, skipOnImmunities)
+}
+
+func (s Javazon) killMonsterSequenceSafe(
 	monsterSelector func(d game.Data) (data.UnitID, bool),
 	skipOnImmunities []stat.Resist,
 ) error {
@@ -84,7 +183,10 @@ func (s Javazon) KillMonsterSequence(
 
 		closeMonsters := 0
 		for _, mob := range s.Data.Monsters {
-			if mob.IsPet() || mob.IsMerc() || mob.IsGoodNPC() || mob.IsSkip() || monster.Stats[stat.Life] <= 0 && mob.UnitID != monster.UnitID {
+			if mob.IsPet() || mob.IsMerc() || mob.IsGoodNPC() || mob.IsSkip() {
+				continue
+			}
+			if mob.Stats[stat.Life] <= 0 {
 				continue
 			}
 			if pather.DistanceFromPoint(mob.Position, monster.Position) <= 15 {
@@ -109,6 +211,175 @@ func (s Javazon) KillMonsterSequence(
 
 		completedAttackLoops++
 		previousUnitID = int(id)
+	}
+}
+
+func (s Javazon) killMonsterSequenceDensity(
+	monsterSelector func(d game.Data) (data.UnitID, bool),
+	skipOnImmunities []stat.Resist,
+) error {
+	ctx := context.Get()
+	completedAttackLoops := 0
+	previousUnitID := data.UnitID(0)
+	const numOfAttacks = 5
+
+	forcedEliteMoveAttempts := 0
+	forcedEliteLastID := data.UnitID(0)
+
+	for {
+		ctx.PauseIfNotPriority()
+		ctx.RefreshGameData()
+
+		// Loot-guard: during ItemPickup, clear only after clearing around the next item Pickit wants (tight radius).
+		lootGuard := false
+		lootGuardPos := data.Position{}
+		if ctx.CurrentGame != nil && ctx.CurrentGame.IsPickingItems {
+			if pos, ok := javazonNearestValuablePickupPos(30); ok {
+				lootGuard = true
+				lootGuardPos = pos
+			}
+		}
+
+		// 1) If the caller is forcing an elite target (e.g., Diablo/seal bosses), prioritize reaching it.
+		forcedID, forcedFound := monsterSelector(*s.Data)
+		if forcedFound && forcedID != 0 {
+			if forcedID != forcedEliteLastID {
+				forcedEliteLastID = forcedID
+				forcedEliteMoveAttempts = 0
+			}
+			if s.jzDkHandleForcedElite(forcedID, &forcedEliteMoveAttempts, skipOnImmunities, numOfAttacks) {
+				// Forced elite handled (attack or move). Re-evaluate.
+				continue
+			}
+		}
+
+		// 2) Build an "on-screen" enemy set and remove targets that would cause wall-stucks (no LoS).
+		visible := s.jzDkVisibleEnemies(jzDkScreenRadius)
+		engageable := s.jzDkEngageableEnemies(visible)
+
+		whites := 0
+		hasElite := false
+		for _, m := range engageable {
+			if m.IsElite() {
+				hasElite = true
+				continue
+			}
+			whites++
+		}
+
+		// Loot-guard: keep the pickup area safe without roaming or clearing the whole screen.
+		if lootGuard {
+			nearLoot := make([]data.Monster, 0, 12)
+			for _, m := range s.jzDkVisibleEnemies(30) {
+				if m.IsPet() || m.IsMerc() || m.IsGoodNPC() || m.IsSkip() {
+					continue
+				}
+				if m.Stats[stat.Life] <= 0 {
+					continue
+				}
+				if pather.DistanceFromPoint(m.Position, lootGuardPos) > 4 {
+					continue
+				}
+				if !s.jzDkHasLoS(s.Data.PlayerUnit.Position, m.Position) {
+					continue
+				}
+				nearLoot = append(nearLoot, m)
+			}
+
+			if len(nearLoot) == 0 {
+				// Let ItemPickup proceed.
+				return nil
+			}
+
+			targetID, _, ok := s.jzDkPickFuryTarget(nearLoot)
+			if !ok {
+				targetID = nearLoot[0].UnitID
+			}
+			if !s.preBattleChecks(targetID, skipOnImmunities) {
+				return nil
+			}
+			_ = step.SecondaryAttack(skill.LightningFury, targetID, 3, step.Distance(1, jzDkFuryMaxDistance))
+			continue
+		}
+
+		// 3) If only elites remain (no normal monsters), finish them with Charged Strike.
+		if hasElite && whites == 0 && len(engageable) <= jzDkEliteCleanupMaxEnemies && s.Data.PlayerUnit.Skills[skill.ChargedStrike].Level > 0 {
+			eliteID, ok := s.jzDkPickNearestElite(engageable)
+			if ok {
+				if !s.preBattleChecks(eliteID, skipOnImmunities) {
+					return nil
+				}
+				for i := 0; i < numOfAttacks; i++ {
+					s.chargedStrikeBossFast(eliteID)
+				}
+				completedAttackLoops++
+				previousUnitID = eliteID
+				continue
+			}
+		}
+
+		// 4) Decide if we should ignore leftovers (no elite present and no dense cluster).
+		ignoreBelow := s.densityIgnoreWhitesBelow()
+		targetID, clusterSize, hasTarget := s.jzDkPickFuryTarget(engageable)
+		if !hasElite && (clusterSize < ignoreBelow || !hasTarget) {
+			// Anti-stuck: if a few stragglers are very close, clear them quickly so we can move on.
+			blockers := make([]data.Monster, 0, 6)
+			me := s.Data.PlayerUnit.Position
+			for _, m := range engageable {
+				if m.IsElite() {
+					continue
+				}
+				if pather.DistanceFromPoint(m.Position, me) <= 6 {
+					blockers = append(blockers, m)
+				}
+			}
+			if len(blockers) > 0 {
+				// Seed Fury on the closest blocker; this avoids infinite ClearArea/MoveTo loops.
+				targetID := blockers[0].UnitID
+				if !s.preBattleChecks(targetID, skipOnImmunities) {
+					return nil
+				}
+				_ = step.SecondaryAttack(skill.LightningFury, targetID, 2, step.Distance(1, jzDkFuryMaxDistance))
+				continue
+			}
+			return nil
+		}
+
+		// 5) Cast Fury into the densest reachable cluster.
+		if hasTarget {
+			if previousUnitID != targetID {
+				completedAttackLoops = 0
+			}
+			if completedAttackLoops >= maxJavazonAttackLoops {
+				return nil
+			}
+			if !s.preBattleChecks(targetID, skipOnImmunities) {
+				return nil
+			}
+			if !s.jzDkLightningFury(targetID, numOfAttacks) {
+				// If we can't safely attack (LoS/range), let higher-level movement logic continue.
+				return nil
+			}
+			completedAttackLoops++
+			previousUnitID = targetID
+			continue
+		}
+
+		// No valid Fury target. If an elite is present, try to resolve it (Fury first, then CS when alone).
+		if hasElite {
+			eliteID, ok := s.jzDkPickNearestElite(engageable)
+			if ok {
+				if !s.preBattleChecks(eliteID, skipOnImmunities) {
+					return nil
+				}
+				_ = step.SecondaryAttack(skill.LightningFury, eliteID, numOfAttacks, step.Distance(1, jzDkFuryMaxDistance))
+				completedAttackLoops++
+				previousUnitID = eliteID
+				continue
+			}
+		}
+
+		return nil
 	}
 }
 
@@ -189,6 +460,322 @@ func (s Javazon) chargedStrike(monsterID data.UnitID) {
 
 	screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(monster.Position.X, monster.Position.Y)
 	ctx.HID.Click(game.RightButton, screenX, screenY)
+}
+
+func (s Javazon) chargedStrikeBossFast(monsterID data.UnitID) {
+	ctx := context.Get()
+	ctx.PauseIfNotPriority()
+
+	monster, found := s.Data.Monsters.FindByID(monsterID)
+	if !found || monster.Stats[stat.Life] <= 0 {
+		return
+	}
+
+	// Ensure we are close enough for Charged Strike.
+	if ctx.PathFinder.DistanceFromMe(monster.Position) > 5 {
+		_ = action.MoveToCoords(monster.Position, step.WithDistanceToFinish(3))
+		ctx.RefreshGameData()
+		monster, found = s.Data.Monsters.FindByID(monsterID)
+		if !found || monster.Stats[stat.Life] <= 0 {
+			return
+		}
+	}
+
+	csKey, found := s.Data.KeyBindings.KeyBindingForSkill(skill.ChargedStrike)
+	if found && s.Data.PlayerUnit.RightSkill != skill.ChargedStrike {
+		ctx.HID.PressKeyBinding(csKey)
+		utils.Sleep(30)
+	}
+
+	screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(monster.Position.X, monster.Position.Y)
+	ctx.HID.Click(game.RightButton, screenX, screenY)
+	utils.Sleep(10)
+}
+
+func (s Javazon) jzDkHandleForcedElite(
+	forcedID data.UnitID,
+	moveAttempts *int,
+	skipOnImmunities []stat.Resist,
+	numOfAttacks int,
+) bool {
+	ctx := context.Get()
+	monster, found := s.Data.Monsters.FindByID(forcedID)
+	if !found || monster.Stats[stat.Life] <= 0 {
+		return false
+	}
+
+	// Only treat elites as forced objectives. White mobs are handled by density rules.
+	if !monster.IsElite() && !action.IsMonsterSealElite(monster) {
+		return false
+	}
+
+	if !s.preBattleChecks(forcedID, skipOnImmunities) {
+		return false
+	}
+
+	me := s.Data.PlayerUnit.Position
+	// If the forced elite is already on-screen and visible, let the normal density logic decide
+	// whether to Fury the pack first or finish with Charged Strike.
+	if !action.IsMonsterSealElite(monster) &&
+		pather.DistanceFromPoint(me, monster.Position) <= jzDkScreenRadius &&
+		s.jzDkHasLoS(me, monster.Position) {
+		return false
+	}
+
+	if moveAttempts != nil && *moveAttempts >= jzDkMaxForcedEliteMoveAttempts {
+		return false
+	}
+
+	// Seal elites can spawn in edge cases (Vizier off-grid). The generic attack step handles those,
+	// and it will also reposition if we're blocked by walls.
+	if action.IsMonsterSealElite(monster) {
+		_ = step.SecondaryAttack(skill.LightningFury, forcedID, numOfAttacks, step.Distance(1, jzDkFuryMaxDistance))
+		if moveAttempts != nil {
+			*moveAttempts = *moveAttempts + 1
+		}
+		return true
+	}
+
+	// For other forced elites, close distance once, then re-evaluate with on-screen logic.
+	if ctx.PathFinder.DistanceFromMe(monster.Position) > jzDkApproachIfFurtherThan || !s.jzDkHasLoS(me, monster.Position) {
+		_ = action.MoveToCoords(monster.Position, step.WithDistanceToFinish(jzDkStandoffDistance))
+		if moveAttempts != nil {
+			*moveAttempts = *moveAttempts + 1
+		}
+		return true
+	}
+
+	_ = step.SecondaryAttack(skill.LightningFury, forcedID, numOfAttacks, step.Distance(1, jzDkFuryMaxDistance))
+	if moveAttempts != nil {
+		*moveAttempts++
+	}
+	return true
+}
+
+func (s Javazon) jzDkVisibleEnemies(radius int) []data.Monster {
+	me := s.Data.PlayerUnit.Position
+	out := make([]data.Monster, 0, 16)
+	for _, m := range s.Data.Monsters {
+		if m.IsPet() || m.IsMerc() || m.IsGoodNPC() || m.IsSkip() {
+			continue
+		}
+		if m.Stats[stat.Life] <= 0 {
+			continue
+		}
+		if pather.DistanceFromPoint(m.Position, me) <= radius {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func (s Javazon) jzDkEngageableEnemies(visible []data.Monster) []data.Monster {
+	me := s.Data.PlayerUnit.Position
+	out := make([]data.Monster, 0, len(visible))
+	for _, m := range visible {
+		// Avoid "shooting through walls" for normal pack clearing.
+		if s.jzDkHasLoS(me, m.Position) {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func (s Javazon) jzDkPickFuryTarget(enemies []data.Monster) (data.UnitID, int, bool) {
+	if len(enemies) == 0 {
+		return 0, 0, false
+	}
+
+	me := s.Data.PlayerUnit.Position
+	// Prefer white mobs as Fury "seeds".
+	candidates := make([]data.Monster, 0, len(enemies))
+	for _, m := range enemies {
+		if !m.IsElite() {
+			candidates = append(candidates, m)
+		}
+	}
+	if len(candidates) == 0 {
+		candidates = enemies
+	}
+
+	bestID := data.UnitID(0)
+	bestCluster := 0
+	bestDist := 999999
+
+	for _, c := range candidates {
+		cluster := 0
+		for _, o := range enemies {
+			if o.IsElite() {
+				continue
+			}
+			if jzDkGridDist(o.Position, c.Position) <= jzDkPackRadius {
+				cluster++
+			}
+		}
+		d := jzDkGridDist(me, c.Position)
+		if cluster > bestCluster || (cluster == bestCluster && d < bestDist) {
+			bestCluster = cluster
+			bestDist = d
+			bestID = c.UnitID
+		}
+	}
+
+	if bestID == 0 {
+		return 0, 0, false
+	}
+	return bestID, bestCluster, true
+}
+
+func (s Javazon) jzDkPickNearestElite(enemies []data.Monster) (data.UnitID, bool) {
+	me := s.Data.PlayerUnit.Position
+	bestID := data.UnitID(0)
+	bestDist := 999999
+	for _, m := range enemies {
+		if !m.IsElite() {
+			continue
+		}
+		d := jzDkGridDist(me, m.Position)
+		if d < bestDist {
+			bestDist = d
+			bestID = m.UnitID
+		}
+	}
+	return bestID, bestID != 0
+}
+
+func (s Javazon) jzDkLightningFury(targetID data.UnitID, attacks int) bool {
+	ctx := context.Get()
+	ctx.PauseIfNotPriority()
+
+	monster, found := s.Data.Monsters.FindByID(targetID)
+	if !found || monster.Stats[stat.Life] <= 0 {
+		return false
+	}
+
+	me := s.Data.PlayerUnit.Position
+	distance := ctx.PathFinder.DistanceFromMe(monster.Position)
+	if distance > jzDkApproachIfFurtherThan {
+		_ = action.MoveToCoords(monster.Position, step.WithDistanceToFinish(jzDkStandoffDistance))
+		ctx.RefreshGameData()
+		monster, found = s.Data.Monsters.FindByID(targetID)
+		if !found || monster.Stats[stat.Life] <= 0 {
+			return false
+		}
+	}
+
+	// Final safety gate: if we still don't have LoS, don't waste casts (avoids wall-stucks).
+	if !s.jzDkHasLoS(me, monster.Position) {
+		return false
+	}
+
+	lfKey, found := s.Data.KeyBindings.KeyBindingForSkill(skill.LightningFury)
+	if found && s.Data.PlayerUnit.RightSkill != skill.LightningFury {
+		ctx.HID.PressKeyBinding(lfKey)
+		utils.Sleep(30)
+	}
+
+	for i := 0; i < attacks; i++ {
+		ctx.PauseIfNotPriority()
+		ctx.RefreshGameData()
+		m, ok := s.Data.Monsters.FindByID(targetID)
+		if !ok || m.Stats[stat.Life] <= 0 {
+			return true
+		}
+		x, y := ctx.PathFinder.GameCoordsToScreenCords(m.Position.X, m.Position.Y)
+		ctx.HID.Click(game.RightButton, x, y)
+		utils.Sleep(70)
+	}
+
+	return true
+}
+
+func (s Javazon) jzDkHasLoS(from, to data.Position) bool {
+	for _, p := range s.jzDkRaycast(from, to) {
+		if !s.Data.AreaData.IsWalkable(p) {
+			return false
+		}
+	}
+	return true
+}
+
+// jzDkRaycast returns a list of grid points between two positions (inclusive).
+// It is used as a lightweight line-of-sight check.
+func (s Javazon) jzDkRaycast(from, to data.Position) []data.Position {
+	x0, y0 := from.X, from.Y
+	x1, y1 := to.X, to.Y
+	dx := abs(x1 - x0)
+	dy := -abs(y1 - y0)
+	sx := -1
+	if x0 < x1 {
+		sx = 1
+	}
+	sy := -1
+	if y0 < y1 {
+		sy = 1
+	}
+	err := dx + dy
+
+	points := make([]data.Position, 0, 16)
+	for {
+		points = append(points, data.Position{X: x0, Y: y0})
+		if x0 == x1 && y0 == y1 {
+			break
+		}
+		e2 := 2 * err
+		if e2 >= dy {
+			err += dy
+			x0 += sx
+		}
+		if e2 <= dx {
+			err += dx
+			y0 += sy
+		}
+	}
+	return points
+}
+
+func javazonNearestValuablePickupPos(maxDistance int) (data.Position, bool) {
+	ctx := context.Get()
+	if ctx == nil || ctx.Data == nil {
+		return data.Position{}, false
+	}
+
+	items := action.GetItemsToPickup(maxDistance)
+	if len(items) == 0 {
+		return data.Position{}, false
+	}
+
+	me := ctx.Data.PlayerUnit.Position
+	bestDist := 9999
+	bestPos := data.Position{}
+	found := false
+
+	for _, it := range items {
+		d := pather.DistanceFromPoint(me, it.Position)
+		if d < bestDist {
+			bestDist = d
+			bestPos = it.Position
+			found = true
+		}
+	}
+
+	return bestPos, found
+}
+
+func jzDkGridDist(a, b data.Position) int {
+	dx := abs(a.X - b.X)
+	dy := abs(a.Y - b.Y)
+	if dx > dy {
+		return dx
+	}
+	return dy
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func (s Javazon) killMonster(npc npc.ID, t data.MonsterType) error {
