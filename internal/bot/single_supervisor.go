@@ -456,6 +456,7 @@ func (s *SinglePlayerSupervisor) Start() error {
 				}
 			}
 			s.bot.ctx.Logger.Info("Game client successfully detected as 'not in game'.")
+			s.bot.ctx.GameReader.ClearMapData() // Free map data memory while not in game
 			timeSpentNotInGameStart = time.Now()
 
 			var gameFinishReason event.FinishReason
@@ -496,6 +497,7 @@ func (s *SinglePlayerSupervisor) Start() error {
 		}
 		s.bot.ctx.Logger.Info("Game finished successfully. Waiting 3 seconds for client to close.")
 		utils.Sleep(int(3 * time.Second / time.Millisecond))
+		s.bot.ctx.GameReader.ClearMapData() // Free map data memory while not in game
 		timeSpentNotInGameStart = time.Now()
 	}
 }

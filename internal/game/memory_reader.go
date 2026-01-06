@@ -55,7 +55,15 @@ func (gd *MemoryReader) MapSeed() uint {
 	return gd.mapSeed
 }
 
+// ClearMapData releases cached map data to free memory when not in game
+func (gd *MemoryReader) ClearMapData() {
+	gd.cachedMapData = nil
+}
+
 func (gd *MemoryReader) FetchMapData() error {
+	// Clear old map data before fetching new data to allow GC to reclaim memory
+	gd.cachedMapData = nil
+
 	d := gd.GameReader.GetData()
 	gd.mapSeed, _ = gd.getMapSeed(d.PlayerUnit.Address)
 	t := time.Now()
