@@ -1,10 +1,10 @@
 package character
 
 import (
+	"sync"
 	"fmt"
 	"log/slog"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -27,12 +27,12 @@ const (
 	// Density killer (endgame pack clearing) internal knobs.
 	// User-facing settings are in CharacterCfg.Character.Javazon.
 	jzDkDefaultIgnoreWhitesBelow = 5
-	jzDkScreenRadius             = 16 // Roughly "on-screen" in game tiles.
+	jzDkScreenRadius             = 17 // Roughly "on-screen" in game tiles.
 	jzDkPackRadius               = 8
-	jzDkApproachIfFurtherThan    = 10
-	jzDkStandoffDistance         = 4
-	jzDkFuryMaxDistance          = 12
-	jzDkEliteCleanupMaxEnemies   = 3
+	jzDkApproachIfFurtherThan    = 8
+	jzDkStandoffDistance         = 2
+	jzDkFuryMaxDistance          = 10
+	jzDkEliteCleanupMaxEnemies   = 2
 
 	// Hard stops to avoid infinite loops when a forced elite cannot be reached.
 	jzDkMaxForcedEliteMoveAttempts = 6
@@ -167,6 +167,7 @@ func (s Javazon) jzDkHasDenseWhiteCluster(ignoreBelow int) bool {
 	jzDkDenseCache.mu.Unlock()
 	return hasDense
 }
+
 
 func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
 	// Default (safe) Javazon should behave exactly like upstream, without ignoring.
@@ -309,6 +310,7 @@ func (s Javazon) killMonsterSequenceDensity(
 	lastMePos := data.Position{}
 	samePosTicks := 0
 	blockerClearCooldown := 0
+	losRepositionCooldown := 0
 
 	for {
 		ctx.PauseIfNotPriority()
@@ -323,6 +325,9 @@ func (s Javazon) killMonsterSequenceDensity(
 		}
 		if blockerClearCooldown > 0 {
 			blockerClearCooldown--
+		}
+		if losRepositionCooldown > 0 {
+			losRepositionCooldown--
 		}
 
 		// Loot-guard: during ItemPickup, clear only around valuable items that Pickit actually wants (tight radius).
@@ -351,6 +356,23 @@ func (s Javazon) killMonsterSequenceDensity(
 		// 2) Build an "on-screen" enemy set and remove targets that would cause wall-stucks (no LoS).
 		visible := s.jzDkVisibleEnemies(jzDkScreenRadius)
 		engageable := s.jzDkEngageableEnemies(visible)
+
+		// If we can see enemies but none are engageable (LoS blocked by walls/fences),
+		// do a small reposition when stuck so we don't wait for the merc.
+		if !lootGuard && len(visible) > 0 && len(engageable) == 0 && samePosTicks >= 2 && losRepositionCooldown == 0 {
+			nearest := visible[0]
+			best := ctx.PathFinder.DistanceFromMe(nearest.Position)
+			for i := 1; i < len(visible); i++ {
+				d := ctx.PathFinder.DistanceFromMe(visible[i].Position)
+				if d < best {
+					best = d
+					nearest = visible[i]
+				}
+			}
+			_ = action.MoveToCoords(nearest.Position, step.WithDistanceToFinish(jzDkApproachIfFurtherThan))
+			losRepositionCooldown = 3
+			continue
+		}
 
 		whites := 0
 		hasElite := false
@@ -553,8 +575,8 @@ func (s Javazon) KillBossSequence(
 
 		if s.Data.PlayerUnit.Skills[skill.ChargedStrike].Level > 0 {
 			for i := 0; i < numOfAttacks; i++ {
-				s.chargedStrike(id)
-			}
+			s.chargedStrike(id)
+		}
 		} else {
 			step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 1))
 		}
@@ -647,6 +669,7 @@ func (s Javazon) chargedStrikeAccurate(targetID data.UnitID, attacks int) {
 	// Use the step routine so range/LoS and click semantics are handled consistently.
 	_ = step.SecondaryAttack(skill.ChargedStrike, targetID, attacks, step.Distance(1, 3))
 }
+
 
 func (s Javazon) jzDkHandleForcedElite(
 	forcedID data.UnitID,
@@ -916,6 +939,8 @@ func (s Javazon) jzDkRaycast(from, to data.Position) []data.Position {
 	}
 	return points
 }
+
+
 
 func javazonNearestValuablePickupPos(maxDistance int) (data.Position, bool) {
 	ctx := context.Get()
