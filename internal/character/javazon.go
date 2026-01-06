@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -26,11 +27,11 @@ const (
 	// Density killer (endgame pack clearing) internal knobs.
 	// User-facing settings are in CharacterCfg.Character.Javazon.
 	jzDkDefaultIgnoreWhitesBelow = 5
-	jzDkScreenRadius             = 17 // Roughly "on-screen" in game tiles.
+	jzDkScreenRadius             = 16 // Roughly "on-screen" in game tiles.
 	jzDkPackRadius               = 8
-	jzDkApproachIfFurtherThan    = 8
-	jzDkStandoffDistance         = 6
-	jzDkFuryMaxDistance          = 10
+	jzDkApproachIfFurtherThan    = 10
+	jzDkStandoffDistance         = 4
+	jzDkFuryMaxDistance          = 12
 	jzDkEliteCleanupMaxEnemies   = 3
 
 	// Hard stops to avoid infinite loops when a forced elite cannot be reached.
@@ -67,7 +68,7 @@ func (s Javazon) densityIgnoreWhitesBelow() int {
 
 // --- Density killer helpers (performance + safety) ---
 const (
-	jzDkMaxClusterCandidates = 25 // cap to avoid O(n^2) spikes in dense areas / multi-client
+	jzDkMaxClusterCandidates = 40 // cap to avoid O(n^2) spikes in dense areas / multi-client
 	jzDkMinSkillSwapDelayMS  = 70 // avoids skipped casts on high CPU usage
 	jzDkMinClickDelayMS      = 50
 )
@@ -76,31 +77,39 @@ func jzAliveMonster(m data.Monster) bool {
 	return m.Stats[stat.Life] > 0
 }
 
-func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
-	// Default (safe) Javazon should behave exactly like upstream, without ignoring.
-	if !s.densityKillerEnabled() {
-		return false
-	}
+// Performance: cache dense-pack detection used by ShouldIgnoreMonster.
+// That method can be called many times per tick; caching avoids repeated O(n^2) scans.
+const jzDkDenseClusterCacheTTL = 150 * time.Millisecond
 
-	// Never ignore elites.
-	if m.IsElite() {
-		return false
-	}
+type jzDkDenseClusterCache struct {
+	at          time.Time
+	me          data.Position
+	ignoreBelow int
+	hasDense    bool
+}
 
-	// Keep the immediate vicinity safe: if a normal monster is close, don't ignore it.
-	// This avoids getting "combat-locked" by stragglers when we want to move on.
-	const closeThreatRadius = 6
+var jzDkDenseCache struct {
+	mu sync.Mutex
+	v  jzDkDenseClusterCache
+}
+
+func (s Javazon) jzDkHasDenseWhiteCluster(ignoreBelow int) bool {
 	ctx := context.Get()
 	if ctx == nil || ctx.Data == nil {
 		return false
 	}
 	me := ctx.Data.PlayerUnit.Position
-	if pather.DistanceFromPoint(m.Position, me) <= closeThreatRadius {
-		return false
-	}
 
-	// Ignore normal monsters when there is no dense white pack on screen.
-	ignoreBelow := s.densityIgnoreWhitesBelow()
+	jzDkDenseCache.mu.Lock()
+	cv := jzDkDenseCache.v
+	if cv.ignoreBelow == ignoreBelow && cv.me == me && time.Since(cv.at) < jzDkDenseClusterCacheTTL {
+		res := cv.hasDense
+		jzDkDenseCache.mu.Unlock()
+		return res
+	}
+	jzDkDenseCache.mu.Unlock()
+
+	// Build on-screen whites and cap candidates to keep work bounded.
 	whites := make([]data.Monster, 0, 32)
 	for _, mo := range ctx.Data.Monsters {
 		if mo.IsPet() || mo.IsMerc() || mo.IsGoodNPC() || mo.IsSkip() {
@@ -117,7 +126,13 @@ func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
 		}
 	}
 
-	// Cap candidates to avoid O(n^2) spikes on very dense screens.
+	if len(whites) == 0 {
+		jzDkDenseCache.mu.Lock()
+		jzDkDenseCache.v = jzDkDenseClusterCache{at: time.Now(), me: me, ignoreBelow: ignoreBelow, hasDense: false}
+		jzDkDenseCache.mu.Unlock()
+		return false
+	}
+
 	if len(whites) > jzDkMaxClusterCandidates {
 		sort.Slice(whites, func(i, j int) bool {
 			di := jzDkGridDist(me, whites[i].Position)
@@ -127,34 +142,63 @@ func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
 		whites = whites[:jzDkMaxClusterCandidates]
 	}
 
-	bestCluster := 0
-	// We only need to know if there exists a cluster >= ignoreBelow.
-	stopAt := ignoreBelow
-	if stopAt < 6 {
-		stopAt = 6
+	if ignoreBelow < 2 {
+		ignoreBelow = 2
 	}
-	if stopAt > 25 {
-		stopAt = 25
-	}
-
+	hasDense := false
 	for _, c := range whites {
 		cluster := 0
 		for _, o := range whites {
 			if jzDkGridDist(c.Position, o.Position) <= jzDkPackRadius {
 				cluster++
-				if cluster >= stopAt {
+				if cluster >= ignoreBelow {
+					hasDense = true
 					break
 				}
 			}
 		}
-		if cluster > bestCluster {
-			bestCluster = cluster
-		}
-		if bestCluster >= ignoreBelow {
-			return false
+		if hasDense {
+			break
 		}
 	}
 
+	jzDkDenseCache.mu.Lock()
+	jzDkDenseCache.v = jzDkDenseClusterCache{at: time.Now(), me: me, ignoreBelow: ignoreBelow, hasDense: hasDense}
+	jzDkDenseCache.mu.Unlock()
+	return hasDense
+}
+
+func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
+	// Default (safe) Javazon should behave exactly like upstream, without ignoring.
+	if !s.densityKillerEnabled() {
+		return false
+	}
+
+	ctx := context.Get()
+	if ctx == nil || ctx.Data == nil {
+		return false
+	}
+
+	// Never ignore elites.
+	if m.IsElite() {
+		return false
+	}
+
+	// Keep the immediate vicinity safe: if a normal monster is close, don't ignore it.
+	// This avoids getting "combat-locked" by stragglers when we want to move on.
+	const closeThreatRadius = 6
+	me := ctx.Data.PlayerUnit.Position
+	if pather.DistanceFromPoint(m.Position, me) <= closeThreatRadius {
+		return false
+	}
+
+	ignoreBelow := s.densityIgnoreWhitesBelow()
+	// If there is a dense white cluster on screen, do NOT ignore (we want to keep clearing).
+	if s.jzDkHasDenseWhiteCluster(ignoreBelow) {
+		return false
+	}
+
+	// No dense cluster: ignore normal monsters (speed-up in endgame density mode).
 	return true
 }
 
@@ -209,10 +253,7 @@ func (s Javazon) killMonsterSequenceSafe(
 		}
 
 		if completedAttackLoops >= maxJavazonAttackLoops {
-			// Avoid hard stop on slow systems; reset and re-evaluate.
-			completedAttackLoops = 0
-			previousUnitID = 0
-			continue
+			return nil
 		}
 
 		monster, found := s.Data.Monsters.FindByID(id)
@@ -241,9 +282,7 @@ func (s Javazon) killMonsterSequenceSafe(
 			step.SecondaryAttack(skill.LightningFury, id, numOfAttacks, step.Distance(minJavazonDistance, maxJavazonDistance))
 		} else {
 			if s.Data.PlayerUnit.Skills[skill.ChargedStrike].Level > 0 {
-				for i := 0; i < numOfAttacks; i++ {
-					s.chargedStrike(id)
-				}
+				s.chargedStrikeAccurate(id, numOfAttacks)
 			} else {
 				step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 1))
 			}
@@ -259,9 +298,6 @@ func (s Javazon) killMonsterSequenceDensity(
 	skipOnImmunities []stat.Resist,
 ) error {
 	ctx := context.Get()
-	if ctx == nil {
-		return nil
-	}
 	completedAttackLoops := 0
 	previousUnitID := data.UnitID(0)
 	const numOfAttacks = 5
@@ -273,7 +309,6 @@ func (s Javazon) killMonsterSequenceDensity(
 	lastMePos := data.Position{}
 	samePosTicks := 0
 	blockerClearCooldown := 0
-	losRepositionCooldown := 0
 
 	for {
 		ctx.PauseIfNotPriority()
@@ -289,15 +324,12 @@ func (s Javazon) killMonsterSequenceDensity(
 		if blockerClearCooldown > 0 {
 			blockerClearCooldown--
 		}
-		if losRepositionCooldown > 0 {
-			losRepositionCooldown--
-		}
 
-		// Loot-guard: during ItemPickup, clear locally around the next pickup target so ItemPickup can proceed safely.
+		// Loot-guard: during ItemPickup, clear only around valuable items that Pickit actually wants (tight radius).
 		lootGuard := false
 		lootGuardPos := data.Position{}
 		if ctx.CurrentGame != nil && ctx.CurrentGame.IsPickingItems {
-			if pos, ok := javazonNearestValuablePickupPos(60); ok {
+			if pos, ok := javazonNearestValuablePickupPos(30); ok {
 				lootGuard = true
 				lootGuardPos = pos
 			}
@@ -320,24 +352,6 @@ func (s Javazon) killMonsterSequenceDensity(
 		visible := s.jzDkVisibleEnemies(jzDkScreenRadius)
 		engageable := s.jzDkEngageableEnemies(visible)
 
-		// If we can "see" monsters (within radius) but none are engageable due to LoS,
-		// attempt a small reposition so the pathfinder can route around walls/geometry.
-		// This prevents standing still and staring at monsters behind walls in tight areas (e.g. Diablo/Chaos).
-		if !lootGuard && len(visible) > 0 && len(engageable) == 0 && losRepositionCooldown == 0 && samePosTicks >= 2 {
-			nearest := visible[0]
-			best := jzDkGridDist(meNow, nearest.Position)
-			for i := 1; i < len(visible); i++ {
-				d := jzDkGridDist(meNow, visible[i].Position)
-				if d < best {
-					best = d
-					nearest = visible[i]
-				}
-			}
-			_ = action.MoveToCoords(nearest.Position, step.WithDistanceToFinish(jzDkStandoffDistance))
-			losRepositionCooldown = 3
-			continue
-		}
-
 		whites := 0
 		hasElite := false
 		for _, m := range engageable {
@@ -358,7 +372,7 @@ func (s Javazon) killMonsterSequenceDensity(
 				if !jzAliveMonster(m) {
 					continue
 				}
-				if pather.DistanceFromPoint(m.Position, lootGuardPos) > 4 && pather.DistanceFromPoint(m.Position, s.Data.PlayerUnit.Position) > 4 {
+				if pather.DistanceFromPoint(m.Position, lootGuardPos) > 4 && pather.DistanceFromPoint(m.Position, s.Data.PlayerUnit.Position) > 6 {
 					continue
 				}
 				if !s.jzDkHasLoS(s.Data.PlayerUnit.Position, m.Position) {
@@ -368,25 +382,9 @@ func (s Javazon) killMonsterSequenceDensity(
 			}
 
 			if len(nearLoot) == 0 {
-			// If we are stuck and can "see" monsters but none are engageable (behind walls/corners),
-			// do a small reposition to allow pathing/LoS before letting ItemPickup continue.
-			if samePosTicks >= 2 && losRepositionCooldown == 0 && len(visible) > 0 && len(engageable) == 0 {
-				nearest := visible[0]
-				best := jzDkGridDist(meNow, nearest.Position)
-				for i := 1; i < len(visible); i++ {
-					d := jzDkGridDist(meNow, visible[i].Position)
-					if d < best {
-						best = d
-						nearest = visible[i]
-					}
-				}
-				_ = action.MoveToCoords(nearest.Position, step.WithDistanceToFinish(jzDkStandoffDistance))
-				losRepositionCooldown = 3
-				continue
+				// Let ItemPickup proceed.
+				return nil
 			}
-			// Let ItemPickup proceed.
-			return nil
-		}
 
 			targetID, _, ok := s.jzDkPickFuryTarget(nearLoot)
 			if !ok {
@@ -406,9 +404,7 @@ func (s Javazon) killMonsterSequenceDensity(
 				if !s.preBattleChecks(eliteID, skipOnImmunities) {
 					return nil
 				}
-				for i := 0; i < numOfAttacks; i++ {
-					s.chargedStrikeBossFast(eliteID)
-				}
+				s.chargedStrikeAccurate(eliteID, numOfAttacks)
 				completedAttackLoops++
 				previousUnitID = eliteID
 				continue
@@ -440,6 +436,38 @@ func (s Javazon) killMonsterSequenceDensity(
 					// Cooldown to avoid back-and-forth behaviour with ignore logic.
 					blockerClearCooldown = 3
 					continue
+				}
+			}
+			// If a white mob is physically blocking the pickup path (common in corridors),
+			// clear the closest blocker instead of waiting for the merc.
+			if samePosTicks >= 2 {
+				closestID := data.UnitID(0)
+				best := 999999
+				me := s.Data.PlayerUnit.Position
+				for _, m := range s.jzDkVisibleEnemies(15) {
+					if m.IsPet() || m.IsMerc() || m.IsGoodNPC() || m.IsSkip() {
+						continue
+					}
+					if m.IsElite() {
+						continue
+					}
+					if !jzAliveMonster(m) {
+						continue
+					}
+					d := pather.DistanceFromPoint(m.Position, me)
+					if d <= 6 {
+						dd := ctx.PathFinder.DistanceFromMe(m.Position)
+						if dd < best {
+							best = dd
+							closestID = m.UnitID
+						}
+					}
+				}
+				if closestID != 0 {
+					if s.preBattleChecks(closestID, skipOnImmunities) {
+						_ = step.SecondaryAttack(skill.LightningFury, closestID, 2, step.Distance(1, jzDkFuryMaxDistance))
+						continue
+					}
 				}
 			}
 			return nil
@@ -593,6 +621,31 @@ func (s Javazon) chargedStrikeBossFast(monsterID data.UnitID) {
 	screenX, screenY := ctx.PathFinder.GameCoordsToScreenCords(monster.Position.X, monster.Position.Y)
 	ctx.HID.Click(game.RightButton, screenX, screenY)
 	utils.Sleep(jzDkMinClickDelayMS)
+}
+
+// chargedStrikeAccurate is used for non-boss situations (DK cleanup / general clearing)
+// to avoid "ground-click spam" and unintended walking. Boss sequences intentionally keep the fast spam.
+func (s Javazon) chargedStrikeAccurate(targetID data.UnitID, attacks int) {
+	if attacks <= 0 {
+		return
+	}
+
+	ctx := context.Get()
+	ctx.PauseIfNotPriority()
+
+	monster, found := s.Data.Monsters.FindByID(targetID)
+	if !found || !jzAliveMonster(monster) {
+		return
+	}
+
+	csKey, found := s.Data.KeyBindings.KeyBindingForSkill(skill.ChargedStrike)
+	if found && s.Data.PlayerUnit.RightSkill != skill.ChargedStrike {
+		ctx.HID.PressKeyBinding(csKey)
+		utils.Sleep(jzDkMinSkillSwapDelayMS)
+	}
+
+	// Use the step routine so range/LoS and click semantics are handled consistently.
+	_ = step.SecondaryAttack(skill.ChargedStrike, targetID, attacks, step.Distance(1, 3))
 }
 
 func (s Javazon) jzDkHandleForcedElite(
@@ -780,7 +833,7 @@ func (s Javazon) jzDkLightningFury(targetID data.UnitID, attacks int) bool {
 
 	me := s.Data.PlayerUnit.Position
 	distance := ctx.PathFinder.DistanceFromMe(monster.Position)
-	if distance > jzDkApproachIfFurtherThan {
+	if distance > jzDkFuryMaxDistance {
 		_ = action.MoveToCoords(monster.Position, step.WithDistanceToFinish(jzDkStandoffDistance))
 		ctx.RefreshGameData()
 		monster, found = s.Data.Monsters.FindByID(targetID)
@@ -806,6 +859,10 @@ func (s Javazon) jzDkLightningFury(targetID data.UnitID, attacks int) bool {
 		m, ok := s.Data.Monsters.FindByID(targetID)
 		if !ok || !jzAliveMonster(m) {
 			return true
+		}
+		// Prevent unnecessary telestomp/walk jitter: if we drift out of Fury range, let the caller reposition.
+		if ctx.PathFinder.DistanceFromMe(m.Position) > jzDkFuryMaxDistance {
+			return false
 		}
 		x, y := ctx.PathFinder.GameCoordsToScreenCords(m.Position.X, m.Position.Y)
 		ctx.HID.Click(game.RightButton, x, y)
@@ -877,6 +934,10 @@ func javazonNearestValuablePickupPos(maxDistance int) (data.Position, bool) {
 	found := false
 
 	for _, it := range items {
+		// Do not treat refills as "valuable loot" for the purposes of loot-guard clearing.
+		if it.IsPotion() || it.Name == "Gold" {
+			continue
+		}
 		d := pather.DistanceFromPoint(me, it.Position)
 		if d < bestDist {
 			bestDist = d
@@ -1021,7 +1082,7 @@ func (s Javazon) KillDiablo() error {
 		}
 
 		diablo, found := s.Data.Monsters.FindOne(npc.Diablo, data.MonsterTypeUnique)
-		if !found || !jzAliveMonster(diablo) {
+		if !found || diablo.Stats[stat.Life] <= 0 {
 			// Already dead
 			if diabloFound {
 				return nil
