@@ -118,7 +118,7 @@
         ],
         "nextDifficultyConditions": {
             "level": 41,
-            "fireRes": 0,
+            "fireRes": 15,
             "aboveGoldThreshold": true
         },
         "configSettings": [
@@ -166,7 +166,7 @@
             {
                 "run": "frozen_aura_merc"
             },
-			{
+            {
                 "run": "radament"
             },
             {
@@ -263,6 +263,11 @@
             "fireRes": 15,
             "aboveGoldThreshold": true
         },
+        "stayDifficultyConditions": {
+            "level": 41,
+            "fireRes": 15,
+            "aboveGoldThreshold": true
+        },
         "configSettings": []
     },
     "hell": {
@@ -332,9 +337,9 @@
             }
         ],
         "stayDifficultyConditions": {
+            "level": 70,
             "fireRes": 15,
-            "lightRes": 15,
-            "aboveLowGold": true
+            "aboveGoldThreshold": true
         },
         "configSettings": [
             {
