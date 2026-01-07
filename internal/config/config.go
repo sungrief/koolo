@@ -56,6 +56,7 @@ type KooloCfg struct {
 		EnableDiscordChickenMessages bool     `yaml:"enableDiscordChickenMessages"`
 		EnableDiscordErrorMessages   bool     `yaml:"enableDiscordErrorMessages"`
 		DisableItemStashScreenshots  bool     `yaml:"disableItemStashScreenshots"`
+		IncludePickitInfoInItemText  bool     `yaml:"includePickitInfoInItemText"`
 		BotAdmins                    []string `yaml:"botAdmins"`
 		ChannelID                    string   `yaml:"channelId"`
 		ItemChannelID                string   `yaml:"itemChannelId"`

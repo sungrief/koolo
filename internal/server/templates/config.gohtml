@@ -376,6 +376,10 @@
                         <input type="checkbox" name="discord_disable_item_stash_screenshots" value="{{ .Discord.DisableItemStashScreenshots }}" {{ if .Discord.DisableItemStashScreenshots }} checked="checked" {{ end }} />
                         Disable Item Stash Screenshots (send text only)
                     </label>
+                    <label>
+                        <input type="checkbox" name="discord_include_pickit_info_in_item_text" value="{{ .Discord.IncludePickitInfoInItemText }}" {{ if .Discord.IncludePickitInfoInItemText }} checked="checked" {{ end }} />
+                        Include NIP file and pickit line in item text
+                    </label>
                 </fieldset>
                 <h4>Telegram integration</h4>
                 <label>

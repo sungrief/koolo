@@ -1355,6 +1355,7 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		newConfig.Discord.EnableDiscordChickenMessages = r.Form.Has("enable_discord_chicken_messages")
 		newConfig.Discord.EnableDiscordErrorMessages = r.Form.Has("enable_discord_error_messages")
 		newConfig.Discord.DisableItemStashScreenshots = r.Form.Has("discord_disable_item_stash_screenshots")
+		newConfig.Discord.IncludePickitInfoInItemText = r.Form.Has("discord_include_pickit_info_in_item_text")
 		newConfig.Discord.Token = r.Form.Get("discord_token")
 		newConfig.Discord.ChannelID = r.Form.Get("discord_channel_id")
 		newConfig.Discord.ItemChannelID = r.Form.Get("discord_item_channel_id")
