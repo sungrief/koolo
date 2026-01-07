@@ -1,10 +1,10 @@
 package character
 
 import (
-	"sync"
 	"fmt"
 	"log/slog"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -27,12 +27,12 @@ const (
 	// Density killer (endgame pack clearing) internal knobs.
 	// User-facing settings are in CharacterCfg.Character.Javazon.
 	jzDkDefaultIgnoreWhitesBelow = 5
-	jzDkScreenRadius             = 17 // Roughly "on-screen" in game tiles.
+	jzDkScreenRadius             = 16 // Roughly "on-screen" in game tiles.
 	jzDkPackRadius               = 8
-	jzDkApproachIfFurtherThan    = 8
-	jzDkStandoffDistance         = 2
-	jzDkFuryMaxDistance          = 10
-	jzDkEliteCleanupMaxEnemies   = 2
+	jzDkApproachIfFurtherThan    = 10
+	jzDkStandoffDistance         = 4
+	jzDkFuryMaxDistance          = 12
+	jzDkEliteCleanupMaxEnemies   = 3
 
 	// Hard stops to avoid infinite loops when a forced elite cannot be reached.
 	jzDkMaxForcedEliteMoveAttempts = 6
@@ -167,7 +167,6 @@ func (s Javazon) jzDkHasDenseWhiteCluster(ignoreBelow int) bool {
 	jzDkDenseCache.mu.Unlock()
 	return hasDense
 }
-
 
 func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
 	// Default (safe) Javazon should behave exactly like upstream, without ignoring.
@@ -575,8 +574,8 @@ func (s Javazon) KillBossSequence(
 
 		if s.Data.PlayerUnit.Skills[skill.ChargedStrike].Level > 0 {
 			for i := 0; i < numOfAttacks; i++ {
-			s.chargedStrike(id)
-		}
+				s.chargedStrike(id)
+			}
 		} else {
 			step.PrimaryAttack(id, numOfAttacks, false, step.Distance(1, 1))
 		}
@@ -670,7 +669,6 @@ func (s Javazon) chargedStrikeAccurate(targetID data.UnitID, attacks int) {
 	_ = step.SecondaryAttack(skill.ChargedStrike, targetID, attacks, step.Distance(1, 3))
 }
 
-
 func (s Javazon) jzDkHandleForcedElite(
 	forcedID data.UnitID,
 	moveAttempts *int,
@@ -716,7 +714,7 @@ func (s Javazon) jzDkHandleForcedElite(
 	}
 
 	// For other forced elites, close distance once, then re-evaluate with on-screen logic.
-	if ctx.PathFinder.DistanceFromMe(monster.Position) > jzDkApproachIfFurtherThan || !s.jzDkHasLoS(me, monster.Position) {
+	if ctx.PathFinder.DistanceFromMe(monster.Position) > jzDkFuryMaxDistance || !s.jzDkHasLoS(me, monster.Position) {
 		_ = action.MoveToCoords(monster.Position, step.WithDistanceToFinish(jzDkStandoffDistance))
 		if moveAttempts != nil {
 			*moveAttempts = *moveAttempts + 1
@@ -939,8 +937,6 @@ func (s Javazon) jzDkRaycast(from, to data.Position) []data.Position {
 	}
 	return points
 }
-
-
 
 func javazonNearestValuablePickupPos(maxDistance int) (data.Position, bool) {
 	ctx := context.Get()
