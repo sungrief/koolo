@@ -23,6 +23,7 @@ export class ConditionSectionRenderer {
     this.isConditionEditing = isConditionEditing;
     this.setConditionEditing = setConditionEditing;
     this.domTargets = domTargets;
+    this._isSyncing = false; // Guard flag to prevent infinite re-render loops
 
     if (!this.domTargets) {
       throw new Error("ConditionSectionRenderer requires a domTargets resolver instance");
@@ -227,42 +228,62 @@ export class ConditionSectionRenderer {
    * @param {string} key
    */
   syncDifficultyConditions(difficulty, key) {
-    if (!this.state.data) {
+    if (!this.state.data || this._isSyncing) {
       return;
     }
 
-    // Normal's next conditions ↔ Nightmare's stay conditions
-    if (difficulty === "normal" && key === "nextDifficultyConditions") {
-      const normalNext = this.state.data.normal?.nextDifficultyConditions;
-      if (normalNext && this.state.data.nightmare) {
-        this.state.data.nightmare.stayDifficultyConditions = this.copyCondition(normalNext);
-        this.render("nightmare");
-      }
-    }
+    // Prevent cascading re-renders and infinite loops
+    this._isSyncing = true;
 
-    if (difficulty === "nightmare" && key === "stayDifficultyConditions") {
-      const nightmareStay = this.state.data.nightmare?.stayDifficultyConditions;
-      if (nightmareStay && this.state.data.normal) {
-        this.state.data.normal.nextDifficultyConditions = this.copyCondition(nightmareStay);
-        this.render("normal");
+    try {
+      // Normal's next conditions ↔ Nightmare's stay conditions
+      if (difficulty === "normal" && key === "nextDifficultyConditions") {
+        const normalNext = this.state.data.normal?.nextDifficultyConditions;
+        if (this.state.data.nightmare) {
+          // Propagate both set and unset (undefined) values
+          this.state.data.nightmare.stayDifficultyConditions = normalNext 
+            ? this.copyCondition(normalNext) 
+            : undefined;
+          this.render("nightmare");
+        }
       }
-    }
+      
+      if (difficulty === "nightmare" && key === "stayDifficultyConditions") {
+        const nightmareStay = this.state.data.nightmare?.stayDifficultyConditions;
+        if (this.state.data.normal) {
+          // Propagate both set and unset (undefined) values
+          this.state.data.normal.nextDifficultyConditions = nightmareStay 
+            ? this.copyCondition(nightmareStay) 
+            : undefined;
+          this.render("normal");
+        }
+      }
 
-    // Nightmare's next conditions ↔ Hell's stay conditions
-    if (difficulty === "nightmare" && key === "nextDifficultyConditions") {
-      const nightmareNext = this.state.data.nightmare?.nextDifficultyConditions;
-      if (nightmareNext && this.state.data.hell) {
-        this.state.data.hell.stayDifficultyConditions = this.copyCondition(nightmareNext);
-        this.render("hell");
+      // Nightmare's next conditions ↔ Hell's stay conditions
+      if (difficulty === "nightmare" && key === "nextDifficultyConditions") {
+        const nightmareNext = this.state.data.nightmare?.nextDifficultyConditions;
+        if (this.state.data.hell) {
+          // Propagate both set and unset (undefined) values
+          this.state.data.hell.stayDifficultyConditions = nightmareNext 
+            ? this.copyCondition(nightmareNext) 
+            : undefined;
+          this.render("hell");
+        }
       }
-    }
-
-    if (difficulty === "hell" && key === "stayDifficultyConditions") {
-      const hellStay = this.state.data.hell?.stayDifficultyConditions;
-      if (hellStay && this.state.data.nightmare) {
-        this.state.data.nightmare.nextDifficultyConditions = this.copyCondition(hellStay);
-        this.render("nightmare");
+      
+      if (difficulty === "hell" && key === "stayDifficultyConditions") {
+        const hellStay = this.state.data.hell?.stayDifficultyConditions;
+        if (this.state.data.nightmare) {
+          // Propagate both set and unset (undefined) values
+          this.state.data.nightmare.nextDifficultyConditions = hellStay 
+            ? this.copyCondition(hellStay) 
+            : undefined;
+          this.render("nightmare");
+        }
       }
+    } finally {
+      // Always reset the sync flag, even if an error occurs
+      this._isSyncing = false;
     }
   }
 
