@@ -18,7 +18,10 @@ type PathFinder struct {
 	hid          *game.HID
 	cfg          *config.CharacterCfg
 	packetSender *game.PacketSender
-	astarBuffers *astar.AStarBuffers // Reusable A* buffers to avoid allocations
+	// astarBuffers are reusable A* buffers to avoid allocations. Thread-safe without
+	// synchronization because pathfinding is only called from the PriorityNormal goroutine
+	// (main bot loop). Background goroutines (data refresh, health check) do not perform pathfinding.
+	astarBuffers *astar.AStarBuffers
 }
 
 func NewPathFinder(gr *game.MemoryReader, data *game.Data, hid *game.HID, cfg *config.CharacterCfg) *PathFinder {
@@ -74,7 +77,9 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 	}
 	// Lut Gholein map is a bit bugged, we should close this fake path to avoid pathing issues
 	if a.Area == area.LutGholein {
-		a.Grid.Set(210, 13, game.CollisionTypeNonWalkable)
+		if 210 < a.Grid.Width && 13 < a.Grid.Height {
+			a.Grid.Set(210, 13, game.CollisionTypeNonWalkable)
+		}
 	}
 
 	if !a.IsInside(to) {
@@ -99,6 +104,9 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 			continue
 		}
 		relativePos := grid.RelativePosition(o.Position)
+		if relativePos.X < 0 || relativePos.X >= grid.Width || relativePos.Y < 0 || relativePos.Y >= grid.Height {
+			continue
+		}
 		grid.Set(relativePos.X, relativePos.Y, game.CollisionTypeObject)
 		for i := -2; i <= 2; i++ {
 			for j := -2; j <= 2; j++ {
@@ -122,6 +130,9 @@ func (pf *PathFinder) GetPathFrom(from, to data.Position) (Path, int, bool) {
 			continue
 		}
 		relativePos := grid.RelativePosition(m.Position)
+		if relativePos.X < 0 || relativePos.X >= grid.Width || relativePos.Y < 0 || relativePos.Y >= grid.Height {
+			continue
+		}
 		grid.Set(relativePos.X, relativePos.Y, game.CollisionTypeMonster)
 	}
 
@@ -239,7 +250,7 @@ func (pf *PathFinder) GetClosestWalkablePathFrom(from, dest data.Position) (Path
 				if math.Abs(float64(i)) >= math.Abs(float64(dst)) || math.Abs(float64(j)) >= math.Abs(float64(dst)) {
 					cgY := dest.Y - pf.data.AreaOrigin.Y + j
 					cgX := dest.X - pf.data.AreaOrigin.X + i
-					if cgX > 0 && cgY > 0 && a.Height > cgY && a.Width > cgX && a.Grid.Get(cgX, cgY) == game.CollisionTypeWalkable {
+					if cgX >= 0 && cgY >= 0 && a.Height > cgY && a.Width > cgX && a.Grid.Get(cgX, cgY) == game.CollisionTypeWalkable {
 						return pf.GetPathFrom(from, data.Position{
 							X: dest.X + i,
 							Y: dest.Y + j,
