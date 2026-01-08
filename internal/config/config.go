@@ -331,22 +331,22 @@ type CharacterCfg struct {
 	} `yaml:"character"`
 
 	Game struct {
-		MinGoldPickupThreshold int                   `yaml:"minGoldPickupThreshold"`
-		UseCainIdentify        bool                  `yaml:"useCainIdentify"`
-		DisableIdentifyTome    bool                  `yaml:"disableIdentifyTome"`
-		InteractWithShrines    bool                  `yaml:"interactWithShrines"`
-		InteractWithChests     bool                  `yaml:"interactWithChests"`
-		InteractWithSuperChests bool                 `yaml:"interactWithSuperChests"`
-		StopLevelingAt         int                   `yaml:"stopLevelingAt"`
-		IsNonLadderChar        bool                  `yaml:"isNonLadderChar"`
-		ClearTPArea            bool                  `yaml:"clearTPArea"`
-		Difficulty             difficulty.Difficulty `yaml:"difficulty"`
-		RandomizeRuns          bool                  `yaml:"randomizeRuns"`
-		Runs                   []Run                 `yaml:"runs"`
-		CreateLobbyGames       bool                  `yaml:"createLobbyGames"`
-		PublicGameCounter      int                   `yaml:"-"`
-		MaxFailedMenuAttempts  int                   `yaml:"maxFailedMenuAttempts"`
-		Pindleskin             struct {
+		MinGoldPickupThreshold  int                   `yaml:"minGoldPickupThreshold"`
+		UseCainIdentify         bool                  `yaml:"useCainIdentify"`
+		DisableIdentifyTome     bool                  `yaml:"disableIdentifyTome"`
+		InteractWithShrines     bool                  `yaml:"interactWithShrines"`
+		InteractWithChests      bool                  `yaml:"interactWithChests"`
+		InteractWithSuperChests bool                  `yaml:"interactWithSuperChests"`
+		StopLevelingAt          int                   `yaml:"stopLevelingAt"`
+		IsNonLadderChar         bool                  `yaml:"isNonLadderChar"`
+		ClearTPArea             bool                  `yaml:"clearTPArea"`
+		Difficulty              difficulty.Difficulty `yaml:"difficulty"`
+		RandomizeRuns           bool                  `yaml:"randomizeRuns"`
+		Runs                    []Run                 `yaml:"runs"`
+		CreateLobbyGames        bool                  `yaml:"createLobbyGames"`
+		PublicGameCounter       int                   `yaml:"-"`
+		MaxFailedMenuAttempts   int                   `yaml:"maxFailedMenuAttempts"`
+		Pindleskin              struct {
 			SkipOnImmunities []stat.Resist `yaml:"skipOnImmunities"`
 		} `yaml:"pindleskin"`
 		Cows struct {
@@ -636,7 +636,7 @@ func Load() error {
 
 		// Load the leveling pickit rules
 
-		if len(charCfg.Game.Runs) > 0 && charCfg.Game.Runs[0] == "leveling" || charCfg.Game.Runs[0] == "leveling_sequence" {
+		if len(charCfg.Game.Runs) > 0 && (charCfg.Game.Runs[0] == "leveling" || charCfg.Game.Runs[0] == "leveling_sequence") {
 			nips := getLevelingNipFiles(&charCfg, entry.Name())
 
 			for _, nipFile := range nips {
