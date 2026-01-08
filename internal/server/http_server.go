@@ -2021,6 +2021,21 @@ func (s *HttpServer) updateClassSpecificConfig(values url.Values, cfg *config.Ch
 		} else if cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow == 0 {
 			cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
 		}
+		if v := values.Get("javazonDensityKillerForceRefillBelowPercent"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil {
+				if i < 1 {
+					i = 1
+				}
+				if i > 100 {
+					i = 100
+				}
+				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = i
+			} else {
+				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
+			}
+		} else if cfg.Character.Javazon.DensityKillerForceRefillBelowPercent == 0 {
+			cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
+		}
 	}
 
 	// Lightning Sorceress specific options
@@ -2442,6 +2457,21 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 				}
 			} else if cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow == 0 {
 				cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
+			}
+			if v := r.Form.Get("javazonDensityKillerForceRefillBelowPercent"); v != "" {
+				if i, err := strconv.Atoi(v); err == nil {
+					if i < 1 {
+						i = 1
+					}
+					if i > 100 {
+						i = 100
+					}
+					cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = i
+				} else {
+					cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
+				}
+			} else if cfg.Character.Javazon.DensityKillerForceRefillBelowPercent == 0 {
+				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
 			}
 		}
 

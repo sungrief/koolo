@@ -110,6 +110,7 @@ func (s Javazon) jzDkHasDenseWhiteCluster(ignoreBelow int) bool {
 	jzDkDenseCache.mu.Unlock()
 
 	// Build on-screen whites and cap candidates to keep work bounded.
+	// ✅ CRITICAL FIX: Only count monsters we can actually attack (have LoS)
 	whites := make([]data.Monster, 0, 32)
 	for _, mo := range ctx.Data.Monsters {
 		if mo.IsPet() || mo.IsMerc() || mo.IsGoodNPC() || mo.IsSkip() {
@@ -122,7 +123,11 @@ func (s Javazon) jzDkHasDenseWhiteCluster(ignoreBelow int) bool {
 			continue
 		}
 		if pather.DistanceFromPoint(mo.Position, me) <= jzDkScreenRadius {
-			whites = append(whites, mo)
+			// ✅ CRITICAL: Only add if we have LoS (can actually attack it)
+			// This prevents considering cow packs behind fences as "dense clusters"
+			if s.jzDkHasLoS(me, mo.Position) {
+				whites = append(whites, mo)
+			}
 		}
 	}
 
@@ -185,11 +190,17 @@ func (s Javazon) ShouldIgnoreMonster(m data.Monster) bool {
 	}
 
 	// Keep the immediate vicinity safe: if a normal monster is close, don't ignore it.
-	// This avoids getting "combat-locked" by stragglers when we want to move on.
+	// ✅ CRITICAL FIX: Also check LoS to prevent PathFinder waiting for mobs behind walls
 	const closeThreatRadius = 6
 	me := ctx.Data.PlayerUnit.Position
 	if pather.DistanceFromPoint(m.Position, me) <= closeThreatRadius {
-		return false
+		// Only block PathFinder if we can actually attack the mob (have LoS)
+		// Mobs behind walls will be ignored until we reposition
+		if s.jzDkHasLoS(me, m.Position) {
+			return false // Can attack this mob - don't ignore
+		}
+		// Mob is behind wall - let PathFinder move, we'll handle it after reposition
+		return true
 	}
 
 	ignoreBelow := s.densityIgnoreWhitesBelow()
@@ -435,11 +446,58 @@ func (s Javazon) killMonsterSequenceDensity(
 		// 4) Decide if we should ignore leftovers (no elite present and no dense cluster).
 		ignoreBelow := s.densityIgnoreWhitesBelow()
 		targetID, clusterSize, hasTarget := s.jzDkPickFuryTarget(engageable)
+
 		if !hasElite && (clusterSize < ignoreBelow || !hasTarget) {
+			// ✅ FIX: ALWAYS clear immediate threat zone before exiting combat
+			// This syncs with ShouldIgnoreMonster() to prevent PathFinder deadlock
+			const closeThreatRadius = 6
+			me := s.Data.PlayerUnit.Position
+
+			// Collect monsters within closeThreatRadius that we can ACTUALLY attack (have LoS)
+			// This prevents trying to attack monsters behind walls which causes stuck
+			immediateThreat := make([]data.Monster, 0, 8)
+			for _, m := range s.jzDkVisibleEnemies(closeThreatRadius + 2) {
+				if m.IsPet() || m.IsMerc() || m.IsGoodNPC() || m.IsSkip() {
+					continue
+				}
+				if m.IsElite() {
+					continue
+				}
+				if !jzAliveMonster(m) {
+					continue
+				}
+				if pather.DistanceFromPoint(m.Position, me) <= closeThreatRadius {
+					// ✅ CRITICAL: Only add if we have LoS (can actually attack it)
+					if s.jzDkHasLoS(me, m.Position) {
+						immediateThreat = append(immediateThreat, m)
+					}
+				}
+			}
+
+			// If there are monsters in the threat zone that we CAN attack, clear them FIRST
+			if len(immediateThreat) > 0 {
+				// Sort by distance (closest first)
+				sort.Slice(immediateThreat, func(i, j int) bool {
+					di := pather.DistanceFromPoint(immediateThreat[i].Position, me)
+					dj := pather.DistanceFromPoint(immediateThreat[j].Position, me)
+					return di < dj
+				})
+
+				// Attack the closest one (just 1 Fury cast, not spam)
+				targetID := immediateThreat[0].UnitID
+				if s.preBattleChecks(targetID, skipOnImmunities) {
+					_ = step.SecondaryAttack(skill.LightningFury, targetID, 1, step.Distance(1, jzDkFuryMaxDistance))
+					continue // Re-evaluate, don't exit yet
+				}
+			}
+
+			// If no immediate threat with LoS, safe to exit
+			// PathFinder will handle repositioning to get LoS if needed
+			// Monsters behind walls will be handled after repositioning
+
 			// Anti-stuck: only clear close blockers when we appear stuck (no movement across iterations).
 			if samePosTicks >= 2 && blockerClearCooldown == 0 {
 				blockers := make([]data.Monster, 0, 6)
-				me := s.Data.PlayerUnit.Position
 				for _, m := range engageable {
 					if m.IsElite() {
 						continue
@@ -459,12 +517,12 @@ func (s Javazon) killMonsterSequenceDensity(
 					continue
 				}
 			}
+
 			// If a white mob is physically blocking the pickup path (common in corridors),
 			// clear the closest blocker instead of waiting for the merc.
 			if samePosTicks >= 2 {
 				closestID := data.UnitID(0)
 				best := 999999
-				me := s.Data.PlayerUnit.Position
 				for _, m := range s.jzDkVisibleEnemies(15) {
 					if m.IsPet() || m.IsMerc() || m.IsGoodNPC() || m.IsSkip() {
 						continue
@@ -491,6 +549,8 @@ func (s Javazon) killMonsterSequenceDensity(
 					}
 				}
 			}
+
+			// Now safe to exit - immediate threat zone is clear
 			return nil
 		}
 
@@ -800,6 +860,12 @@ func (s Javazon) jzDkPickFuryTarget(enemies []data.Monster) (data.UnitID, int, b
 	}
 
 	for _, c := range candidates {
+		// ✅ CRITICAL FIX: Only consider candidates we can actually attack (have LoS)
+		// This prevents stuck on Cow Level when large pack is behind walls
+		if !s.jzDkHasLoS(me, c.Position) {
+			continue
+		}
+
 		cluster := 0
 		for _, o := range enemies {
 			if o.IsElite() {
@@ -1139,26 +1205,26 @@ func (s Javazon) KillBaal() error {
 	return s.killBoss(npc.BaalCrab, data.MonsterTypeUnique)
 }
 
-func (f Javazon) KillUberDuriel() error {
-	return f.killBoss(npc.UberDuriel, data.MonsterTypeUnique)
+func (s Javazon) KillUberDuriel() error {
+	return s.killBoss(npc.UberDuriel, data.MonsterTypeUnique)
 }
 
-func (f Javazon) KillUberIzual() error {
-	return f.killBoss(npc.UberIzual, data.MonsterTypeUnique)
+func (s Javazon) KillUberIzual() error {
+	return s.killBoss(npc.UberIzual, data.MonsterTypeUnique)
 }
 
-func (f Javazon) KillLilith() error {
-	return f.killBoss(npc.Lilith, data.MonsterTypeUnique)
+func (s Javazon) KillLilith() error {
+	return s.killBoss(npc.Lilith, data.MonsterTypeUnique)
 }
 
-func (f Javazon) KillUberMephisto() error {
-	return f.killBoss(npc.UberMephisto, data.MonsterTypeUnique)
+func (s Javazon) KillUberMephisto() error {
+	return s.killBoss(npc.UberMephisto, data.MonsterTypeUnique)
 }
 
-func (f Javazon) KillUberDiablo() error {
-	return f.killBoss(npc.UberDiablo, data.MonsterTypeUnique)
+func (s Javazon) KillUberDiablo() error {
+	return s.killBoss(npc.UberDiablo, data.MonsterTypeUnique)
 }
 
-func (f Javazon) KillUberBaal() error {
-	return f.killBoss(npc.UberBaal, data.MonsterTypeUnique)
+func (s Javazon) KillUberBaal() error {
+	return s.killBoss(npc.UberBaal, data.MonsterTypeUnique)
 }

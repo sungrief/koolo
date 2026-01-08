@@ -684,6 +684,26 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Javazon: force quantity refill hint
+    const javazonForceRefillInput = document.getElementById('javazonDensityKillerForceRefillBelowPercent');
+    const javazonForceRefillHint = document.getElementById('javazonForceRefillHint');
+
+    function updateJavazonForceRefillHint() {
+        if (!javazonForceRefillInput || !javazonForceRefillHint) return;
+        let v = parseInt(javazonForceRefillInput.value, 10);
+        if (isNaN(v)) v = 50;
+        if (v < 1) v = 1;
+        if (v > 100) v = 100;
+        javazonForceRefillInput.value = v;
+        javazonForceRefillHint.textContent = `Quantity refill < ${v}%`;
+    }
+
+    if (javazonForceRefillInput) {
+        javazonForceRefillInput.addEventListener('input', updateJavazonForceRefillHint);
+        javazonForceRefillInput.addEventListener('change', updateJavazonForceRefillHint);
+        updateJavazonForceRefillHint();
+    }
+
     // Update the displayed value when the slider changes
     function updateClearPathValue() {
         if (clearPathDistInput && clearPathDistValue) {

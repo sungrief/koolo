@@ -305,6 +305,9 @@ type CharacterCfg struct {
 		Javazon struct {
 			DensityKillerEnabled           bool `yaml:"density_killer_enabled"`
 			DensityKillerIgnoreWhitesBelow int  `yaml:"density_killer_ignore_whites_below"`
+			// Force a vendor "Repair All" to replenish javelins in town when quantity is below this % threshold.
+			// Only applied for the Javazon build when DensityKillerEnabled is true.
+			DensityKillerForceRefillBelowPercent int `yaml:"density_killer_force_refill_below_percent"`
 		} `yaml:"javazon"`
 		DruidLeveling struct {
 			UsePacketLearning bool `yaml:"use_packet_learning"`
