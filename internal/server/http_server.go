@@ -791,12 +791,12 @@ func (s *HttpServer) reloadConfig(w http.ResponseWriter, r *http.Request) {
 
 // SchedulerHistoryEntry matches bot.HistoryEntry for JSON serialization
 type SchedulerHistoryEntry struct {
-	Date              string                  `json:"date"`
-	WakeTime          string                  `json:"wakeTime"`
-	SleepTime         string                  `json:"sleepTime"`
-	TotalPlayMinutes  int                     `json:"totalPlayMinutes"`
-	TotalBreakMinutes int                     `json:"totalBreakMinutes"`
-	Breaks            []SchedulerBreakEntry   `json:"breaks"`
+	Date              string                `json:"date"`
+	WakeTime          string                `json:"wakeTime"`
+	SleepTime         string                `json:"sleepTime"`
+	TotalPlayMinutes  int                   `json:"totalPlayMinutes"`
+	TotalBreakMinutes int                   `json:"totalBreakMinutes"`
+	Breaks            []SchedulerBreakEntry `json:"breaks"`
 }
 
 type SchedulerBreakEntry struct {
@@ -2009,6 +2009,35 @@ func (s *HttpServer) updateClassSpecificConfig(values url.Values, cfg *config.Ch
 		cfg.Character.NovaSorceress.AggressiveNovaPositioning = values.Has("aggressiveNovaPositioning")
 	}
 
+	// Javazon specific options
+	if cfg.Character.Class == "javazon" {
+		cfg.Character.Javazon.DensityKillerEnabled = values.Has("javazonDensityKillerEnabled")
+		if v := values.Get("javazonDensityKillerIgnoreWhitesBelow"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil {
+				cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = i
+			} else {
+				cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
+			}
+		} else if cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow == 0 {
+			cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
+		}
+		if v := values.Get("javazonDensityKillerForceRefillBelowPercent"); v != "" {
+			if i, err := strconv.Atoi(v); err == nil {
+				if i < 1 {
+					i = 1
+				}
+				if i > 100 {
+					i = 100
+				}
+				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = i
+			} else {
+				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
+			}
+		} else if cfg.Character.Javazon.DensityKillerForceRefillBelowPercent == 0 {
+			cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
+		}
+	}
+
 	// Lightning Sorceress specific options
 	if cfg.Character.Class == "lightsorc" {
 	}
@@ -2415,6 +2444,35 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		// Nova Sorceress specific options
 		if cfg.Character.Class == "nova" {
 			cfg.Character.NovaSorceress.AggressiveNovaPositioning = r.Form.Has("aggressiveNovaPositioning")
+		}
+
+		// Javazon specific options
+		if cfg.Character.Class == "javazon" {
+			cfg.Character.Javazon.DensityKillerEnabled = r.Form.Has("javazonDensityKillerEnabled")
+			if v := r.Form.Get("javazonDensityKillerIgnoreWhitesBelow"); v != "" {
+				if i, err := strconv.Atoi(v); err == nil {
+					cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = i
+				} else {
+					cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
+				}
+			} else if cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow == 0 {
+				cfg.Character.Javazon.DensityKillerIgnoreWhitesBelow = 4
+			}
+			if v := r.Form.Get("javazonDensityKillerForceRefillBelowPercent"); v != "" {
+				if i, err := strconv.Atoi(v); err == nil {
+					if i < 1 {
+						i = 1
+					}
+					if i > 100 {
+						i = 100
+					}
+					cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = i
+				} else {
+					cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
+				}
+			} else if cfg.Character.Javazon.DensityKillerForceRefillBelowPercent == 0 {
+				cfg.Character.Javazon.DensityKillerForceRefillBelowPercent = 50
+			}
 		}
 
 		for y, row := range cfg.Inventory.InventoryLock {
