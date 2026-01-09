@@ -644,7 +644,7 @@ func Load() error {
 
 		// Load the leveling pickit rules
 
-		if len(charCfg.Game.Runs) > 0 && charCfg.Game.Runs[0] == "leveling" || charCfg.Game.Runs[0] == "leveling_sequence" {
+		if len(charCfg.Game.Runs) > 0 && (charCfg.Game.Runs[0] == "leveling" || charCfg.Game.Runs[0] == "leveling_sequence") {
 			nips := getLevelingNipFiles(&charCfg, entry.Name())
 
 			for _, nipFile := range nips {
