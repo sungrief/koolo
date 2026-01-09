@@ -2,6 +2,7 @@ package action
 
 import (
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
@@ -28,6 +29,10 @@ const (
 	weaponWaitTimeout   = 1200 * time.Millisecond // Max time to wait for weapon slot switch
 	weaponCheckInterval = 40 * time.Millisecond   // Poll interval for weapon slot check
 )
+
+// Mutex to prevent concurrent buff executions
+var buffMutex sync.Mutex
+var buffInProgress bool
 
 // ============================================================================
 // PUBLIC API
@@ -63,12 +68,36 @@ func Buff() {
 	ctx := context.Get()
 	ctx.SetLastAction("Buff")
 
+	// Prevent re-entry - if already buffing, skip
+	buffMutex.Lock()
+	if buffInProgress {
+		buffMutex.Unlock()
+		ctx.Logger.Debug("Buff already in progress, skipping")
+		return
+	}
+	buffInProgress = true
+	buffMutex.Unlock()
+
+	// Ensure we clear the flag when done
+	defer func() {
+		buffMutex.Lock()
+		buffInProgress = false
+		buffMutex.Unlock()
+	}()
+
+	// Check cooldown and town
 	if ctx.Data.PlayerUnit.Area.IsTown() || time.Since(ctx.LastBuffAt) < buffCooldown {
 		return
 	}
 
-	// Hard guarantee: always end on primary even if something early-returns later.
-	defer ensurePrimaryWeapon()
+	// CRITICAL: Set LastBuffAt FIRST to prevent race conditions
+	ctx.LastBuffAt = time.Now()
+
+	// Hard guarantee: always end on primary even if something panics/early-returns
+	defer func() {
+		ensurePrimaryWeapon()
+		ctx.RefreshGameData()
+	}()
 
 	// Handle loading screen
 	if ctx.Data.OpenMenus.LoadingScreen {
@@ -89,6 +118,7 @@ func Buff() {
 
 	// --- Phase 1: Pre-CTA Buffs ---
 	castPreCTABuffs()
+	ensurePrimaryWeapon()
 
 	// --- Phase 2: Warcries (BO/BC/Shout) ---
 	if isBarbarian {
@@ -96,15 +126,12 @@ func Buff() {
 	} else if hasCTA {
 		castCTAWarcries()
 	}
+	ensurePrimaryWeapon()
 
 	// --- Phase 3: Post-CTA Class Buffs ---
 	castPostCTABuffs(isBarbarian)
-
-	// Safety: Always end on primary weapon
 	ensurePrimaryWeapon()
 
-	// Update timestamp
-	ctx.LastBuffAt = time.Now()
 	ctx.Logger.Debug("Buff sequence completed")
 }
 
@@ -117,18 +144,36 @@ func IsRebuffRequired() bool {
 		return false
 	}
 
-	// Check warcries
+	// Check warcries (applies to both Barbarians and CTA users)
 	isBarbarian := isBarbarianByClass()
 	hasCTA := ctaFound(*ctx.Data)
 
-	if (isBarbarian || hasCTA) &&
-		(!ctx.Data.PlayerUnit.States.HasState(state.Battleorders) ||
-			!ctx.Data.PlayerUnit.States.HasState(state.Battlecommand)) {
-		return true
+	if isBarbarian || hasCTA {
+		if !ctx.Data.PlayerUnit.States.HasState(state.Battleorders) ||
+			!ctx.Data.PlayerUnit.States.HasState(state.Battlecommand) {
+			return true
+		}
+		// For Barbarians, also check Shout if it's in their BuffSkills
+		if isBarbarian {
+			for _, buff := range ctx.Char.BuffSkills() {
+				if buff == skill.Shout {
+					if _, found := ctx.Data.KeyBindings.KeyBindingForSkill(skill.Shout); found {
+						if !ctx.Data.PlayerUnit.States.HasState(state.Shout) {
+							return true
+						}
+					}
+					break
+				}
+			}
+		}
 	}
 
-	// Check class-specific buff states
+	// Check class-specific buff states (excluding warcries for barbarians)
 	for _, buff := range ctx.Char.BuffSkills() {
+		// Skip warcries for barbarians - already checked above
+		if isBarbarian && isWarcrySkill(buff) {
+			continue
+		}
 		if _, found := ctx.Data.KeyBindings.KeyBindingForSkill(buff); found {
 			if needsRebuff(buff) {
 				return true
@@ -170,6 +215,7 @@ func castBarbarianWarcries() {
 	buffSkills := ctx.Char.BuffSkills()
 
 	// Cast in optimal order: BC -> Shout -> BO
+	// BC first because it gives +1 skills
 	orderedWarcries := []skill.ID{skill.BattleCommand, skill.Shout, skill.BattleOrders}
 
 	for _, warcry := range orderedWarcries {
@@ -179,6 +225,7 @@ func castBarbarianWarcries() {
 
 		kb, found := ctx.Data.KeyBindings.KeyBindingForSkill(warcry)
 		if !found {
+			ctx.Logger.Debug("Keybinding not found for warcry", slog.String("skill", warcry.Desc().Name))
 			continue
 		}
 
@@ -191,12 +238,17 @@ func castCTAWarcries() {
 	ctx := context.Get()
 	ctx.Logger.Debug("Casting CTA warcries (non-Barbarian)")
 
-	// Swap to CTA only if Battle Orders isn't currently available.
-	// IMPORTANT: SwapWeapons is a toggle. Swapping back unconditionally can
-	// accidentally leave us on the wrong slot when BO is already present.
-	if _, hasBO := ctx.Data.PlayerUnit.Skills[skill.BattleOrders]; !hasBO {
-		swapToSecondary()
+	// Check if we have keybinds before swapping
+	_, hasBC := ctx.Data.KeyBindings.KeyBindingForSkill(skill.BattleCommand)
+	_, hasBO := ctx.Data.KeyBindings.KeyBindingForSkill(skill.BattleOrders)
+
+	if !hasBC && !hasBO {
+		ctx.Logger.Debug("CTA found but no BO/BC keybinds, skipping")
+		return
 	}
+
+	// Swap to CTA (secondary)
+	swapToSecondary()
 
 	// Cast BC with state verification
 	if kb, found := ctx.Data.KeyBindings.KeyBindingForSkill(skill.BattleCommand); found {
@@ -208,7 +260,7 @@ func castCTAWarcries() {
 		castBuffWithRetry(kb, skill.BattleOrders, state.Battleorders)
 	}
 
-	// Always return to main weapon after CTA sequence.
+	// Always return to main weapon after CTA sequence
 	ensurePrimaryWeapon()
 }
 
@@ -220,7 +272,7 @@ func castPostCTABuffs(isBarbarian bool) {
 		return
 	}
 
-	// Filter out warcries for Barbarians - already handled
+	// Filter out warcries for Barbarians - already handled in castBarbarianWarcries
 	var classBuffs []skill.ID
 	for _, buff := range buffSkills {
 		if isBarbarian && isWarcrySkill(buff) {
@@ -272,18 +324,18 @@ func castBuffWithBestWeapon(buffSkill skill.ID, kb data.KeyBinding, expectedStat
 		slog.Int("swapBonus", swapBonus),
 		slog.Bool("useSwap", useSwap))
 
-	// Ensure the correct weapon set BEFORE casting (fixes stale slot edge cases).
+	// Swap to better weapon set if needed
 	if useSwap {
 		swapToSecondary()
 	} else {
-		swapToPrimary()
+		ensurePrimaryWeapon()
 	}
 
 	// Cast with state verification and retry
 	castBuffWithRetry(kb, buffSkill, expectedState)
 
-	// Safety: Always return to primary weapon after each buff cast.
-	swapToPrimary()
+	// ALWAYS return to primary weapon after EVERY buff cast
+	ensurePrimaryWeapon()
 }
 
 // castBuffWithRetry casts a buff and verifies the state appeared.
@@ -378,7 +430,7 @@ func waitForWeaponSlot(desired int) bool {
 }
 
 // ensureWeaponSlot switches to the desired weapon slot and confirms the change.
-// It retries once if the first toggle did not register.
+// It retries if the first toggle did not register.
 func ensureWeaponSlot(desired int) {
 	ctx := context.Get()
 
@@ -393,27 +445,42 @@ func ensureWeaponSlot(desired int) {
 		slog.Int("current", current),
 		slog.Int("desired", desired))
 
-	// First attempt
-	pressSwapWeapons()
-	utils.Sleep(swapDelay)
-	if waitForWeaponSlot(desired) {
-		return
-	}
-
-	// Retry only if we are still on the original slot (missed input)
-	ctx.RefreshGameData()
-	if ctx.Data.ActiveWeaponSlot == current {
+	// Try up to 3 times to swap
+	for attempt := 0; attempt < 3; attempt++ {
 		pressSwapWeapons()
 		utils.Sleep(swapDelay)
+
 		if waitForWeaponSlot(desired) {
+			ctx.Logger.Debug("Weapon slot confirmed", slog.Int("slot", desired))
 			return
 		}
+
+		ctx.RefreshGameData()
+		if ctx.Data.ActiveWeaponSlot == desired {
+			return
+		}
+
+		ctx.Logger.Debug("Weapon swap attempt failed, retrying",
+			slog.Int("attempt", attempt+1),
+			slog.Int("current", ctx.Data.ActiveWeaponSlot))
 	}
 
 	ctx.RefreshGameData()
-	ctx.Logger.Warn("Failed to confirm weapon slot switch",
+	ctx.Logger.Warn("Failed to confirm weapon slot switch after 3 attempts",
 		slog.Int("desired", desired),
 		slog.Int("current", ctx.Data.ActiveWeaponSlot))
+}
+
+func swapToSecondary() {
+	ensureWeaponSlot(1)
+}
+
+func swapToPrimary() {
+	ensureWeaponSlot(0)
+}
+
+func ensurePrimaryWeapon() {
+	ensureWeaponSlot(0)
 }
 
 // ============================================================================
@@ -488,7 +555,7 @@ func getPlayerClass() data.Class {
 		return data.Necromancer
 	case isClassType(class, "paladin", "hammerdin", "foh", "smiter", "dragondin", "paladin_leveling"):
 		return data.Paladin
-	case isClassType(class, "barbarian", "barb", "berserker", "warcry_barb", "barb_leveling"):
+	case isClassType(class, "barbarian", "barb", "berserker", "warcry_barb", "barb_leveling", "singer", "warsinger"):
 		return data.Barbarian
 	case isClassType(class, "druid", "winddruid", "druid_leveling"):
 		return data.Druid
@@ -669,7 +736,6 @@ func needsRebuff(sk skill.ID) bool {
 		return !ctx.Data.PlayerUnit.States.HasState(state.Holyshield)
 
 	// Sorceress armors - check if ANY armor is active
-	// If we want CA but have Frozen, that's still OK (build should handle priority)
 	case skill.FrozenArmor, skill.ShiverArmor, skill.ChillingArmor:
 		return !hasAnySorcArmor()
 
@@ -698,7 +764,6 @@ func needsRebuff(sk skill.ID) bool {
 		return !ctx.Data.PlayerUnit.States.HasState(state.Hurricane)
 
 	// Skills without reliable state detection - don't trigger auto-rebuff
-	// They will be recast on the 30s cooldown
 	case skill.ThunderStorm, skill.BladeShield, skill.Enchant:
 		return false
 
@@ -745,7 +810,9 @@ func isBarbarianByClass() bool {
 		class == "warcry_barb" ||
 		class == "barb_leveling" ||
 		class == "barb" ||
-		class == "barbarian"
+		class == "barbarian" ||
+		class == "singer" ||
+		class == "warsinger"
 }
 
 func ctaFound(d game.Data) bool {
@@ -757,20 +824,4 @@ func ctaFound(d game.Data) bool {
 		}
 	}
 	return false
-}
-
-// ============================================================================
-// INTERNAL: WEAPON SWAP
-// ============================================================================
-
-func swapToSecondary() {
-	ensureWeaponSlot(1)
-}
-
-func swapToPrimary() {
-	ensureWeaponSlot(0)
-}
-
-func ensurePrimaryWeapon() {
-	ensureWeaponSlot(0)
 }
