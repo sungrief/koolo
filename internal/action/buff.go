@@ -9,7 +9,6 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/d2go/pkg/data/state"
-	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/utils"
@@ -20,12 +19,14 @@ import (
 // ============================================================================
 
 const (
-	buffCooldown       = 30 * time.Second        // Minimum time between full buff sequences
-	stateWaitTimeout   = 1000 * time.Millisecond // Max time to wait for buff state after cast
-	stateCheckInterval = 50 * time.Millisecond   // Poll interval for state check
-	maxCastRetries     = 3                       // Max retries if buff doesn't apply
-	postCastBaseDelay  = 300                     // Base delay after cast (ms)
-	swapDelay          = 250                     // Delay after weapon swap (ms)
+	buffCooldown        = 30 * time.Second        // Minimum time between full buff sequences
+	stateWaitTimeout    = 1000 * time.Millisecond // Max time to wait for buff state after cast
+	stateCheckInterval  = 50 * time.Millisecond   // Poll interval for state check
+	maxCastRetries      = 3                       // Max retries if buff doesn't apply
+	postCastBaseDelay   = 300                     // Base delay after cast (ms)
+	swapDelay           = 250                     // Delay after weapon swap (ms)
+	weaponWaitTimeout   = 1200 * time.Millisecond // Max time to wait for weapon slot switch
+	weaponCheckInterval = 40 * time.Millisecond   // Poll interval for weapon slot check
 )
 
 // ============================================================================
@@ -65,6 +66,9 @@ func Buff() {
 	if ctx.Data.PlayerUnit.Area.IsTown() || time.Since(ctx.LastBuffAt) < buffCooldown {
 		return
 	}
+
+	// Hard guarantee: always end on primary even if something early-returns later.
+	defer ensurePrimaryWeapon()
 
 	// Handle loading screen
 	if ctx.Data.OpenMenus.LoadingScreen {
@@ -187,10 +191,11 @@ func castCTAWarcries() {
 	ctx := context.Get()
 	ctx.Logger.Debug("Casting CTA warcries (non-Barbarian)")
 
-	// Swap to CTA
+	// Swap to CTA only if Battle Orders isn't currently available.
+	// IMPORTANT: SwapWeapons is a toggle. Swapping back unconditionally can
+	// accidentally leave us on the wrong slot when BO is already present.
 	if _, hasBO := ctx.Data.PlayerUnit.Skills[skill.BattleOrders]; !hasBO {
-		step.SwapToCTA()
-		utils.Sleep(swapDelay)
+		swapToSecondary()
 	}
 
 	// Cast BC with state verification
@@ -203,9 +208,8 @@ func castCTAWarcries() {
 		castBuffWithRetry(kb, skill.BattleOrders, state.Battleorders)
 	}
 
-	// Swap back
-	utils.Sleep(swapDelay)
-	step.SwapToMainWeapon()
+	// Always return to main weapon after CTA sequence.
+	ensurePrimaryWeapon()
 }
 
 func castPostCTABuffs(isBarbarian bool) {
@@ -260,28 +264,26 @@ func castBuffWithBestWeapon(buffSkill skill.ID, kb data.KeyBinding, expectedStat
 	mainBonus := getSkillBonusOnWeaponSet(buffSkill, false)
 	swapBonus := getSkillBonusOnWeaponSet(buffSkill, true)
 
-	shouldSwap := swapBonus > mainBonus
+	useSwap := swapBonus > mainBonus
 
 	ctx.Logger.Debug("Buff weapon selection",
 		slog.String("skill", buffSkill.Desc().Name),
 		slog.Int("mainBonus", mainBonus),
 		slog.Int("swapBonus", swapBonus),
-		slog.Bool("useSwap", shouldSwap))
+		slog.Bool("useSwap", useSwap))
 
-	// Swap to better weapon set if needed
-	if shouldSwap && ctx.Data.ActiveWeaponSlot == 0 {
+	// Ensure the correct weapon set BEFORE casting (fixes stale slot edge cases).
+	if useSwap {
 		swapToSecondary()
-		utils.Sleep(swapDelay)
+	} else {
+		swapToPrimary()
 	}
 
 	// Cast with state verification and retry
 	castBuffWithRetry(kb, buffSkill, expectedState)
 
-	// Swap back to primary if we swapped
-	if shouldSwap && ctx.Data.ActiveWeaponSlot == 1 {
-		utils.Sleep(swapDelay)
-		swapToPrimary()
-	}
+	// Safety: Always return to primary weapon after each buff cast.
+	swapToPrimary()
 }
 
 // castBuffWithRetry casts a buff and verifies the state appeared.
@@ -347,6 +349,71 @@ func waitForState(st state.State) bool {
 	}
 
 	return false
+}
+
+// ============================================================================
+// INTERNAL: WEAPON SLOT CONTROL (DETERMINISTIC SWAP)
+// ============================================================================
+
+// pressSwapWeapons toggles between primary/secondary weapon sets.
+func pressSwapWeapons() {
+	ctx := context.Get()
+	ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.SwapWeapons)
+}
+
+// waitForWeaponSlot waits until the desired weapon slot is reported by game data.
+func waitForWeaponSlot(desired int) bool {
+	ctx := context.Get()
+	deadline := time.Now().Add(weaponWaitTimeout)
+
+	for time.Now().Before(deadline) {
+		ctx.RefreshGameData()
+		if ctx.Data.ActiveWeaponSlot == desired {
+			return true
+		}
+		time.Sleep(weaponCheckInterval)
+	}
+
+	return false
+}
+
+// ensureWeaponSlot switches to the desired weapon slot and confirms the change.
+// It retries once if the first toggle did not register.
+func ensureWeaponSlot(desired int) {
+	ctx := context.Get()
+
+	// Always act on fresh data to avoid stale slot decisions.
+	ctx.RefreshGameData()
+	current := ctx.Data.ActiveWeaponSlot
+	if current == desired {
+		return
+	}
+
+	ctx.Logger.Debug("Ensuring weapon slot",
+		slog.Int("current", current),
+		slog.Int("desired", desired))
+
+	// First attempt
+	pressSwapWeapons()
+	utils.Sleep(swapDelay)
+	if waitForWeaponSlot(desired) {
+		return
+	}
+
+	// Retry only if we are still on the original slot (missed input)
+	ctx.RefreshGameData()
+	if ctx.Data.ActiveWeaponSlot == current {
+		pressSwapWeapons()
+		utils.Sleep(swapDelay)
+		if waitForWeaponSlot(desired) {
+			return
+		}
+	}
+
+	ctx.RefreshGameData()
+	ctx.Logger.Warn("Failed to confirm weapon slot switch",
+		slog.Int("desired", desired),
+		slog.Int("current", ctx.Data.ActiveWeaponSlot))
 }
 
 // ============================================================================
@@ -697,26 +764,13 @@ func ctaFound(d game.Data) bool {
 // ============================================================================
 
 func swapToSecondary() {
-	ctx := context.Get()
-	if ctx.Data.ActiveWeaponSlot == 1 {
-		return
-	}
-	ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.SwapWeapons)
+	ensureWeaponSlot(1)
 }
 
 func swapToPrimary() {
-	ctx := context.Get()
-	if ctx.Data.ActiveWeaponSlot == 0 {
-		return
-	}
-	ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.SwapWeapons)
+	ensureWeaponSlot(0)
 }
 
 func ensurePrimaryWeapon() {
-	ctx := context.Get()
-	if ctx.Data.ActiveWeaponSlot != 0 {
-		ctx.Logger.Debug("Swapping to primary weapon")
-		swapToPrimary()
-		utils.Sleep(swapDelay)
-	}
+	ensureWeaponSlot(0)
 }
