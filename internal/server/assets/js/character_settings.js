@@ -855,7 +855,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.getElementById('tzTrackAll').addEventListener('change', function (e) {
-        document.querySelectorAll('.tzTrackCheckbox').forEach(checkbox => {
+        document.querySelectorAll('.tz-child-checkbox').forEach(checkbox => {
             checkbox.checked = e.target.checked;
         });
     });
