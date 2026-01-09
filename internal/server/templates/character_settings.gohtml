@@ -12,6 +12,24 @@
     <script src="../assets/js/character_settings.js"></script>
     <script src="../assets/js/character_bulk_apply.js"></script>
     <title>Koolo Resurrected Settings</title>
+    <style>
+    .col-lock-btn {
+        padding: 0.15rem 0.3rem;
+        font-size: 0.7rem;
+        border: 1px solid var(--border-color);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text-secondary);
+        transition: all var(--transition-fast);
+    }
+    .col-lock-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--primary);
+        color: var(--text-primary);
+    }
+    .col-lock-btn i {
+        font-size: 0.75rem;
+    }
+    </style>
 </head>
 <body>
 <main class="container settings-page">
@@ -985,6 +1003,16 @@
             </fieldset>
             <h3 id="inventory-settings"><i class="bi bi-grid-3x3-gap section-icon" aria-hidden="true"></i>Inventory (Checked means locked)</h3>
             <table>
+                {{ $firstRow := index .Config.Inventory.InventoryLock 0 }}
+                <tr>
+                    {{ range $columnIndex, $unlocked := $firstRow }}
+                    <td>
+                        <button type="button" class="col-lock-btn" data-col="{{ $columnIndex }}" title="Lock/unlock entire column">
+                            <i class="bi bi-arrow-down"></i>
+                        </button>
+                    </td>
+                    {{ end }}
+                </tr>
                 {{ range $rowIndex, $row := .Config.Inventory.InventoryLock }}
                 <tr>
                     {{ range $columnIndex, $unlocked := $row }}
@@ -1333,6 +1361,17 @@ function validateCharacterName(input) {
     input.value = cleaned;
     input.dataset.lastValid = input.value;
 }
+
+document.addEventListener('click', e => {
+    const btn = e.target.closest('.col-lock-btn');
+    if (!btn) return;
+    const col = +btn.dataset.col;
+    const checkboxes = [...btn.closest('table').querySelectorAll('tr:not(:first-child)')]
+        .map(tr => tr.cells[col]?.querySelector('input[type="checkbox"]'))
+        .filter(Boolean);
+    const allChecked = checkboxes.every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+});
 </script>
 </body>
 </html>
