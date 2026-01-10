@@ -243,11 +243,25 @@ func EnsureSkillBindings() error {
 			}
 		}
 		// Close the skill assignment menu if it was opened for binding F-keys
-		step.CloseAllMenus()
 		utils.Sleep(300)
 	}
 
-	// Set left (main) skill
+	// NEW: Check if the main skill exists before trying to bind it
+	mainSkillExists := false
+	if mainSkill == skill.TomeOfTownPortal {
+		// Town Portal tome can always be bound
+		mainSkillExists = true
+	} else if skillData, found := ctx.Data.PlayerUnit.Skills[mainSkill]; found && skillData.Level > 0 {
+		// Regular skill exists and has at least 1 level
+		mainSkillExists = true
+	}
+
+	if !mainSkillExists {
+		ctx.Logger.Debug(fmt.Sprintf("Main skill %v not yet available (level %d), skipping left-hand binding", skill.SkillNames[mainSkill], clvl.Value))
+		return nil
+	}
+
+	// Set left (main) skill - only if it exists
 	if ctx.GameReader.LegacyGraphics() {
 		ctx.HID.Click(game.LeftButton, ui.MainSkillButtonXClassic, ui.MainSkillButtonYClassic)
 	} else {
@@ -261,6 +275,8 @@ func EnsureSkillBindings() error {
 		utils.Sleep(300)
 	} else {
 		ctx.Logger.Error(fmt.Sprintf("Failed to find UI position for main skill %v (ID: %d)", skill.SkillNames[mainSkill], mainSkill))
+		// Close the menu we just opened since we can't bind the skill
+		step.CloseAllMenus()
 	}
 
 	return nil
