@@ -93,9 +93,13 @@ func Buff() {
 	// CRITICAL: Set LastBuffAt FIRST to prevent race conditions
 	ctx.LastBuffAt = time.Now()
 
-	// Hard guarantee: always end on primary even if something panics/early-returns
+	// SAVE current right skill BEFORE buffing - will restore after
+	originalRightSkill := ctx.Data.PlayerUnit.RightSkill
+
+	// Hard guarantee: always end on primary and restore skill even if something panics/early-returns
 	defer func() {
 		ensurePrimaryWeapon()
+		restoreRightSkill(originalRightSkill)
 		ctx.RefreshGameData()
 	}()
 
@@ -401,6 +405,36 @@ func waitForState(st state.State) bool {
 	}
 
 	return false
+}
+
+// restoreRightSkill restores the right-click skill to what it was before buffing
+// This prevents the character from being stuck with a buff skill on right-click
+func restoreRightSkill(sk skill.ID) {
+	ctx := context.Get()
+
+	// Skip if no valid skill to restore
+	if sk == skill.AttackSkill || sk == 0 {
+		ctx.Logger.Debug("No right skill to restore")
+		return
+	}
+
+	// Check if already correct
+	ctx.RefreshGameData()
+	if ctx.Data.PlayerUnit.RightSkill == sk {
+		return
+	}
+
+	kb, found := ctx.Data.KeyBindings.KeyBindingForSkill(sk)
+	if !found {
+		ctx.Logger.Debug("Cannot restore right skill - no keybinding",
+			slog.String("skill", sk.Desc().Name))
+		return
+	}
+
+	ctx.HID.PressKeyBinding(kb)
+	utils.Sleep(150)
+
+	ctx.Logger.Debug("Restored right skill", slog.String("skill", sk.Desc().Name))
 }
 
 // ============================================================================
