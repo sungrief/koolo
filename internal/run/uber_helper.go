@@ -512,7 +512,7 @@ func vendorRefillOrHeal(ctx *context.Status) error {
 
 	if needsRefill {
 		goToMalahIfInHarrogath(ctx)
-		if err := action.VendorRefill(false, true); err != nil {
+		if err := action.VendorRefill(action.VendorRefillOpts{SellJunk: true, BuyConsumables: true}); err != nil {
 			ctx.Logger.Warn(fmt.Sprintf("Failed to visit vendor: %v", err))
 		}
 	} else {

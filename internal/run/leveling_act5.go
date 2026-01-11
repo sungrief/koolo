@@ -27,7 +27,7 @@ func (a Leveling) act5() error {
 		return nil
 	}
 
-	action.VendorRefill(false, true)
+	action.VendorRefill(action.VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 
 	// Gold Farming Logic (and immediate return if farming is needed)
 	if action.IsLowGold() {

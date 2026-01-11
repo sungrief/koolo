@@ -38,7 +38,7 @@ func (a Leveling) act2() error {
 		return err
 	}
 
-	action.VendorRefill(false, true)
+	action.VendorRefill(action.VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 
 	// Buy 2-socket Bone Wands for Necromancer (White runeword)
 	if err := action.BuyAct2BoneWands(a.ctx); err != nil {

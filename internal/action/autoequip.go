@@ -668,7 +668,7 @@ func equipBestItems(itemsByLoc map[item.LocationType][]data.Item, itemScores map
 				}
 			}
 
-			if sellErr := VendorRefill(false, true, tempLock); sellErr != nil {
+			if sellErr := VendorRefill(VendorRefillOpts{SellJunk: true, BuyConsumables: true, LockConfig: tempLock}); sellErr != nil {
 				return false, fmt.Errorf("failed to sell junk to make space: %w", sellErr)
 			}
 			equippedSomething = true // We made a change (selling junk), so we should re-evaluate
