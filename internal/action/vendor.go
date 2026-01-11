@@ -113,14 +113,14 @@ func shouldVisitVendor() bool {
 	ctx := botCtx.Get()
 	ctx.SetLastStep("shouldVisitVendor")
 
-	if len(town.ItemsToBeSold()) > 0 {
-		return true
-	}
-
 	if ctx.Data.PlayerUnit.TotalPlayerGold() <= 100 && ctx.Data.IsLevelingCharacter {
 		if lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); found && lvl.Value <= 1 {
 			return false
 		}
+	}
+
+	if len(town.ItemsToBeSold()) > 0 {
+		return true
 	}
 
 	if ctx.Data.PlayerUnit.TotalPlayerGold() < 1000 {
