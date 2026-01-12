@@ -277,27 +277,29 @@ func getAvailableSkillKB() []data.KeyBinding {
 
 func ResetBindings() error {
 	ctx := context.Get()
-	ctx.SetLastAction("BindTomeOfTownPortalToFKeys") // Updated action name
+	ctx.SetLastAction("BindTomeOfTownPortalToSkillActions")
 
 	// 1. Check if Tome of Town Portal is available in inventory (inventory-based check for legacy compatibility)
 	if _, found := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory); !found {
-		ctx.Logger.Debug("TomeOfTownPortal tome not found in inventory. Skipping F-key binding sequence.")
+		ctx.Logger.Debug("TomeOfTownPortal tome not found in inventory. Skipping skill action binding sequence.")
 		return nil
 	}
 
 	// Determine the skill position once, as it's always TomeOfTownPortal
 	skillPosition, found := calculateSkillPositionInUI(false, skill.TomeOfTownPortal)
 	if !found {
-		ctx.Logger.Error("TomeOfTownPortal skill UI position not found. Cannot proceed with F-key binding.")
+		ctx.Logger.Error("TomeOfTownPortal skill UI position not found. Cannot proceed with skill action binding.")
 		step.CloseAllMenus()
 		return fmt.Errorf("TomeOfTownPortal skill UI position not found")
 	}
 
-	// Loop for F1 through F8
-	for i := 0; i < 8; i++ {
-		fKey := byte(win.VK_F1 + i)                            // win.VK_F1 is 0x70, win.VK_F2 is 0x71, and so on.
-		fKeyBinding := data.KeyBinding{Key1: [2]byte{fKey, 0}} // Assuming 0 for no modifier key
-		ctx.Logger.Info(fmt.Sprintf("Attempting to bind TomeOfTownPortal to F%d", i+1))
+	// Loop for skill action 1 through 16 based on configured keybindings.
+	for i, skillBinding := range ctx.Data.KeyBindings.Skills {
+		if (skillBinding.Key1[0] == 0 || skillBinding.Key1[0] == 255) && (skillBinding.Key2[0] == 0 || skillBinding.Key2[0] == 255) {
+			ctx.Logger.Debug(fmt.Sprintf("Skipping skill action %d: no keybinding assigned.", i+1))
+			continue
+		}
+		ctx.Logger.Info(fmt.Sprintf("Attempting to bind TomeOfTownPortal to skill action %d", i+1))
 
 		// 2. Open the secondary skill assignment UI
 		if ctx.GameReader.LegacyGraphics() {
@@ -311,8 +313,8 @@ func ResetBindings() error {
 		ctx.HID.MovePointer(skillPosition.X, skillPosition.Y)
 		utils.Sleep(500) // Delay for mouse to move and for the hover effect
 
-		// 4. Press current F-key to assign the skill
-		ctx.HID.PressKeyBinding(fKeyBinding)
+		// 4. Press current skill action keybinding to assign the skill
+		ctx.HID.PressKeyBinding(skillBinding.KeyBinding)
 		utils.Sleep(700) // Delay for the binding to register
 
 		// 5. Close the skill assignment menu
@@ -321,7 +323,7 @@ func ResetBindings() error {
 		utils.Sleep(500) // Delay after closing for the next iteration
 	}
 
-	ctx.Logger.Info("TomeOfTownPortal binding to F1-F8 sequence completed.")
+	ctx.Logger.Info("TomeOfTownPortal binding to skill action 1-16 sequence completed.")
 	return nil
 }
 
@@ -514,7 +516,7 @@ func ResetStats() error {
 		// 5. Finalize the reset process
 		err := ResetBindings()
 		if err != nil {
-			ctx.Logger.Error("Failed to bind TomeOfTownPortal to F8 after stats reset", slog.Any("error", err))
+			ctx.Logger.Error("Failed to bind TomeOfTownPortal after stats reset", slog.Any("error", err))
 		}
 		utils.Sleep(500)
 
