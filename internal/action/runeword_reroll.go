@@ -285,6 +285,27 @@ func formatActualStat(itm data.Item, label string, groupTag string, ts config.Ru
 			stat.Vitality:  "Vit",
 		}))
 	default:
+		// Some runeword rolls (notably ED% and EDef%) don't always show up as explicit stats,
+		// so we derive them from base/current values when needed.
+		switch ts.StatID {
+		case stat.EnhancedDamage, stat.EnhancedDamageMin, stat.DamagePercent:
+			if minED, maxED, exact, ok := GetRunewordWeaponDamageEDPercentRange(itm); ok {
+				if exact {
+					return fmt.Sprintf("%s %d", label, minED)
+				}
+				return fmt.Sprintf("%s %d-%d", label, minED, maxED)
+			}
+			return fmt.Sprintf("%s n/a", label)
+		case stat.EnhancedDefense:
+			if minED, maxED, exact, ok := GetRunewordArmorDefenseEDPercentRange(itm); ok {
+				if exact {
+					return fmt.Sprintf("%s %d", label, minED)
+				}
+				return fmt.Sprintf("%s %d-%d", label, minED, maxED)
+			}
+			return fmt.Sprintf("%s n/a", label)
+		}
+
 		st, found := itm.FindStat(ts.StatID, ts.Layer)
 		if !found {
 			return fmt.Sprintf("%s n/a", label)
