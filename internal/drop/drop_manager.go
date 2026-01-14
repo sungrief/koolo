@@ -26,7 +26,7 @@ var ErrInterrupt = errors.New("Drop requested")
 // Callbacks holds hooks used by runner/server layers.
 type Callbacks struct {
 	OnComplete     func(supervisorName string)
-	OnResult       func(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string)
+	OnResult       func(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string, filters Filters)
 	OnClearRequest func(supervisorName string)
 }
 
@@ -158,13 +158,13 @@ func (m *Manager) SetCallbacks(cbs Callbacks) {
 }
 
 // ReportResult notifies listeners that a single Drop has finished.
-func (m *Manager) ReportResult(room, result string, itemsDroppered int, duration time.Duration, errorMsg string) {
+func (m *Manager) ReportResult(room, result string, itemsDroppered int, duration time.Duration, errorMsg string, filters Filters) {
 	m.mu.Lock()
 	cbs := m.cbs
 	m.mu.Unlock()
 
 	if cbs.OnResult != nil {
-		cbs.OnResult(m.name, room, result, itemsDroppered, duration, errorMsg)
+		cbs.OnResult(m.name, room, result, itemsDroppered, duration, errorMsg, filters)
 	}
 }
 
