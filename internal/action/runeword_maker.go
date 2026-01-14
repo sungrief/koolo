@@ -10,7 +10,6 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action/step"
-	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/pickit"
@@ -273,51 +272,31 @@ func hasBaseForRunewordRecipe(items []data.Item, recipe Runeword) (data.Item, bo
 	ov, hasOverride := overrides[string(recipe.Name)]
 	useOverride := !isLevelingChar && hasOverride
 
-	// Prefer reroll rule base constraints (when configured) over runeword overrides.
-	var ruleOverride *config.RunewordRerollRule
-	if !isLevelingChar {
-		if rules, ok := ctx.CharacterCfg.Game.RunewordRerollRules[string(recipe.Name)]; ok {
-			for i := range rules {
-				rule := &rules[i]
-				if rule.BaseName != "" || rule.BaseType != "" || rule.BaseTier != "" || rule.EthMode != "" || rule.QualityMode != "" {
-					ruleOverride = rule
-					break
-				}
-			}
-		}
-	}
-
+	// Runeword maker uses per-runeword overrides only; reroll rules apply during reroll checks.
 	effectiveEthMode := ""
 	effectiveQualityMode := ""
 	effectiveBaseType := ""
 	effectiveBaseTier := ""
 	effectiveBaseName := ""
-	if ruleOverride != nil {
-		effectiveEthMode = strings.ToLower(strings.TrimSpace(ruleOverride.EthMode))
-		effectiveQualityMode = strings.ToLower(strings.TrimSpace(ruleOverride.QualityMode))
-		effectiveBaseType = strings.TrimSpace(ruleOverride.BaseType)
-		effectiveBaseTier = strings.ToLower(strings.TrimSpace(ruleOverride.BaseTier))
-		effectiveBaseName = strings.TrimSpace(ruleOverride.BaseName)
-	}
-	if effectiveEthMode == "" || effectiveEthMode == "any" {
-		effectiveEthMode = ""
-		if useOverride && ov.EthMode != "" {
-			effectiveEthMode = strings.ToLower(strings.TrimSpace(ov.EthMode))
+	if useOverride && ov.EthMode != "" {
+		effectiveEthMode = strings.ToLower(strings.TrimSpace(ov.EthMode))
+		if effectiveEthMode == "any" {
+			effectiveEthMode = ""
 		}
 	}
-	if effectiveQualityMode == "" || effectiveQualityMode == "any" {
-		effectiveQualityMode = ""
-		if useOverride && ov.QualityMode != "" {
-			effectiveQualityMode = strings.ToLower(strings.TrimSpace(ov.QualityMode))
+	if useOverride && ov.QualityMode != "" {
+		effectiveQualityMode = strings.ToLower(strings.TrimSpace(ov.QualityMode))
+		if effectiveQualityMode == "any" {
+			effectiveQualityMode = ""
 		}
 	}
-	if effectiveBaseType == "" && useOverride && ov.BaseType != "" {
-		effectiveBaseType = ov.BaseType
+	if useOverride && ov.BaseType != "" {
+		effectiveBaseType = strings.TrimSpace(ov.BaseType)
 	}
-	if effectiveBaseTier == "" && useOverride && ov.BaseTier != "" {
+	if useOverride && ov.BaseTier != "" {
 		effectiveBaseTier = strings.ToLower(strings.TrimSpace(ov.BaseTier))
 	}
-	if effectiveBaseName == "" && useOverride && ov.BaseName != "" {
+	if useOverride && ov.BaseName != "" {
 		effectiveBaseName = strings.TrimSpace(ov.BaseName)
 	}
 
