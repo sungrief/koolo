@@ -102,7 +102,7 @@ func (m Mephisto) Run(parameters *RunParameters) error {
 		action.Stash(false)
 		action.ReviveMerc()
 		action.Repair()
-		action.VendorRefill(true, true)
+		action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true})
 
 		err = action.UsePortalInTown()
 		if err != nil {

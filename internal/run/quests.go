@@ -788,7 +788,7 @@ func (a Quests) rescueAnyaQuest() error {
 	action.Stash(false)
 	action.ReviveMerc()
 	action.Repair()
-	action.VendorRefill(false, true)
+	action.VendorRefill(action.VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 
 	err = action.InteractNPC(npc.Malah)
 	if err != nil {

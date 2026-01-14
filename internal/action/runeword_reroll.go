@@ -566,7 +566,7 @@ func ensureLooseTownPortalScroll() (data.Item, bool) {
 		ctx.Logger.Info("Runeword reroll: no loose TP scroll; attempting VendorRefill to obtain one",
 			"attempt", i+1,
 		)
-		if err := VendorRefill(true, false); err != nil {
+		if err := VendorRefill(VendorRefillOpts{ForceRefill: true, BuyConsumables: true}); err != nil {
 			ctx.Logger.Warn("Runeword reroll: VendorRefill failed while trying to obtain TP scroll for unsocket",
 				"attempt", i+1,
 				"error", err,

@@ -107,7 +107,7 @@ func (t Torch) Run(parameters *RunParameters) error {
 	utils.Sleep(200)
 
 	goToMalahIfInHarrogath(t.ctx)
-	if err := action.VendorRefill(true, true); err != nil {
+	if err := action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true}); err != nil {
 		t.ctx.Logger.Warn(fmt.Sprintf("Failed to visit vendor: %v", err))
 	}
 
@@ -389,7 +389,7 @@ func (t *Torch) diablo() error {
 
 	if !isInUberTristram(t.ctx) {
 		goToMalahIfInHarrogath(t.ctx)
-		if err := action.VendorRefill(true, true); err != nil {
+		if err := action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true}); err != nil {
 			t.ctx.Logger.Warn(fmt.Sprintf("Failed to visit vendor: %v", err))
 		}
 		action.ReviveMerc()
@@ -536,7 +536,7 @@ func (t *Torch) townTorch() error {
 	}
 
 	goToMalahIfInHarrogath(t.ctx)
-	if err := action.VendorRefill(true, true); err != nil {
+	if err := action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true}); err != nil {
 		t.ctx.Logger.Warn(fmt.Sprintf("Failed to visit vendor: %v", err))
 	}
 	action.ReviveMerc()
