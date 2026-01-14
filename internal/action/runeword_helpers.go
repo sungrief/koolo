@@ -500,37 +500,54 @@ func GetRunewordWeaponDamageEDPercentRange(it data.Item) (min int, max int, exac
 		curMin, okCurMin = it.Stats.FindStat(stat.MinDamage, 0)
 	}
 
-	if !okBaseMax || !okCurMax || baseMax.Value == 0 {
-		return 0, 0, false, false
+	minFromMax, maxFromMax, okMax := 0, 0, false
+	if okBaseMax && okCurMax && baseMax.Value != 0 {
+		minFromMax, maxFromMax, okMax = edPercentRangeFromBaseCurrent(baseMax.Value, curMax.Value)
 	}
 
-	minMax, maxMax, okMax := edPercentRangeFromBaseCurrent(baseMax.Value, curMax.Value)
-	if !okMax {
-		return 0, 0, false, false
-	}
-
-	min = minMax
-	max = maxMax
-
-	// Intersect with the min-damage range when we can.
+	minFromMin, maxFromMin, okMin := 0, 0, false
 	if okBaseMin && okCurMin && baseMin.Value != 0 {
-		minMin, maxMin, okMin := edPercentRangeFromBaseCurrent(baseMin.Value, curMin.Value)
-		if okMin {
-			if minMin > min {
-				min = minMin
-			}
-			if maxMin < max {
-				max = maxMin
-			}
-		}
+		minFromMin, maxFromMin, okMin = edPercentRangeFromBaseCurrent(baseMin.Value, curMin.Value)
 	}
 
-	if min > max {
+	if !okMax && !okMin {
 		return 0, 0, false, false
 	}
 
-	exact = (min == max)
-	return min, max, exact, true
+	// If only one side works, use it.
+	if okMax && !okMin {
+		exact = (minFromMax == maxFromMax)
+		return minFromMax, maxFromMax, exact, true
+	}
+	if okMin && !okMax {
+		exact = (minFromMin == maxFromMin)
+		return minFromMin, maxFromMin, exact, true
+	}
+
+	// Intersect. If it fails (no overlap), prefer the tighter range, defaulting to the max-derived range.
+	min = minFromMax
+	if minFromMin > min {
+		min = minFromMin
+	}
+	max = maxFromMax
+	if maxFromMin < max {
+		max = maxFromMin
+	}
+
+	if min <= max {
+		exact = (min == max)
+		return min, max, exact, true
+	}
+
+	widthMax := maxFromMax - minFromMax
+	widthMin := maxFromMin - minFromMin
+	if widthMin >= 0 && widthMin < widthMax {
+		exact = (minFromMin == maxFromMin)
+		return minFromMin, maxFromMin, exact, true
+	}
+
+	exact = (minFromMax == maxFromMax)
+	return minFromMax, maxFromMax, exact, true
 }
 
 // GetRunewordArmorDefenseEDPercentRange derives the armor ED% range, accounting for any flat +defense rolls.
