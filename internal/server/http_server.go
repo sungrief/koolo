@@ -457,19 +457,19 @@ func containss(slice []string, item string) bool {
 func resolveSkillClassFromBuild(build string) string {
 	switch build {
 	case "amazon_leveling", "javazon":
-		return "amazon"
+		return "ama"
 	case "sorceress", "nova", "hydraorb", "lightsorc", "fireballsorc", "sorceress_leveling":
-		return "sorceress"
+		return "sor"
 	case "necromancer":
-		return "necromancer"
+		return "nec"
 	case "paladin", "hammerdin", "foh", "dragondin", "smiter":
-		return "paladin"
+		return "pal"
 	case "barb_leveling", "berserker", "warcry_barb":
-		return "barbarian"
+		return "bar"
 	case "druid_leveling", "winddruid":
-		return "druid"
+		return "dru"
 	case "assassin", "trapsin", "mosaic":
-		return "assassin"
+		return "ass"
 	default:
 		return ""
 	}
@@ -479,7 +479,7 @@ func buildSkillOptionsForBuild(build string) []SkillOption {
 	classKey := resolveSkillClassFromBuild(build)
 	options := make([]SkillOption, 0)
 	for id, sk := range skill.Skills {
-		if !sk.HasClass {
+		if sk.Class == "" {
 			continue
 		}
 		if classKey != "" && sk.Class != classKey {
@@ -499,6 +499,8 @@ func buildSkillOptionsForBuild(build string) []SkillOption {
 }
 
 func (s *HttpServer) updateAutoStatSkillFromForm(values url.Values, cfg *config.CharacterCfg) {
+	oldRespec := cfg.Character.AutoStatSkill.Respec
+
 	cfg.Character.AutoStatSkill.Enabled = values.Has("autoStatSkillEnabled")
 
 	statKeys := values["autoStatSkillStat[]"]
@@ -538,6 +540,27 @@ func (s *HttpServer) updateAutoStatSkillFromForm(values url.Values, cfg *config.
 		skills = append(skills, config.AutoStatSkillSkill{Skill: skillKey, Target: target})
 	}
 	cfg.Character.AutoStatSkill.Skills = skills
+
+	respecEnabled := values.Has("autoRespecEnabled")
+	targetLevel := 0
+	if raw := strings.TrimSpace(values.Get("autoRespecTargetLevel")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil {
+			if n < 2 {
+				n = 2
+			} else if n > 99 {
+				n = 99
+			}
+			targetLevel = n
+		}
+	}
+	cfg.Character.AutoStatSkill.Respec.Enabled = respecEnabled
+	cfg.Character.AutoStatSkill.Respec.TargetLevel = targetLevel
+
+	if !respecEnabled {
+		cfg.Character.AutoStatSkill.Respec.Applied = false
+	} else if !oldRespec.Enabled || oldRespec.TargetLevel != targetLevel {
+		cfg.Character.AutoStatSkill.Respec.Applied = false
+	}
 }
 
 func (s *HttpServer) initialData(w http.ResponseWriter, r *http.Request) {

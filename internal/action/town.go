@@ -146,8 +146,12 @@ func PreRun(firstRun bool) error {
 	}
 
 	// Leveling related checks
-	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
+	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation && isLevelingChar {
 		ResetStats()
+		EnsureStatPoints()
+		EnsureSkillPoints()
+	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+		AutoRespecIfNeeded()
 		EnsureStatPoints()
 		EnsureSkillPoints()
 	}
@@ -235,7 +239,14 @@ func InRunReturnTownRoutine() error {
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after post-reroll Stash
 
-	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
+	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation && isLevelingChar {
+		EnsureStatPoints()
+		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
+		EnsureSkillPoints()
+		ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
+	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+		AutoRespecIfNeeded()
+		ctx.PauseIfNotPriority() // Check after AutoRespecIfNeeded
 		EnsureStatPoints()
 		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
 		EnsureSkillPoints()

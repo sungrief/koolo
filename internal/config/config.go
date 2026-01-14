@@ -180,6 +180,7 @@ type AutoStatSkillConfig struct {
 	Enabled bool                 `yaml:"enabled"`
 	Stats   []AutoStatSkillStat  `yaml:"stats,omitempty"`
 	Skills  []AutoStatSkillSkill `yaml:"skills,omitempty"`
+	Respec  AutoRespecConfig     `yaml:"autoRespec,omitempty"`
 }
 
 type AutoStatSkillStat struct {
@@ -190,6 +191,12 @@ type AutoStatSkillStat struct {
 type AutoStatSkillSkill struct {
 	Skill  string `yaml:"skill"`
 	Target int    `yaml:"target"`
+}
+
+type AutoRespecConfig struct {
+	Enabled     bool `yaml:"enabled"`
+	TargetLevel int  `yaml:"targetLevel,omitempty"`
+	Applied     bool `yaml:"applied,omitempty"`
 }
 
 type CharacterCfg struct {

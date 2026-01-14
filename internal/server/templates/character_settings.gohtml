@@ -55,6 +55,11 @@
     .auto-stat-skill-actions {
         margin-top: 8px;
     }
+    .auto-stat-skill-respec {
+        margin-top: 12px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border-color);
+    }
     .auto-stat-skill-remove {
         padding: 0.2rem 0.4rem;
         min-width: 32px;
@@ -284,6 +289,19 @@
                                         <i class="bi bi-plus"></i> Add Skill Step
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="auto-stat-skill-respec">
+                            <label>
+                                <input type="checkbox" id="autoRespecEnabled" name="autoRespecEnabled" {{ if .Config.Character.AutoStatSkill.Respec.Enabled }}checked{{ end }}/>
+                                Enable Auto Respec
+                            </label>
+                            <div id="autoRespecTargetRow" style="{{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}display: none;{{ end }}">
+                                <label>
+                                    Target level
+                                    <input type="number" name="autoRespecTargetLevel" min="2" max="99" value="{{ .Config.Character.AutoStatSkill.Respec.TargetLevel }}" placeholder="e.g. 80">
+                                </label>
+                                <small>At target level, try Token of Absolution (inventory/stash) before Akara respec.</small>
                             </div>
                         </div>
                         <template id="autoStatSkillStatRowTemplate">

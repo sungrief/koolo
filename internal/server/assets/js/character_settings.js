@@ -815,6 +815,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function initAutoStatSkillSettings() {
         const enabledCheckbox = document.getElementById('autoStatSkillEnabled');
         const panel = document.getElementById('autoStatSkillPanel');
+        const respecEnabled = document.getElementById('autoRespecEnabled');
+        const respecTarget = document.getElementById('autoRespecTargetRow');
         const statList = document.getElementById('autoStatSkillStats');
         const skillList = document.getElementById('autoStatSkillSkills');
         const addStatBtn = document.getElementById('autoStatSkillAddStat');
@@ -831,6 +833,14 @@ document.addEventListener('DOMContentLoaded', function () {
         };
         enabledCheckbox.addEventListener('change', togglePanel);
         togglePanel();
+
+        if (respecEnabled && respecTarget) {
+            const toggleRespec = () => {
+                respecTarget.style.display = respecEnabled.checked ? 'block' : 'none';
+            };
+            respecEnabled.addEventListener('change', toggleRespec);
+            toggleRespec();
+        }
 
         const addRow = (list, template) => {
             const node = template.content.firstElementChild.cloneNode(true);
