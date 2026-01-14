@@ -478,7 +478,7 @@ func ResetStats() error {
 					continue
 				}
 
-				// Shift-click to unequip the item to inventory
+				// Ctrl-click to unequip the item to stash directly
 				ctx.HID.ClickWithModifier(game.LeftButton, slotCoords.X, slotCoords.Y, game.CtrlKey)
 				utils.Sleep(500)
 
