@@ -872,8 +872,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const rows = panel.querySelectorAll('.auto-stat-skill-row');
                 const baseClass = resolveBaseClass();
                 const baseStats = baseStatsByClass[baseClass] || {};
-                let statTargetSum = 0;
-                let statRequiredPoints = 0;
+                const statTargets = {};
                 rows.forEach(row => {
                     const statSelect = row.querySelector('select[name="autoStatSkillStat[]"]');
                     const targetInput = row.querySelector('input[name="autoStatSkillStatTarget[]"]');
@@ -885,6 +884,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (!statKey || Number.isNaN(value) || value <= 0) {
                         return;
                     }
+                    if (!(statKey in statTargets) || value > statTargets[statKey]) {
+                        statTargets[statKey] = value;
+                    }
+                });
+                let statTargetSum = 0;
+                let statRequiredPoints = 0;
+                Object.keys(statTargets).forEach(statKey => {
+                    const value = statTargets[statKey];
                     const baseValue = baseStats[statKey] || 0;
                     statTargetSum += value;
                     statRequiredPoints += Math.max(0, value - baseValue);
@@ -896,7 +903,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (skillTotal) {
                 const rows = panel.querySelectorAll('.auto-stat-skill-row');
                 const targetMap = {};
-                let skillSum = 0;
                 rows.forEach(row => {
                     const skillSelect = row.querySelector('select[name="autoStatSkillSkill[]"]');
                     const targetInput = row.querySelector('input[name="autoStatSkillSkillTarget[]"]');
@@ -908,8 +914,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (!skillKey || Number.isNaN(value) || value <= 0) {
                         return;
                     }
-                    targetMap[skillKey] = value;
-                    skillSum += value;
+                    if (!(skillKey in targetMap) || value > targetMap[skillKey]) {
+                        targetMap[skillKey] = value;
+                    }
+                });
+                let skillSum = 0;
+                Object.keys(targetMap).forEach(skillKey => {
+                    skillSum += targetMap[skillKey];
                 });
 
                 const prereqSet = new Set();
@@ -965,6 +976,74 @@ document.addEventListener('DOMContentLoaded', function () {
             list.appendChild(node);
         };
 
+        const enforceSkillTargetLimit = (input) => {
+            const value = parseInt(input.value, 10);
+            if (Number.isNaN(value)) {
+                return;
+            }
+            if (value > 20) {
+                input.value = 20;
+            }
+        };
+
+        const updateStatTargetConstraints = () => {
+            const rows = panel.querySelectorAll('.auto-stat-skill-row');
+            const lastTargets = {};
+            rows.forEach(row => {
+                const statSelect = row.querySelector('select[name="autoStatSkillStat[]"]');
+                const targetInput = row.querySelector('input[name="autoStatSkillStatTarget[]"]');
+                if (!statSelect || !targetInput) {
+                    return;
+                }
+                const statKey = (statSelect.value || '').toLowerCase();
+                if (!statKey) {
+                    targetInput.removeAttribute('min');
+                    return;
+                }
+                const minValue = lastTargets[statKey] || 1;
+                targetInput.min = minValue;
+                const value = parseInt(targetInput.value, 10);
+                if (!Number.isNaN(value) && value > 0 && value < minValue) {
+                    targetInput.value = minValue;
+                }
+                const nextValue = parseInt(targetInput.value, 10);
+                if (!Number.isNaN(nextValue) && nextValue > 0) {
+                    lastTargets[statKey] = nextValue;
+                } else {
+                    lastTargets[statKey] = minValue;
+                }
+            });
+        };
+
+        const updateSkillTargetConstraints = () => {
+            const rows = panel.querySelectorAll('.auto-stat-skill-row');
+            const lastTargets = {};
+            rows.forEach(row => {
+                const skillSelect = row.querySelector('select[name="autoStatSkillSkill[]"]');
+                const targetInput = row.querySelector('input[name="autoStatSkillSkillTarget[]"]');
+                if (!skillSelect || !targetInput) {
+                    return;
+                }
+                const skillKey = (skillSelect.value || '').trim();
+                if (!skillKey) {
+                    targetInput.removeAttribute('min');
+                    return;
+                }
+                const minValue = lastTargets[skillKey] || 1;
+                targetInput.min = minValue;
+                const value = parseInt(targetInput.value, 10);
+                if (!Number.isNaN(value) && value > 0 && value < minValue) {
+                    targetInput.value = minValue;
+                }
+                const nextValue = parseInt(targetInput.value, 10);
+                if (!Number.isNaN(nextValue) && nextValue > 0) {
+                    lastTargets[skillKey] = nextValue;
+                } else {
+                    lastTargets[skillKey] = minValue;
+                }
+            });
+        };
+
         panel.addEventListener('click', function (event) {
             const addBtn = event.target.closest('.auto-stat-skill-add');
             if (!addBtn) {
@@ -973,9 +1052,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const kind = addBtn.dataset.kind;
             if (kind === 'stat') {
                 addRow(statList, statTemplate);
+                updateStatTargetConstraints();
                 recalcTotals();
             } else if (kind === 'skill') {
                 addRow(skillList, skillTemplate);
+                updateSkillTargetConstraints();
                 recalcTotals();
             }
         });
@@ -988,17 +1069,26 @@ document.addEventListener('DOMContentLoaded', function () {
             const row = removeBtn.closest('.auto-stat-skill-row');
             if (row) {
                 row.remove();
+                updateStatTargetConstraints();
+                updateSkillTargetConstraints();
                 recalcTotals();
             }
         });
 
         panel.addEventListener('input', function (event) {
             if (event.target.matches('input[name="autoStatSkillStatTarget[]"], input[name="autoStatSkillSkillTarget[]"]')) {
+                if (event.target.matches('input[name="autoStatSkillSkillTarget[]"]')) {
+                    enforceSkillTargetLimit(event.target);
+                }
+                updateStatTargetConstraints();
+                updateSkillTargetConstraints();
                 recalcTotals();
             }
         });
         panel.addEventListener('change', function (event) {
             if (event.target.matches('select[name="autoStatSkillStat[]"], select[name="autoStatSkillSkill[]"]')) {
+                updateStatTargetConstraints();
+                updateSkillTargetConstraints();
                 recalcTotals();
             }
         });
@@ -1016,6 +1106,8 @@ document.addEventListener('DOMContentLoaded', function () {
             characterClassSelect.addEventListener('change', recalcTotals);
         }
 
+        updateStatTargetConstraints();
+        updateSkillTargetConstraints();
         recalcTotals();
     }
 

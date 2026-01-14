@@ -396,7 +396,7 @@
                                                         <option value="{{ $opt.Key }}" {{ if eq $step.Skill $opt.Key }}selected{{ end }}>{{ $opt.Name }}</option>
                                                     {{ end }}
                                                 </select>
-                                                <input type="number" name="autoStatSkillSkillTarget[]" min="1" value="{{ $step.Target }}" placeholder="Target">
+                                                <input type="number" name="autoStatSkillSkillTarget[]" min="1" max="20" value="{{ $step.Target }}" placeholder="Target">
                                                 <div class="auto-stat-skill-row-actions">
                                                     <button type="button" class="btn btn-outline auto-stat-skill-remove" title="Remove skill step">
                                                         <i class="bi bi-trash"></i>
@@ -416,7 +416,7 @@
                                                 <option value="{{ .Key }}">{{ .Name }}</option>
                                             {{ end }}
                                         </select>
-                                        <input type="number" name="autoStatSkillSkillTarget[]" min="1" placeholder="Target">
+                                        <input type="number" name="autoStatSkillSkillTarget[]" min="1" max="20" placeholder="Target">
                                         <div class="auto-stat-skill-row-actions">
                                             <button type="button" class="btn btn-outline auto-stat-skill-remove" title="Remove skill step">
                                                 <i class="bi bi-trash"></i>
@@ -464,7 +464,7 @@
                                         <option value="{{ .Key }}">{{ .Name }}</option>
                                     {{ end }}
                                 </select>
-                                <input type="number" name="autoStatSkillSkillTarget[]" min="1" placeholder="Target">
+                                <input type="number" name="autoStatSkillSkillTarget[]" min="1" max="20" placeholder="Target">
                                 <div class="auto-stat-skill-row-actions">
                                     <button type="button" class="btn btn-outline auto-stat-skill-remove" title="Remove skill step">
                                         <i class="bi bi-trash"></i>
