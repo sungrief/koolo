@@ -32,6 +32,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/bot"
 	"github.com/hectorgimenez/koolo/internal/config"
@@ -249,6 +250,17 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager, scheduler *bot.Sch
 		},
 		"upper": strings.ToUpper,
 		"trim":  strings.TrimSpace,
+		"isLevelingBuild": func(build string) bool {
+			if strings.HasSuffix(build, "_leveling") {
+				return true
+			}
+			switch build {
+			case "paladin", "necromancer", "assassin", "barb_leveling":
+				return true
+			default:
+				return false
+			}
+		},
 		"toJSON": func(v interface{}) template.JS {
 			b, err := json.Marshal(v)
 			if err != nil {
@@ -440,6 +452,92 @@ func containss(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func resolveSkillClassFromBuild(build string) string {
+	switch build {
+	case "amazon_leveling", "javazon":
+		return "amazon"
+	case "sorceress", "nova", "hydraorb", "lightsorc", "fireballsorc", "sorceress_leveling":
+		return "sorceress"
+	case "necromancer":
+		return "necromancer"
+	case "paladin", "hammerdin", "foh", "dragondin", "smiter":
+		return "paladin"
+	case "barb_leveling", "berserker", "warcry_barb":
+		return "barbarian"
+	case "druid_leveling", "winddruid":
+		return "druid"
+	case "assassin", "trapsin", "mosaic":
+		return "assassin"
+	default:
+		return ""
+	}
+}
+
+func buildSkillOptionsForBuild(build string) []SkillOption {
+	classKey := resolveSkillClassFromBuild(build)
+	options := make([]SkillOption, 0)
+	for id, sk := range skill.Skills {
+		if !sk.HasClass {
+			continue
+		}
+		if classKey != "" && sk.Class != classKey {
+			continue
+		}
+		key := skill.SkillNames[id]
+		name := sk.Name
+		if name == "" {
+			name = key
+		}
+		options = append(options, SkillOption{Key: key, Name: name})
+	}
+	sort.Slice(options, func(i, j int) bool {
+		return options[i].Name < options[j].Name
+	})
+	return options
+}
+
+func (s *HttpServer) updateAutoStatSkillFromForm(values url.Values, cfg *config.CharacterCfg) {
+	cfg.Character.AutoStatSkill.Enabled = values.Has("autoStatSkillEnabled")
+
+	statKeys := values["autoStatSkillStat[]"]
+	statTargets := values["autoStatSkillStatTarget[]"]
+	stats := make([]config.AutoStatSkillStat, 0, len(statKeys))
+	for i, statKey := range statKeys {
+		if i >= len(statTargets) {
+			break
+		}
+		statKey = strings.TrimSpace(statKey)
+		if statKey == "" {
+			continue
+		}
+		target, err := strconv.Atoi(strings.TrimSpace(statTargets[i]))
+		if err != nil || target <= 0 {
+			continue
+		}
+		stats = append(stats, config.AutoStatSkillStat{Stat: statKey, Target: target})
+	}
+	cfg.Character.AutoStatSkill.Stats = stats
+
+	skillKeys := values["autoStatSkillSkill[]"]
+	skillTargets := values["autoStatSkillSkillTarget[]"]
+	skills := make([]config.AutoStatSkillSkill, 0, len(skillKeys))
+	for i, skillKey := range skillKeys {
+		if i >= len(skillTargets) {
+			break
+		}
+		skillKey = strings.TrimSpace(skillKey)
+		if skillKey == "" {
+			continue
+		}
+		target, err := strconv.Atoi(strings.TrimSpace(skillTargets[i]))
+		if err != nil || target <= 0 {
+			continue
+		}
+		skills = append(skills, config.AutoStatSkillSkill{Skill: skillKey, Target: target})
+	}
+	cfg.Character.AutoStatSkill.Skills = skills
 }
 
 func (s *HttpServer) initialData(w http.ResponseWriter, r *http.Request) {
@@ -1638,6 +1736,7 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		cfg.Character.StashToShared = values.Has("characterStashToShared")
 		cfg.Character.UseTeleport = values.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = values.Has("characterUseExtraBuffs")
+		s.updateAutoStatSkillFromForm(values, cfg)
 
 		// Game Settings (General)
 		if v := values.Get("gameMinGoldPickupThreshold"); v != "" {
@@ -2112,6 +2211,7 @@ func applyRunewordSettings(dst *config.CharacterCfg, src *config.CharacterCfg) {
 
 func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 	sequenceFiles := s.listLevelingSequenceFiles()
+	defaultSkillOptions := buildSkillOptionsForBuild("")
 	var err error
 	if r.Method == http.MethodPost {
 		err = r.ParseForm()
@@ -2119,6 +2219,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			s.templates.ExecuteTemplate(w, "character_settings.gohtml", CharacterSettings{
 				Version:               config.Version,
 				ErrorMessage:          err.Error(),
+				SkillOptions:          defaultSkillOptions,
 				LevelingSequenceFiles: sequenceFiles,
 				RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 			})
@@ -2135,6 +2236,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 					Version:               config.Version,
 					ErrorMessage:          err.Error(),
 					Supervisor:            supervisorName,
+					SkillOptions:          defaultSkillOptions,
 					LevelingSequenceFiles: sequenceFiles,
 					RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 				})
@@ -2146,6 +2248,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 					Version:               config.Version,
 					ErrorMessage:          "failed to load newly created configuration",
 					Supervisor:            supervisorName,
+					SkillOptions:          defaultSkillOptions,
 					LevelingSequenceFiles: sequenceFiles,
 					RunFavoriteRuns:       config.Koolo.RunFavoriteRuns,
 				})
@@ -2219,6 +2322,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Character.UseSwapForBuffs = r.Form.Has("useSwapForBuffs")
 		cfg.Character.BuffOnNewArea = r.Form.Has("characterBuffOnNewArea")
 		cfg.Character.BuffAfterWP = r.Form.Has("characterBuffAfterWP")
+		s.updateAutoStatSkillFromForm(r.Form, cfg)
 
 		// Process ClearPathDist - only relevant when teleport is disabled
 		if !cfg.Character.UseTeleport {
@@ -2804,6 +2908,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cloneSource = cloneParam
 		}
 	}
+	skillOptions := buildSkillOptionsForBuild(cfg.Character.Class)
 
 	enabledRuns := make([]string, 0)
 	for _, run := range cfg.Game.Runs {
@@ -2868,6 +2973,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		Supervisor:            supervisor,
 		CloneSource:           cloneSource,
 		Config:                cfg,
+		SkillOptions:          skillOptions,
 		DayNames:              dayNames,
 		EnabledRuns:           enabledRuns,
 		DisabledRuns:          disabledRuns,

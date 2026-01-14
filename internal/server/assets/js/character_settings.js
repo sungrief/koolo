@@ -812,6 +812,48 @@ document.addEventListener('DOMContentLoaded', function () {
     characterClassSelect.addEventListener('change', updateCharacterOptions);
     updateCharacterOptions(); // Call this initially to set the correct state
 
+    function initAutoStatSkillSettings() {
+        const enabledCheckbox = document.getElementById('autoStatSkillEnabled');
+        const panel = document.getElementById('autoStatSkillPanel');
+        const statList = document.getElementById('autoStatSkillStats');
+        const skillList = document.getElementById('autoStatSkillSkills');
+        const addStatBtn = document.getElementById('autoStatSkillAddStat');
+        const addSkillBtn = document.getElementById('autoStatSkillAddSkill');
+        const statTemplate = document.getElementById('autoStatSkillStatRowTemplate');
+        const skillTemplate = document.getElementById('autoStatSkillSkillRowTemplate');
+
+        if (!enabledCheckbox || !panel || !statList || !skillList || !addStatBtn || !addSkillBtn || !statTemplate || !skillTemplate) {
+            return;
+        }
+
+        const togglePanel = () => {
+            panel.style.display = enabledCheckbox.checked ? 'block' : 'none';
+        };
+        enabledCheckbox.addEventListener('change', togglePanel);
+        togglePanel();
+
+        const addRow = (list, template) => {
+            const node = template.content.firstElementChild.cloneNode(true);
+            list.appendChild(node);
+        };
+
+        addStatBtn.addEventListener('click', () => addRow(statList, statTemplate));
+        addSkillBtn.addEventListener('click', () => addRow(skillList, skillTemplate));
+
+        document.addEventListener('click', function (event) {
+            const removeBtn = event.target.closest('.auto-stat-skill-remove');
+            if (!removeBtn) {
+                return;
+            }
+            const row = removeBtn.closest('.auto-stat-skill-row');
+            if (row) {
+                row.remove();
+            }
+        });
+    }
+
+    initAutoStatSkillSettings();
+
     // Set initial state
     toggleSchedulerVisibility();
     toggleSchedulerMode();

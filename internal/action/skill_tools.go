@@ -3,6 +3,7 @@ package action
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
@@ -33,7 +34,9 @@ func EnsureSkillPoints() error {
 
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	if !isLevelingChar {
-		return nil
+		if !ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+			return nil
+		}
 	}
 
 	// New: avoid opening skill UI on a brand-new character; this is where crashes happen.
@@ -46,11 +49,15 @@ func EnsureSkillPoints() error {
 	skillPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.SkillPoints, 0)
 	remainingPoints := skillPoints.Value
 
-	if !isLevelingChar || !hasUnusedPoints || remainingPoints == 0 {
+	if !hasUnusedPoints || remainingPoints == 0 {
 		if ctx.Data.OpenMenus.SkillTree {
 			step.CloseAllMenus()
 		}
 		return nil
+	}
+
+	if !isLevelingChar {
+		return ensureConfiguredSkillPoints(remainingPoints)
 	}
 
 	// Check if we should use packet mode for any leveling class
@@ -113,6 +120,104 @@ func EnsureSkillPoints() error {
 		return step.CloseAllMenus()
 	}
 	return nil
+}
+
+func ensureConfiguredSkillPoints(remainingPoints int) error {
+	ctx := context.Get()
+
+	skillKeyToID := make(map[string]skill.ID, len(skill.SkillNames))
+	for id, name := range skill.SkillNames {
+		skillKeyToID[strings.ToLower(name)] = id
+	}
+	skillNameToID := make(map[string]skill.ID, len(skill.Skills))
+	for id, sk := range skill.Skills {
+		if sk.Name == "" {
+			continue
+		}
+		skillNameToID[strings.ToLower(sk.Name)] = id
+	}
+
+	usePacketMode := false
+	for _, entry := range ctx.CharacterCfg.Character.AutoStatSkill.Skills {
+		if remainingPoints <= 0 {
+			break
+		}
+		if entry.Target <= 0 {
+			continue
+		}
+		skillID, ok := skillKeyToID[strings.ToLower(strings.TrimSpace(entry.Skill))]
+		if !ok {
+			ctx.Logger.Warn(fmt.Sprintf("Unknown skill key in auto skill config: %s", entry.Skill))
+			continue
+		}
+
+		currentSkillLevel := 0
+		if skillData, found := ctx.Data.PlayerUnit.Skills[skillID]; found {
+			currentSkillLevel = int(skillData.Level)
+		}
+		for currentSkillLevel < entry.Target && remainingPoints > 0 {
+			if ok := ensureSkillPrereqs(skillID, skillNameToID, &remainingPoints); !ok {
+				break
+			}
+			success := spendSkillPoint(skillID)
+			if !success {
+				break
+			}
+			currentSkillLevel++
+			remainingPoints--
+		}
+	}
+
+	if !usePacketMode {
+		return step.CloseAllMenus()
+	}
+	return nil
+}
+
+func ensureSkillPrereqs(skillID skill.ID, skillNameToID map[string]skill.ID, remainingPoints *int) bool {
+	ctx := context.Get()
+
+	visiting := make(map[skill.ID]bool)
+	var ensurePrereq func(skill.ID) bool
+	ensurePrereq = func(target skill.ID) bool {
+		if *remainingPoints <= 0 {
+			return false
+		}
+		if visiting[target] {
+			return false
+		}
+		visiting[target] = true
+		defer delete(visiting, target)
+
+		sk := skill.Skills[target]
+		reqs := []string{sk.ReqSkill1, sk.ReqSkill2}
+		for _, reqName := range reqs {
+			if strings.TrimSpace(reqName) == "" {
+				continue
+			}
+			reqID, ok := skillNameToID[strings.ToLower(reqName)]
+			if !ok {
+				ctx.Logger.Warn(fmt.Sprintf("Prereq skill name not found: %s", reqName))
+				return false
+			}
+			if _, found := ctx.Data.PlayerUnit.Skills[reqID]; !found {
+				if !ensurePrereq(reqID) {
+					return false
+				}
+				if *remainingPoints <= 0 {
+					return false
+				}
+				if !spendSkillPoint(reqID) {
+					ctx.Logger.Warn(fmt.Sprintf("Failed to learn prereq skill: %s", reqName))
+					return false
+				}
+				*remainingPoints--
+			}
+		}
+		return true
+	}
+
+	return ensurePrereq(skillID)
 }
 
 func spendSkillPoint(skillID skill.ID) bool {

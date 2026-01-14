@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -163,12 +164,18 @@ func EnsureStatPoints() error {
 	ctx := context.Get()
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	if !isLevelingChar {
-		return nil
+		if !ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+			return nil
+		}
 	}
 
 	statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 	if !hasUnusedPoints || statPoints.Value == 0 {
 		return nil
+	}
+
+	if !isLevelingChar {
+		return ensureConfiguredStatPoints(statPoints.Value)
 	}
 
 	// Check if we should use packet mode for any leveling class
@@ -231,6 +238,52 @@ func EnsureStatPoints() error {
 				ctx.Logger.Debug(fmt.Sprintf("Increased %v to target %d (%d total points remaining)",
 					allocation.Stat, allocation.Points, remainingPoints))
 			}
+		}
+	}
+
+	if !usePacketMode {
+		return step.CloseAllMenus()
+	}
+	return nil
+}
+
+func ensureConfiguredStatPoints(remainingPoints int) error {
+	ctx := context.Get()
+
+	statKeyToID := map[string]stat.ID{
+		"strength":  stat.Strength,
+		"dexterity": stat.Dexterity,
+		"vitality":  stat.Vitality,
+		"energy":    stat.Energy,
+	}
+
+	usePacketMode := false
+	for _, entry := range ctx.CharacterCfg.Character.AutoStatSkill.Stats {
+		if remainingPoints <= 0 {
+			break
+		}
+		statKey := strings.ToLower(strings.TrimSpace(entry.Stat))
+		statID, ok := statKeyToID[statKey]
+		if !ok {
+			ctx.Logger.Warn(fmt.Sprintf("Unknown stat key in auto stat config: %s", entry.Stat))
+			continue
+		}
+		if entry.Target <= 0 {
+			continue
+		}
+
+		currentValue, _ := ctx.Data.PlayerUnit.BaseStats.FindStat(statID, 0)
+		if currentValue.Value >= entry.Target {
+			continue
+		}
+
+		pointsToSpend := min(entry.Target-currentValue.Value, remainingPoints)
+		for i := 0; i < pointsToSpend; i++ {
+			success := spendStatPoint(statID)
+			if !success {
+				break
+			}
+			remainingPoints--
 		}
 	}
 
