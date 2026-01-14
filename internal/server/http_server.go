@@ -498,10 +498,55 @@ func buildSkillOptionsForBuild(build string) []SkillOption {
 	return options
 }
 
+func buildSkillPrereqsForBuild(build string) map[string][]string {
+	classKey := resolveSkillClassFromBuild(build)
+	nameToKey := make(map[string]string)
+	for id, sk := range skill.Skills {
+		key := skill.SkillNames[id]
+		if key == "" {
+			continue
+		}
+		nameToKey[strings.ToLower(key)] = key
+		if sk.Name != "" {
+			nameToKey[strings.ToLower(sk.Name)] = key
+		}
+	}
+
+	prereqs := make(map[string][]string)
+	for id, sk := range skill.Skills {
+		if sk.Class == "" {
+			continue
+		}
+		if classKey != "" && sk.Class != classKey {
+			continue
+		}
+		key := skill.SkillNames[id]
+		if key == "" {
+			continue
+		}
+		reqs := make([]string, 0, 2)
+		for _, reqName := range []string{sk.ReqSkill1, sk.ReqSkill2} {
+			if reqName == "" {
+				continue
+			}
+			if reqKey, ok := nameToKey[strings.ToLower(reqName)]; ok {
+				reqs = append(reqs, reqKey)
+			}
+		}
+		if len(reqs) > 0 {
+			prereqs[key] = reqs
+		}
+	}
+
+	return prereqs
+}
+
 func (s *HttpServer) updateAutoStatSkillFromForm(values url.Values, cfg *config.CharacterCfg) {
 	oldRespec := cfg.Character.AutoStatSkill.Respec
 
 	cfg.Character.AutoStatSkill.Enabled = values.Has("autoStatSkillEnabled")
+	cfg.Character.AutoStatSkill.ExcludeQuestStats = values.Has("autoStatSkillExcludeQuestStats")
+	cfg.Character.AutoStatSkill.ExcludeQuestSkills = values.Has("autoStatSkillExcludeQuestSkills")
 
 	statKeys := values["autoStatSkillStat[]"]
 	statTargets := values["autoStatSkillStatTarget[]"]
@@ -541,7 +586,7 @@ func (s *HttpServer) updateAutoStatSkillFromForm(values url.Values, cfg *config.
 	}
 	cfg.Character.AutoStatSkill.Skills = skills
 
-	respecEnabled := values.Has("autoRespecEnabled")
+	respecEnabled := values.Has("autoRespecEnabled") && cfg.Character.AutoStatSkill.Enabled
 	targetLevel := 0
 	if raw := strings.TrimSpace(values.Get("autoRespecTargetLevel")); raw != "" {
 		if n, err := strconv.Atoi(raw); err == nil {
@@ -2997,6 +3042,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		CloneSource:           cloneSource,
 		Config:                cfg,
 		SkillOptions:          skillOptions,
+		SkillPrereqs:          buildSkillPrereqsForBuild(cfg.Character.Class),
 		DayNames:              dayNames,
 		EnabledRuns:           enabledRuns,
 		DisabledRuns:          disabledRuns,

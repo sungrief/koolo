@@ -76,6 +76,7 @@ type CharacterSettings struct {
 	CloneSource             string
 	Config                  *config.CharacterCfg
 	SkillOptions            []SkillOption
+	SkillPrereqs            map[string][]string
 	Saved                   bool
 	DayNames                []string
 	EnabledRuns             []string

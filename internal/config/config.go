@@ -177,10 +177,12 @@ type TimeRange struct {
 }
 
 type AutoStatSkillConfig struct {
-	Enabled bool                 `yaml:"enabled"`
-	Stats   []AutoStatSkillStat  `yaml:"stats,omitempty"`
-	Skills  []AutoStatSkillSkill `yaml:"skills,omitempty"`
-	Respec  AutoRespecConfig     `yaml:"autoRespec,omitempty"`
+	Enabled            bool                 `yaml:"enabled"`
+	Stats              []AutoStatSkillStat  `yaml:"stats,omitempty"`
+	Skills             []AutoStatSkillSkill `yaml:"skills,omitempty"`
+	Respec             AutoRespecConfig     `yaml:"autoRespec,omitempty"`
+	ExcludeQuestStats  bool                 `yaml:"excludeQuestStats,omitempty"`
+	ExcludeQuestSkills bool                 `yaml:"excludeQuestSkills,omitempty"`
 }
 
 type AutoStatSkillStat struct {

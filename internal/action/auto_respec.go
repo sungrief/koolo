@@ -87,6 +87,7 @@ func AutoRespecIfNeeded() error {
 	}
 
 	ctx.CharacterCfg.Character.AutoStatSkill.Respec.Applied = true
+	ctx.CharacterCfg.Character.AutoStatSkill.Respec.Enabled = false
 	if err := config.SaveSupervisorConfig(ctx.Name, ctx.CharacterCfg); err != nil {
 		ctx.Logger.Error("Auto respec: failed to save config", "error", err)
 		return err
@@ -155,10 +156,6 @@ func respecAtAkara() error {
 	ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
 	utils.Sleep(800)
 	step.CloseAllMenus()
-
-	if currentArea != area.RogueEncampment {
-		return WayPoint(currentArea)
-	}
 
 	return nil
 }

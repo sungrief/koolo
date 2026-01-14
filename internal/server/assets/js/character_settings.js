@@ -418,6 +418,15 @@ document.addEventListener('DOMContentLoaded', function () {
             { value: 'development', label: 'Development' },
         ],
     };
+    const baseStatsByClass = {
+        amazon: { strength: 20, dexterity: 25, energy: 15, vitality: 20 },
+        assassin: { strength: 20, dexterity: 20, energy: 25, vitality: 20 },
+        barbarian: { strength: 30, dexterity: 20, energy: 10, vitality: 25 },
+        druid: { strength: 15, dexterity: 20, energy: 20, vitality: 25 },
+        necromancer: { strength: 15, dexterity: 25, energy: 25, vitality: 15 },
+        paladin: { strength: 25, dexterity: 20, energy: 15, vitality: 25 },
+        sorceress: { strength: 10, dexterity: 25, energy: 35, vitality: 10 },
+    };
 
     function findMainClassForBuild(buildValue) {
         if (!buildValue) return '';
@@ -819,24 +828,133 @@ document.addEventListener('DOMContentLoaded', function () {
         const respecTarget = document.getElementById('autoRespecTargetRow');
         const statList = document.getElementById('autoStatSkillStats');
         const skillList = document.getElementById('autoStatSkillSkills');
-        const addStatBtn = document.getElementById('autoStatSkillAddStat');
-        const addSkillBtn = document.getElementById('autoStatSkillAddSkill');
         const statTemplate = document.getElementById('autoStatSkillStatRowTemplate');
         const skillTemplate = document.getElementById('autoStatSkillSkillRowTemplate');
+        const statTotal = document.getElementById('autoStatSkillStatTotal');
+        const skillTotal = document.getElementById('autoStatSkillSkillTotal');
+        const excludeQuestStats = document.getElementById('autoStatSkillExcludeQuestStats');
+        const excludeQuestSkills = document.getElementById('autoStatSkillExcludeQuestSkills');
+        const skillPrereqs = window.autoStatSkillPrereqs || {};
 
-        if (!enabledCheckbox || !panel || !statList || !skillList || !addStatBtn || !addSkillBtn || !statTemplate || !skillTemplate) {
+        if (!enabledCheckbox || !panel || !statList || !skillList || !statTemplate || !skillTemplate) {
             return;
         }
 
+        const resolveBaseClass = () => {
+            if (mainCharacterClassSelect && mainCharacterClassSelect.value) {
+                return mainCharacterClassSelect.value;
+            }
+            if (characterClassSelect && characterClassSelect.value) {
+                return findMainClassForBuild(characterClassSelect.value);
+            }
+            return '';
+        };
+
+        const getQuestBonusPoints = () => {
+            const difficultySelect = document.getElementById('gameDifficulty');
+            const difficulty = difficultySelect ? difficultySelect.value : 'normal';
+            switch (difficulty) {
+                case 'nightmare':
+                    return { stat: 10, skill: 8 };
+                case 'hell':
+                    return { stat: 15, skill: 12 };
+                default:
+                    return { stat: 5, skill: 4 };
+            }
+        };
+
+        const recalcTotals = () => {
+            const questBonus = getQuestBonusPoints();
+            const questStatOffset = excludeQuestStats && excludeQuestStats.checked ? questBonus.stat : 0;
+            const questSkillOffset = excludeQuestSkills && excludeQuestSkills.checked ? questBonus.skill : 0;
+
+            if (statTotal) {
+                const rows = panel.querySelectorAll('.auto-stat-skill-row');
+                const baseClass = resolveBaseClass();
+                const baseStats = baseStatsByClass[baseClass] || {};
+                let statTargetSum = 0;
+                let statRequiredPoints = 0;
+                rows.forEach(row => {
+                    const statSelect = row.querySelector('select[name="autoStatSkillStat[]"]');
+                    const targetInput = row.querySelector('input[name="autoStatSkillStatTarget[]"]');
+                    if (!statSelect || !targetInput) {
+                        return;
+                    }
+                    const statKey = (statSelect.value || '').toLowerCase();
+                    const value = parseInt(targetInput.value, 10);
+                    if (!statKey || Number.isNaN(value) || value <= 0) {
+                        return;
+                    }
+                    const baseValue = baseStats[statKey] || 0;
+                    statTargetSum += value;
+                    statRequiredPoints += Math.max(0, value - baseValue);
+                });
+                const statLevelPoints = Math.max(0, statRequiredPoints - questStatOffset);
+                const statLevel = statLevelPoints > 0 ? 1 + Math.ceil(statLevelPoints / 5) : 1;
+                statTotal.textContent = `Total: ${statTargetSum} (LV ${statLevel})`;
+            }
+            if (skillTotal) {
+                const rows = panel.querySelectorAll('.auto-stat-skill-row');
+                const targetMap = {};
+                let skillSum = 0;
+                rows.forEach(row => {
+                    const skillSelect = row.querySelector('select[name="autoStatSkillSkill[]"]');
+                    const targetInput = row.querySelector('input[name="autoStatSkillSkillTarget[]"]');
+                    if (!skillSelect || !targetInput) {
+                        return;
+                    }
+                    const skillKey = (skillSelect.value || '').trim();
+                    const value = parseInt(targetInput.value, 10);
+                    if (!skillKey || Number.isNaN(value) || value <= 0) {
+                        return;
+                    }
+                    targetMap[skillKey] = value;
+                    skillSum += value;
+                });
+
+                const prereqSet = new Set();
+                const visiting = new Set();
+                const addPrereqs = (skillKey) => {
+                    if (!skillKey || visiting.has(skillKey)) {
+                        return;
+                    }
+                    visiting.add(skillKey);
+                    const reqs = skillPrereqs[skillKey] || [];
+                    reqs.forEach(req => {
+                        if (!req) {
+                            return;
+                        }
+                        if (!(req in targetMap)) {
+                            prereqSet.add(req);
+                        }
+                        addPrereqs(req);
+                    });
+                    visiting.delete(skillKey);
+                };
+                Object.keys(targetMap).forEach(addPrereqs);
+
+                const totalSkillPoints = skillSum + prereqSet.size;
+                const skillLevelPoints = Math.max(0, totalSkillPoints - questSkillOffset);
+                const skillLevel = skillLevelPoints > 0 ? 1 + skillLevelPoints : 1;
+                skillTotal.textContent = `Total: ${totalSkillPoints} (LV ${skillLevel})`;
+            }
+        };
+
         const togglePanel = () => {
             panel.style.display = enabledCheckbox.checked ? 'block' : 'none';
+            if (respecEnabled) {
+                respecEnabled.disabled = !enabledCheckbox.checked;
+                if (!enabledCheckbox.checked) {
+                    respecEnabled.checked = false;
+                }
+            }
         };
         enabledCheckbox.addEventListener('change', togglePanel);
         togglePanel();
 
         if (respecEnabled && respecTarget) {
             const toggleRespec = () => {
-                respecTarget.style.display = respecEnabled.checked ? 'block' : 'none';
+                respecTarget.classList.toggle('auto-respec-hidden', !respecEnabled.checked);
             };
             respecEnabled.addEventListener('change', toggleRespec);
             toggleRespec();
@@ -847,8 +965,20 @@ document.addEventListener('DOMContentLoaded', function () {
             list.appendChild(node);
         };
 
-        addStatBtn.addEventListener('click', () => addRow(statList, statTemplate));
-        addSkillBtn.addEventListener('click', () => addRow(skillList, skillTemplate));
+        panel.addEventListener('click', function (event) {
+            const addBtn = event.target.closest('.auto-stat-skill-add');
+            if (!addBtn) {
+                return;
+            }
+            const kind = addBtn.dataset.kind;
+            if (kind === 'stat') {
+                addRow(statList, statTemplate);
+                recalcTotals();
+            } else if (kind === 'skill') {
+                addRow(skillList, skillTemplate);
+                recalcTotals();
+            }
+        });
 
         document.addEventListener('click', function (event) {
             const removeBtn = event.target.closest('.auto-stat-skill-remove');
@@ -858,8 +988,35 @@ document.addEventListener('DOMContentLoaded', function () {
             const row = removeBtn.closest('.auto-stat-skill-row');
             if (row) {
                 row.remove();
+                recalcTotals();
             }
         });
+
+        panel.addEventListener('input', function (event) {
+            if (event.target.matches('input[name="autoStatSkillStatTarget[]"], input[name="autoStatSkillSkillTarget[]"]')) {
+                recalcTotals();
+            }
+        });
+        panel.addEventListener('change', function (event) {
+            if (event.target.matches('select[name="autoStatSkillStat[]"], select[name="autoStatSkillSkill[]"]')) {
+                recalcTotals();
+            }
+        });
+        if (excludeQuestStats) {
+            excludeQuestStats.addEventListener('change', recalcTotals);
+        }
+        if (excludeQuestSkills) {
+            excludeQuestSkills.addEventListener('change', recalcTotals);
+        }
+
+        if (mainCharacterClassSelect) {
+            mainCharacterClassSelect.addEventListener('change', recalcTotals);
+        }
+        if (characterClassSelect) {
+            characterClassSelect.addEventListener('change', recalcTotals);
+        }
+
+        recalcTotals();
     }
 
     initAutoStatSkillSettings();
