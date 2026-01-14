@@ -1084,10 +1084,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 const minValue = lastTargets[statKey] || 1;
                 targetInput.min = minValue;
-                const value = parseInt(targetInput.value, 10);
-                if (!Number.isNaN(value) && value > 0 && value < minValue) {
-                    targetInput.value = minValue;
-                }
+                targetInput.dataset.minValue = String(minValue);
                 const nextValue = parseInt(targetInput.value, 10);
                 if (!Number.isNaN(nextValue) && nextValue > 0) {
                     lastTargets[statKey] = nextValue;
@@ -1113,10 +1110,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 const minValue = lastTargets[skillKey] || 1;
                 targetInput.min = minValue;
-                const value = parseInt(targetInput.value, 10);
-                if (!Number.isNaN(value) && value > 0 && value < minValue) {
-                    targetInput.value = minValue;
-                }
+                targetInput.dataset.minValue = String(minValue);
                 const nextValue = parseInt(targetInput.value, 10);
                 if (!Number.isNaN(nextValue) && nextValue > 0) {
                     lastTargets[skillKey] = nextValue;
@@ -1169,6 +1163,17 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         panel.addEventListener('change', function (event) {
             if (event.target.matches('select[name="autoStatSkillStat[]"], select[name="autoStatSkillSkill[]"]')) {
+                updateStatTargetConstraints();
+                updateSkillTargetConstraints();
+                recalcTotals();
+                return;
+            }
+            if (event.target.matches('input[name="autoStatSkillStatTarget[]"], input[name="autoStatSkillSkillTarget[]"]')) {
+                const minValue = parseInt(event.target.dataset.minValue || '', 10);
+                const value = parseInt(event.target.value, 10);
+                if (!Number.isNaN(minValue) && !Number.isNaN(value) && value > 0 && value < minValue) {
+                    event.target.value = minValue;
+                }
                 updateStatTargetConstraints();
                 updateSkillTargetConstraints();
                 recalcTotals();
