@@ -102,6 +102,8 @@ func BuildRun(run string) Run {
 		return NewLowerKurast()
 	case string(config.LowerKurastChestRun):
 		return NewLowerKurastChest()
+	case string(config.KurastTemplesRun):
+		return NewKurastTemples()
 	case string(config.BaalRun):
 		return NewBaal(nil)
 	case string(config.TalRashaTombsRun):

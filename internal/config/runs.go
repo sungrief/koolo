@@ -19,6 +19,7 @@ const (
 	FlayerJungleRun     Run = "flayer_jungle"
 	LowerKurastRun      Run = "lower_kurast"
 	LowerKurastChestRun Run = "lower_kurast_chest"
+	KurastTemplesRun    Run = "kurast_temples"
 	StonyTombRun        Run = "stony_tomb"
 	PitRun              Run = "pit"
 	ArachnidLairRun     Run = "arachnid_lair"
@@ -94,6 +95,7 @@ var AvailableRuns = map[Run]interface{}{
 	FlayerJungleRun:     nil,
 	LowerKurastRun:      nil,
 	LowerKurastChestRun: nil,
+	KurastTemplesRun:    nil,
 	StonyTombRun:        nil,
 	PitRun:              nil,
 	ArachnidLairRun:     nil,
@@ -185,6 +187,7 @@ var SequencerRuns = []Run{
 	LamEsenRun,
 	LowerKurastChestRun,
 	LowerKurastRun,
+	KurastTemplesRun,
 	MausoleumRun,
 	MephistoRun,
 	NihlathakRun,

@@ -170,6 +170,7 @@ function getRunCategory(runName) {
     if (
         name.includes('cows') ||
         name.includes('lower_kurast_chest') ||
+        name.includes('kurast_temples') ||
         name.includes('terror_zone') ||
         name.includes('tristram') ||
         name.includes('council') ||
