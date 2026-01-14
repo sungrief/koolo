@@ -1,4 +1,4 @@
-This fork is dedicated to completing the leveling feature and improving the bot. test
+This fork is dedicated to completing the leveling feature and improving the bot.
 We're happy to announce that all classes are now supported for leveling!
 
 While we're still ironing a few things out in the leveling feature, we have already made major changes to other parts of the bot like:
