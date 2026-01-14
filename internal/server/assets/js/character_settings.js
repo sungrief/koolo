@@ -1,6 +1,15 @@
 let activeRunFilter = 'all';
 let currentSearchTerm = '';
 let runFilterTabs = [];
+const levelingBuilds = [
+    'paladin',
+    'sorceress_leveling',
+    'druid_leveling',
+    'amazon_leveling',
+    'necromancer',
+    'assassin',
+    'barb_leveling'
+];
 
 window.onload = function () {
     let enabled_runs_ul = document.getElementById('enabled_runs');
@@ -68,7 +77,6 @@ window.onload = function () {
     const buildSelectElement = document.querySelector('select[name="characterClass"]');
     buildSelectElement.addEventListener('change', function () {
         const selectedBuild = buildSelectElement.value;
-        const levelingBuilds = ['paladin', 'sorceress_leveling', 'druid_leveling', 'amazon_leveling', 'necromancer', 'assassin', 'barb_leveling'];
 
         const enabledRunListElement = document.getElementById('enabled_runs');
         if (!enabledRunListElement) return;
@@ -282,19 +290,9 @@ function filterDisabledRuns(searchTerm) {
 }
 
 function checkLevelingProfile() {
-    const levelingProfiles = [
-        "sorceress_leveling",
-        "paladin",
-        "druid_leveling",
-        "amazon_leveling",
-        "necromancer",
-        "assassin",
-        "barb_leveling"
-    ];
-
     const characterClass = document.getElementById('characterClass').value;
 
-    if (levelingProfiles.includes(characterClass)) {
+    if (levelingBuilds.includes(characterClass)) {
         const confirmation = confirm("This profile requires the leveling run profile, would you like to clear enabled run profiles and select the leveling profile?");
         if (confirmation) {
             clearEnabledRuns();
@@ -598,6 +596,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function updateCharacterOptions() {
         const selectedClass = characterClassSelect.value;
+        const autoStatSkillSettings = document.querySelector('.auto-stat-skill-settings');
         const noSettingsMessage = document.getElementById('no-settings-message');
         const berserkerBarbOptions = document.querySelector('.berserker-barb-options');
         const warcryBarbOptions = document.querySelector('.warcry-barb-options');
@@ -639,6 +638,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (smiterOptions) smiterOptions.style.display = 'none';
         if (javazonOptions) javazonOptions.style.display = 'none';
         if (noSettingsMessage) noSettingsMessage.style.display = 'none';
+        if (autoStatSkillSettings) {
+            autoStatSkillSettings.classList.toggle('auto-stat-skill-hidden', levelingBuilds.includes(selectedClass));
+        }
 
         // Show relevant options based on class
         if (selectedClass === 'berserker') {
@@ -806,11 +808,19 @@ document.addEventListener('DOMContentLoaded', function () {
             const mainClass = mainCharacterClassSelect.value;
             populateBuildSelect(mainClass, '');
             updateCharacterOptions();
+            if (window.refreshAutoStatSkillOptions && characterClassSelect.value) {
+                window.refreshAutoStatSkillOptions(characterClassSelect.value);
+            }
         });
     }
 
     if (characterClassSelect) {
-        characterClassSelect.addEventListener('change', updateCharacterOptions);
+        characterClassSelect.addEventListener('change', function () {
+            updateCharacterOptions();
+            if (window.refreshAutoStatSkillOptions && characterClassSelect.value) {
+                window.refreshAutoStatSkillOptions(characterClassSelect.value);
+            }
+        });
     }
     document.getElementById('gameDifficulty').addEventListener('change', function () {
         if (characterClassSelect.value === 'nova' || characterClassSelect.value === 'lightsorc') {
@@ -834,7 +844,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const skillTotal = document.getElementById('autoStatSkillSkillTotal');
         const excludeQuestStats = document.getElementById('autoStatSkillExcludeQuestStats');
         const excludeQuestSkills = document.getElementById('autoStatSkillExcludeQuestSkills');
-        const skillPrereqs = window.autoStatSkillPrereqs || {};
+        let skillPrereqs = window.autoStatSkillPrereqs || {};
+        let skillOptionsCache = null;
 
         if (!enabledCheckbox || !panel || !statList || !skillList || !statTemplate || !skillTemplate) {
             return;
@@ -964,15 +975,86 @@ document.addEventListener('DOMContentLoaded', function () {
         togglePanel();
 
         if (respecEnabled && respecTarget) {
+            const respecTargetInput = respecTarget.querySelector('input[name="autoRespecTargetLevel"]');
             const toggleRespec = () => {
                 respecTarget.classList.toggle('auto-respec-hidden', !respecEnabled.checked);
+                if (respecTargetInput) {
+                    respecTargetInput.disabled = !respecEnabled.checked;
+                }
             };
             respecEnabled.addEventListener('change', toggleRespec);
             toggleRespec();
         }
 
+        const applySkillOptionsToSelect = (select, options, selectedValue) => {
+            if (!select) {
+                return;
+            }
+            const current = selectedValue !== undefined ? selectedValue : select.value;
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '-- Select skill --';
+            select.appendChild(placeholder);
+            options.forEach(opt => {
+                const key = opt?.key ?? opt?.Key ?? '';
+                const name = opt?.name ?? opt?.Name ?? '';
+                if (!name) {
+                    return;
+                }
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = name;
+                if (key === current) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        };
+
+        const updateSkillOptionsUI = (options, prereqs) => {
+            skillOptionsCache = options;
+            skillPrereqs = prereqs || {};
+            const selects = panel.querySelectorAll('select[name="autoStatSkillSkill[]"]');
+            selects.forEach(select => {
+                const currentValue = select.value;
+                applySkillOptionsToSelect(select, options, currentValue);
+            });
+            if (skillTemplate) {
+                const templateSelect = skillTemplate.content.querySelector('select[name="autoStatSkillSkill[]"]');
+                applySkillOptionsToSelect(templateSelect, options, '');
+            }
+            updateSkillTargetConstraints();
+            recalcTotals();
+        };
+
+        const refreshSkillOptionsForBuild = (build) => {
+            if (!build) {
+                return;
+            }
+            fetch(`/api/skill-options?build=${encodeURIComponent(build)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load skill options');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data || !Array.isArray(data.options)) {
+                        return;
+                    }
+                    updateSkillOptionsUI(data.options, data.prereqs || {});
+                })
+                .catch(err => {
+                    console.error('Skill option update failed', err);
+                });
+        };
+
         const addRow = (list, template) => {
             const node = template.content.firstElementChild.cloneNode(true);
+            if (skillOptionsCache && node.querySelector('select[name="autoStatSkillSkill[]"]')) {
+                applySkillOptionsToSelect(node.querySelector('select[name="autoStatSkillSkill[]"]'), skillOptionsCache);
+            }
             list.appendChild(node);
         };
 
@@ -1109,6 +1191,12 @@ document.addEventListener('DOMContentLoaded', function () {
         updateStatTargetConstraints();
         updateSkillTargetConstraints();
         recalcTotals();
+
+        if (characterClassSelect && characterClassSelect.value) {
+            refreshSkillOptionsForBuild(characterClassSelect.value);
+        }
+
+        window.refreshAutoStatSkillOptions = refreshSkillOptionsForBuild;
     }
 
     initAutoStatSkillSettings();

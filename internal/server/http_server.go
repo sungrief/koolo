@@ -923,6 +923,7 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/sequence-editor/save", s.sequenceAPI.handleSaveSequence)
 	http.HandleFunc("/api/sequence-editor/delete", s.sequenceAPI.handleDeleteSequence)
 	http.HandleFunc("/api/sequence-editor/files", s.sequenceAPI.handleListSequenceFiles)
+	http.HandleFunc("/api/skill-options", s.skillOptionsAPI)
 
 	http.HandleFunc("/api/supervisors/bulk-apply", s.bulkApplyCharacterSettings)
 	http.HandleFunc("/api/scheduler-history", s.schedulerHistory)
@@ -3459,6 +3460,21 @@ func (s *HttpServer) resetMuling(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *HttpServer) skillOptionsAPI(w http.ResponseWriter, r *http.Request) {
+	build := r.URL.Query().Get("build")
+	payload := struct {
+		Options  []SkillOption       `json:"options"`
+		Prereqs  map[string][]string `json:"prereqs"`
+		Resolved string              `json:"resolvedBuild"`
+	}{
+		Options:  buildSkillOptionsForBuild(build),
+		Prereqs:  buildSkillPrereqsForBuild(build),
+		Resolved: build,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(payload)
 }
 
 // openDroplogs opens the droplogs directory in Windows Explorer.

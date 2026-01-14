@@ -36,6 +36,9 @@
         border-radius: 8px;
         background: rgba(255, 255, 255, 0.02);
     }
+    .auto-stat-skill-hidden {
+        display: none;
+    }
     .auto-stat-skill-columns {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -130,6 +133,15 @@
     }
     .auto-stat-skill-respec input[type="number"] {
         width: 120px;
+    }
+    .auto-stat-skill-settings select {
+        color-scheme: light;
+        color: #111;
+        background: #fff;
+    }
+    .auto-stat-skill-settings select option {
+        color: #111;
+        background: #fff;
     }
     .auto-stat-skill-remove {
         padding: 0.2rem 0.4rem;
@@ -302,8 +314,7 @@
                 </label>
             <article style="margin-top: 20px; margin-bottom: 20px; padding: 15px; border: 2px solid #444;">
                 <h5>Class-Specific Settings</h5>
-                {{ if or (not .Config) (not (isLevelingBuild .Config.Character.Class)) }}
-                <div class="auto-stat-skill-settings">
+                <div class="auto-stat-skill-settings {{ if and .Config (isLevelingBuild .Config.Character.Class) }}auto-stat-skill-hidden{{ end }}">
                     <div class="auto-stat-skill-header">
                         <label class="auto-stat-skill-header-item">
                             <input type="checkbox" id="autoStatSkillEnabled" name="autoStatSkillEnabled" {{ if .Config.Character.AutoStatSkill.Enabled }}checked{{ end }}/>
@@ -316,7 +327,7 @@
                         </label>
                             <label id="autoRespecTargetRow" class="auto-stat-skill-header-item {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}auto-respec-hidden{{ end }}">
                                 Target level:
-                                <input type="number" name="autoRespecTargetLevel" min="2" max="99" value="{{ .Config.Character.AutoStatSkill.Respec.TargetLevel }}" placeholder="e.g. 80">
+                                <input type="number" name="autoRespecTargetLevel" min="2" max="99" value="{{ .Config.Character.AutoStatSkill.Respec.TargetLevel }}" placeholder="e.g. 80" {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}disabled{{ end }}>
                             </label>
                         </div>
                     </div>
@@ -477,7 +488,6 @@
                         </template>
                     </div>
                 </div>
-                {{ end }}
                 <div id="class-specific-settings">
                     <div id="no-settings-message" style="display: none;">
                         No custom settings available for this class.
