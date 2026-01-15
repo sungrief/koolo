@@ -1173,7 +1173,21 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             const row = removeBtn.closest('.auto-stat-skill-row');
             if (row) {
-                row.remove();
+                const list = row.parentElement;
+                const rowCount = list ? list.querySelectorAll('.auto-stat-skill-row').length : 0;
+                if (rowCount <= 1) {
+                    const select = row.querySelector('select');
+                    if (select) {
+                        select.value = '';
+                    }
+                    const targetInput = row.querySelector('input[type="number"]');
+                    if (targetInput) {
+                        targetInput.value = '';
+                        targetInput.removeAttribute('data-min-value');
+                    }
+                } else {
+                    row.remove();
+                }
                 updateStatTargetConstraints();
                 updateSkillTargetConstraints();
                 recalcTotals();

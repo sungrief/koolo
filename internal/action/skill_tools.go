@@ -79,27 +79,28 @@ func EnsureSkillPoints() error {
 			currentSkillLevel = int(skillData.Level)
 		}
 		if currentSkillLevel < targetLevels[sk] {
-			var success bool
+			spent := 0
 			if usePacketMode {
 				// Use packet mode
 				err := LearnSkillPacket(sk)
-				success = err == nil
-				if !success {
+				if err != nil {
 					ctx.Logger.Error(fmt.Sprintf("Failed to learn skill %v via packet: %v", sk, err))
 					break
 				}
+				spent = 1
 			} else {
 				// Use traditional UI mode
-				success = spendSkillPoint(sk)
-				if !success {
+				spent = spendSkillPoint(sk, false)
+				if spent <= 0 {
 					break
 				}
 			}
-			if success {
-				remainingPoints--
-				if remainingPoints <= 0 {
-					break
-				}
+			if spent <= 0 {
+				break
+			}
+			remainingPoints -= spent
+			if remainingPoints <= 0 {
+				break
 			}
 		}
 	}
@@ -149,16 +150,37 @@ func ensureConfiguredSkillPoints(remainingPoints int) error {
 		if skillData, found := ctx.Data.PlayerUnit.Skills[skillID]; found {
 			currentSkillLevel = int(skillData.Level)
 		}
+		bulkStep := 0
+		failures := 0
 		for currentSkillLevel < entry.Target && remainingPoints > 0 {
 			if ok := ensureSkillPrereqs(skillID, skillNameToID, learned, &remainingPoints); !ok {
 				break
 			}
-			success := spendSkillPoint(skillID)
-			if !success {
-				break
+			pointsNeeded := entry.Target - currentSkillLevel
+			useBulk := false
+			if bulkStep > 1 {
+				useBulk = pointsNeeded >= bulkStep && remainingPoints >= bulkStep
+			} else if pointsNeeded >= 20 && remainingPoints >= 20 {
+				useBulk = true
 			}
-			currentSkillLevel++
-			remainingPoints--
+			spent := spendSkillPoint(skillID, useBulk)
+			if spent <= 0 {
+				failures++
+				if failures >= 3 {
+					break
+				}
+				continue
+			}
+			failures = 0
+			if spent > pointsNeeded {
+				ctx.Logger.Warn(fmt.Sprintf("Spent more skill points than requested for %s (spent=%d, needed=%d)", entry.Skill, spent, pointsNeeded))
+				spent = pointsNeeded
+			}
+			if useBulk && bulkStep == 0 && spent > 1 {
+				bulkStep = spent
+			}
+			currentSkillLevel += spent
+			remainingPoints -= spent
 			learned[skillID] = true
 		}
 	}
@@ -208,11 +230,15 @@ func ensureSkillPrereqs(skillID skill.ID, skillNameToID map[string]skill.ID, lea
 			if *remainingPoints <= 0 {
 				return false
 			}
-			if !spendSkillPoint(reqID) {
+			spent := spendSkillPoint(reqID, false)
+			if spent <= 0 {
 				ctx.Logger.Warn(fmt.Sprintf("Failed to learn prereq skill: %s", reqName))
 				return false
 			}
-			*remainingPoints--
+			if spent > *remainingPoints {
+				spent = *remainingPoints
+			}
+			*remainingPoints -= spent
 			learned[reqID] = true
 		}
 		return true
@@ -222,7 +248,7 @@ func ensureSkillPrereqs(skillID skill.ID, skillNameToID map[string]skill.ID, lea
 }
 
 // spendSkillPoint spends a skill point on the given skill using the in-game UI.
-func spendSkillPoint(skillID skill.ID) bool {
+func spendSkillPoint(skillID skill.ID, useBulk bool) int {
 	ctx := context.Get()
 	beforePoints, _ := ctx.Data.PlayerUnit.FindStat(stat.SkillPoints, 0)
 	if !ctx.Data.OpenMenus.SkillTree {
@@ -233,7 +259,7 @@ func spendSkillPoint(skillID skill.ID) bool {
 	skillDesc := sk.Desc()
 	if !found {
 		ctx.Logger.Error(fmt.Sprintf("skill not found for character: %v", skillID))
-		return false
+		return 0
 	}
 	if ctx.Data.LegacyGraphics {
 		ctx.HID.Click(game.LeftButton, uiSkillPagePositionLegacy[skillDesc.Page-1].X, uiSkillPagePositionLegacy[skillDesc.Page-1].Y)
@@ -242,13 +268,25 @@ func spendSkillPoint(skillID skill.ID) bool {
 	}
 	utils.Sleep(200)
 	if ctx.Data.LegacyGraphics {
-		ctx.HID.Click(game.LeftButton, uiSkillColumnPositionLegacy[skillDesc.Column-1], uiSkillRowPositionLegacy[skillDesc.Row-1])
+		if useBulk {
+			ctx.HID.ClickWithModifier(game.LeftButton, uiSkillColumnPositionLegacy[skillDesc.Column-1], uiSkillRowPositionLegacy[skillDesc.Row-1], game.ShiftKey)
+		} else {
+			ctx.HID.Click(game.LeftButton, uiSkillColumnPositionLegacy[skillDesc.Column-1], uiSkillRowPositionLegacy[skillDesc.Row-1])
+		}
 	} else {
-		ctx.HID.Click(game.LeftButton, uiSkillColumnPosition[skillDesc.Column-1], uiSkillRowPosition[skillDesc.Row-1])
+		if useBulk {
+			ctx.HID.ClickWithModifier(game.LeftButton, uiSkillColumnPosition[skillDesc.Column-1], uiSkillRowPosition[skillDesc.Row-1], game.ShiftKey)
+		} else {
+			ctx.HID.Click(game.LeftButton, uiSkillColumnPosition[skillDesc.Column-1], uiSkillRowPosition[skillDesc.Row-1])
+		}
 	}
 	utils.Sleep(300)
 	afterPoints, _ := ctx.Data.PlayerUnit.FindStat(stat.SkillPoints, 0)
-	return beforePoints.Value-afterPoints.Value == 1
+	spent := beforePoints.Value - afterPoints.Value
+	if spent < 0 {
+		return 0
+	}
+	return spent
 }
 
 // EnsureSkillBindings ensures that all required skills are bound to hotkeys and the main skill is set.
