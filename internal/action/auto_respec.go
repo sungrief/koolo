@@ -71,7 +71,7 @@ func AutoRespecIfNeeded() error {
 		ctx.RefreshGameData()
 		afterAkaraStatPoints := getStatValue(stat.StatPoints)
 		afterAkaraSkillPoints := getStatValue(stat.SkillPoints)
-		return afterAkaraStatPoints > beforeStatPoints || afterAkaraSkillPoints > beforeSkillPoints
+		return afterAkaraStatPoints != beforeStatPoints || afterAkaraSkillPoints != beforeSkillPoints
 	}
 
 	tryToken := func() bool {
@@ -79,7 +79,13 @@ func AutoRespecIfNeeded() error {
 		if err != nil {
 			ctx.Logger.Warn("Auto respec: token use failed", "error", err)
 		}
-		return used
+		if used {
+			return true
+		}
+		ctx.RefreshGameData()
+		afterTokenStatPoints := getStatValue(stat.StatPoints)
+		afterTokenSkillPoints := getStatValue(stat.SkillPoints)
+		return afterTokenStatPoints != beforeStatPoints || afterTokenSkillPoints != beforeSkillPoints
 	}
 
 	if autoCfg.Respec.TokenFirst {
@@ -102,9 +108,8 @@ func AutoRespecIfNeeded() error {
 	ctx.RefreshGameData()
 	afterStatPoints := getStatValue(stat.StatPoints)
 	afterSkillPoints := getStatValue(stat.SkillPoints)
-	if afterStatPoints <= beforeStatPoints && afterSkillPoints <= beforeSkillPoints {
-		ctx.Logger.Warn("Auto respec: no point increase detected", "statBefore", beforeStatPoints, "statAfter", afterStatPoints, "skillBefore", beforeSkillPoints, "skillAfter", afterSkillPoints)
-		return nil
+	if afterStatPoints == beforeStatPoints && afterSkillPoints == beforeSkillPoints {
+		ctx.Logger.Warn("Auto respec: no point change detected after respec", "statBefore", beforeStatPoints, "statAfter", afterStatPoints, "skillBefore", beforeSkillPoints, "skillAfter", afterSkillPoints)
 	}
 
 	ctx.CharacterCfg.Character.AutoStatSkill.Respec.Applied = true
