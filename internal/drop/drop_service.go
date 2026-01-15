@@ -59,6 +59,7 @@ func (s *Service) AttachManager(supervisorName string, mgr *Manager) {
 		if dropReq != nil {
 			dropReq.CardID = req.CardID
 			dropReq.CardName = req.CardName
+			dropReq.Filters = req.Filter
 		}
 	}
 
@@ -70,7 +71,12 @@ func (s *Service) AttachManager(supervisorName string, mgr *Manager) {
 		if persistentReq.Filters.Enabled {
 			mgr.UpdateFilters(persistentReq.Filters)
 		}
-		mgr.RequestDrop(persistentReq.RoomName, persistentReq.Password)
+		dropReq := mgr.RequestDrop(persistentReq.RoomName, persistentReq.Password)
+		if dropReq != nil {
+			dropReq.CardID = persistentReq.CardID
+			dropReq.CardName = persistentReq.CardName
+			dropReq.Filters = persistentReq.Filters
+		}
 	}
 
 }
@@ -134,7 +140,7 @@ func (s *Service) SetClearPersistentRequestCallback(callback func(supervisor str
 }
 
 // Register Drop result callback
-func (s *Service) SetDropResultCallback(callback func(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string)) {
+func (s *Service) SetDropResultCallback(callback func(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string, filters Filters)) {
 	s.coord.SetDropResultCallback(callback)
 }
 
