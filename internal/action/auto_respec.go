@@ -2,6 +2,7 @@ package action
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/area"
@@ -184,4 +185,36 @@ func getStatValue(id stat.ID) int {
 	ctx := context.Get()
 	value, _ := ctx.Data.PlayerUnit.FindStat(id, 0)
 	return value.Value
+}
+
+func shouldDeferAutoSkillsForStats() bool {
+	ctx := context.Get()
+	statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
+	if !hasUnusedPoints || statPoints.Value <= 0 {
+		return false
+	}
+
+	statKeyToID := map[string]stat.ID{
+		"strength":  stat.Strength,
+		"dexterity": stat.Dexterity,
+		"vitality":  stat.Vitality,
+		"energy":    stat.Energy,
+	}
+
+	for _, entry := range ctx.CharacterCfg.Character.AutoStatSkill.Stats {
+		if entry.Target <= 0 {
+			continue
+		}
+		statKey := strings.ToLower(strings.TrimSpace(entry.Stat))
+		statID, ok := statKeyToID[statKey]
+		if !ok {
+			continue
+		}
+		currentValue, _ := ctx.Data.PlayerUnit.BaseStats.FindStat(statID, 0)
+		if currentValue.Value < entry.Target {
+			return true
+		}
+	}
+
+	return false
 }

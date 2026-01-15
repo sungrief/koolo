@@ -153,8 +153,12 @@ func PreRun(firstRun bool) error {
 	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
 		AutoRespecIfNeeded()
 		EnsureStatPoints()
-		EnsureSkillPoints()
-		EnsureSkillBindings()
+		if !shouldDeferAutoSkillsForStats() {
+			EnsureSkillPoints()
+			EnsureSkillBindings()
+		} else {
+			ctx.Logger.Debug("Auto stat targets pending; skipping skill allocation for now.")
+		}
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {
@@ -250,10 +254,14 @@ func InRunReturnTownRoutine() error {
 		ctx.PauseIfNotPriority() // Check after AutoRespecIfNeeded
 		EnsureStatPoints()
 		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
-		EnsureSkillPoints()
-		ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
-		EnsureSkillBindings()
-		ctx.PauseIfNotPriority() // Check after EnsureSkillBindings
+		if !shouldDeferAutoSkillsForStats() {
+			EnsureSkillPoints()
+			ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
+			EnsureSkillBindings()
+			ctx.PauseIfNotPriority() // Check after EnsureSkillBindings
+		} else {
+			ctx.Logger.Debug("Auto stat targets pending; skipping skill allocation for now.")
+		}
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {
