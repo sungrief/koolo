@@ -115,7 +115,7 @@ func PreRun(firstRun bool) error {
 	Stash(false)
 
 	// Refill pots, sell, buy etc
-	VendorRefill(false, true)
+	VendorRefill(VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 
 	// Gamble
 	Gamble()
@@ -204,7 +204,7 @@ func InRunReturnTownRoutine() error {
 		ctx.PauseIfNotPriority() // Check after AutoEquip
 	}
 
-	VendorRefill(false, true)
+	VendorRefill(VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 	ctx.PauseIfNotPriority() // Check after VendorRefill
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after Stash

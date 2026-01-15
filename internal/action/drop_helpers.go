@@ -6,15 +6,12 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
-	"github.com/hectorgimenez/d2go/pkg/data/npc"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/config"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/pickit"
-	"github.com/hectorgimenez/koolo/internal/town"
-	"github.com/lxn/win"
 )
 
 // IsDropProtected determines which items must NOT be dropped
@@ -243,7 +240,7 @@ func RunDropCleanup() error {
 	ctx.PauseIfNotPriority()
 	Stash(false)
 	ctx.PauseIfNotPriority()
-	DropVendorRefill(false, true)
+	VendorRefill(VendorRefillOpts{SellJunk: true})
 	ctx.PauseIfNotPriority() // Check after VendorRefill
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after Stash
@@ -263,58 +260,3 @@ func HasGrandCharmRerollCandidate(ctx *context.Status) bool {
 	return ok
 }
 
-// DropVendorRefill is a Drop-specific vendor helper.
-// - Always interacts with Akara as the vendor.
-// - Sells junk items (and excess keys) via town.SellJunk, respecting optional lockConfig.
-// - Does not buy any consumables (no potions, TP or ID scrolls).
-func DropVendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) error {
-	ctx := context.Get()
-	ctx.SetLastAction("DropVendorRefill")
-
-	ctx.RefreshGameData()
-
-	// Determine if there is anything to sell before visiting the vendor.
-	var lockConfig [][]int
-	if len(tempLock) > 0 {
-		lockConfig = tempLock[0]
-	}
-
-	hasJunkToSell := false
-	if sellJunk {
-		if len(lockConfig) > 0 {
-			if len(town.ItemsToBeSold(lockConfig)) > 0 {
-				hasJunkToSell = true
-			}
-		} else if len(town.ItemsToBeSold()) > 0 {
-			hasJunkToSell = true
-		}
-	}
-
-	// If we are not selling anything and no temporary lock is provided, skip vendor entirely.
-	if !hasJunkToSell {
-		return nil
-	}
-
-	ctx.Logger.Info("Drop: Visiting Akara for junk sale...", "forceRefill", forceRefill)
-
-	if err := InteractNPC(npc.Akara); err != nil {
-		return err
-	}
-
-	// Akara trade menu: HOME -> DOWN -> ENTER
-	ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
-
-	if sellJunk {
-		if len(lockConfig) > 0 {
-			town.SellJunk(lockConfig)
-		} else {
-			town.SellJunk()
-		}
-	}
-
-	// Align with existing vendor flow: switch to tab 4 (shared stash area for vendor UI)
-	SwitchVendorTab(4)
-	ctx.RefreshGameData()
-
-	return step.CloseAllMenus()
-}

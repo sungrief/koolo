@@ -103,7 +103,7 @@ func (o Organs) Run(parameters *RunParameters) error {
 		o.ctx.RefreshGameData()
 
 		goToMalahIfInHarrogath(o.ctx)
-		if err := action.VendorRefill(true, true); err != nil {
+		if err := action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true}); err != nil {
 			o.ctx.Logger.Warn(fmt.Sprintf("Failed to visit vendor after portal %d: %v", portalNum, err))
 		}
 

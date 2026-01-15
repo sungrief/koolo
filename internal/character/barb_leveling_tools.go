@@ -226,7 +226,7 @@ func (s BarbLeveling) equipBossEquipment(bossNPC npc.ID) {
 
 	s.moveCloserToRefillNPC()
 
-	if err := action.VendorRefill(true, true); err != nil {
+	if err := action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true}); err != nil {
 		s.Logger.Warn(fmt.Sprintf("Error selling junk items: %v", err))
 	}
 
@@ -310,7 +310,7 @@ func (s BarbLeveling) restoreEquipment() {
 
 	s.moveCloserToRefillNPC()
 
-	if err := action.VendorRefill(true, true); err != nil {
+	if err := action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true}); err != nil {
 		s.Logger.Warn(fmt.Sprintf("Error selling junk items: %v", err))
 	}
 
@@ -328,7 +328,7 @@ func (s BarbLeveling) restoreEquipment() {
 	}
 
 	s.moveCloserToRefillNPC()
-	if err := action.VendorRefill(true, true); err != nil {
+	if err := action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true}); err != nil {
 		s.Logger.Warn(fmt.Sprintf("Error selling junk items after AutoEquip: %v", err))
 	}
 

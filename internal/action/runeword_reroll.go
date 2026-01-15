@@ -285,6 +285,27 @@ func formatActualStat(itm data.Item, label string, groupTag string, ts config.Ru
 			stat.Vitality:  "Vit",
 		}))
 	default:
+		// Some runeword rolls (notably ED% and EDef%) don't always show up as explicit stats,
+		// so we derive them from base/current values when needed.
+		switch ts.StatID {
+		case stat.EnhancedDamage, stat.EnhancedDamageMin, stat.DamagePercent:
+			if minED, maxED, exact, ok := GetRunewordWeaponDamageEDPercentRange(itm); ok {
+				if exact {
+					return fmt.Sprintf("%s %d", label, minED)
+				}
+				return fmt.Sprintf("%s %d-%d", label, minED, maxED)
+			}
+			return fmt.Sprintf("%s n/a", label)
+		case stat.EnhancedDefense:
+			if minED, maxED, exact, ok := GetRunewordArmorDefenseEDPercentRange(itm); ok {
+				if exact {
+					return fmt.Sprintf("%s %d", label, minED)
+				}
+				return fmt.Sprintf("%s %d-%d", label, minED, maxED)
+			}
+			return fmt.Sprintf("%s n/a", label)
+		}
+
 		st, found := itm.FindStat(ts.StatID, ts.Layer)
 		if !found {
 			return fmt.Sprintf("%s n/a", label)
@@ -566,7 +587,7 @@ func ensureLooseTownPortalScroll() (data.Item, bool) {
 		ctx.Logger.Info("Runeword reroll: no loose TP scroll; attempting VendorRefill to obtain one",
 			"attempt", i+1,
 		)
-		if err := VendorRefill(true, false); err != nil {
+		if err := VendorRefill(VendorRefillOpts{ForceRefill: true, BuyConsumables: true}); err != nil {
 			ctx.Logger.Warn("Runeword reroll: VendorRefill failed while trying to obtain TP scroll for unsocket",
 				"attempt", i+1,
 				"error", err,
