@@ -197,6 +197,7 @@ type AutoStatSkillSkill struct {
 
 type AutoRespecConfig struct {
 	Enabled     bool `yaml:"enabled"`
+	TokenFirst  bool `yaml:"tokenFirst,omitempty"`
 	TargetLevel int  `yaml:"targetLevel,omitempty"`
 	Applied     bool `yaml:"applied,omitempty"`
 }

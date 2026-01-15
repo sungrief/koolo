@@ -112,6 +112,13 @@ func EnsureSkillPoints() error {
 func ensureConfiguredSkillPoints(remainingPoints int) error {
 	ctx := context.Get()
 
+	learned := make(map[skill.ID]bool, len(ctx.Data.PlayerUnit.Skills))
+	for id, skillData := range ctx.Data.PlayerUnit.Skills {
+		if skillData.Level > 0 {
+			learned[id] = true
+		}
+	}
+
 	skillKeyToID := make(map[string]skill.ID, len(skill.SkillNames))
 	for id, name := range skill.SkillNames {
 		skillKeyToID[strings.ToLower(name)] = id
@@ -143,7 +150,7 @@ func ensureConfiguredSkillPoints(remainingPoints int) error {
 			currentSkillLevel = int(skillData.Level)
 		}
 		for currentSkillLevel < entry.Target && remainingPoints > 0 {
-			if ok := ensureSkillPrereqs(skillID, skillNameToID, &remainingPoints); !ok {
+			if ok := ensureSkillPrereqs(skillID, skillNameToID, learned, &remainingPoints); !ok {
 				break
 			}
 			success := spendSkillPoint(skillID)
@@ -152,6 +159,7 @@ func ensureConfiguredSkillPoints(remainingPoints int) error {
 			}
 			currentSkillLevel++
 			remainingPoints--
+			learned[skillID] = true
 		}
 	}
 
@@ -161,7 +169,7 @@ func ensureConfiguredSkillPoints(remainingPoints int) error {
 	return nil
 }
 
-func ensureSkillPrereqs(skillID skill.ID, skillNameToID map[string]skill.ID, remainingPoints *int) bool {
+func ensureSkillPrereqs(skillID skill.ID, skillNameToID map[string]skill.ID, learned map[skill.ID]bool, remainingPoints *int) bool {
 	ctx := context.Get()
 
 	visiting := make(map[skill.ID]bool)
@@ -187,19 +195,25 @@ func ensureSkillPrereqs(skillID skill.ID, skillNameToID map[string]skill.ID, rem
 				ctx.Logger.Warn(fmt.Sprintf("Prereq skill name not found: %s", reqName))
 				return false
 			}
-			if _, found := ctx.Data.PlayerUnit.Skills[reqID]; !found {
-				if !ensurePrereq(reqID) {
-					return false
-				}
-				if *remainingPoints <= 0 {
-					return false
-				}
-				if !spendSkillPoint(reqID) {
-					ctx.Logger.Warn(fmt.Sprintf("Failed to learn prereq skill: %s", reqName))
-					return false
-				}
-				*remainingPoints--
+			if learned[reqID] {
+				continue
 			}
+			if skillData, found := ctx.Data.PlayerUnit.Skills[reqID]; found && skillData.Level > 0 {
+				learned[reqID] = true
+				continue
+			}
+			if !ensurePrereq(reqID) {
+				return false
+			}
+			if *remainingPoints <= 0 {
+				return false
+			}
+			if !spendSkillPoint(reqID) {
+				ctx.Logger.Warn(fmt.Sprintf("Failed to learn prereq skill: %s", reqName))
+				return false
+			}
+			*remainingPoints--
+			learned[reqID] = true
 		}
 		return true
 	}

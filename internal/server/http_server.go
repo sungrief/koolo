@@ -590,7 +590,9 @@ func (s *HttpServer) updateAutoStatSkillFromForm(values url.Values, cfg *config.
 	targetLevel := 0
 	if raw := strings.TrimSpace(values.Get("autoRespecTargetLevel")); raw != "" {
 		if n, err := strconv.Atoi(raw); err == nil {
-			if n < 2 {
+			if n < 0 {
+				n = 0
+			} else if n > 0 && n < 2 {
 				n = 2
 			} else if n > 99 {
 				n = 99
@@ -599,6 +601,7 @@ func (s *HttpServer) updateAutoStatSkillFromForm(values url.Values, cfg *config.
 		}
 	}
 	cfg.Character.AutoStatSkill.Respec.Enabled = respecEnabled
+	cfg.Character.AutoStatSkill.Respec.TokenFirst = values.Has("autoRespecTokenFirst") && respecEnabled
 	cfg.Character.AutoStatSkill.Respec.TargetLevel = targetLevel
 
 	if !respecEnabled {

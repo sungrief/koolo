@@ -252,6 +252,8 @@ func InRunReturnTownRoutine() error {
 		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
 		EnsureSkillPoints()
 		ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
+		EnsureSkillBindings()
+		ctx.PauseIfNotPriority() // Check after EnsureSkillBindings
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {

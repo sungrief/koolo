@@ -30,13 +30,11 @@ func AutoRespecIfNeeded() error {
 		return nil
 	}
 
-	if autoCfg.Respec.TargetLevel <= 0 {
-		return nil
-	}
-
-	level, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
-	if !ok || level.Value < autoCfg.Respec.TargetLevel {
-		return nil
+	if autoCfg.Respec.TargetLevel > 0 {
+		level, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+		if !ok || level.Value != autoCfg.Respec.TargetLevel {
+			return nil
+		}
 	}
 
 	if !ctx.Data.PlayerUnit.Area.IsTown() {
@@ -62,24 +60,42 @@ func AutoRespecIfNeeded() error {
 	beforeStatPoints := getStatValue(stat.StatPoints)
 	beforeSkillPoints := getStatValue(stat.SkillPoints)
 
-	if err := respecAtAkara(); err != nil {
-		ctx.Logger.Warn("Auto respec: Akara respec failed", "error", err)
+	usedAkara := false
+	tokenUsed := false
+
+	tryAkara := func() bool {
+		if err := respecAtAkara(); err != nil {
+			ctx.Logger.Warn("Auto respec: Akara respec failed", "error", err)
+		}
+		ctx.RefreshGameData()
+		afterAkaraStatPoints := getStatValue(stat.StatPoints)
+		afterAkaraSkillPoints := getStatValue(stat.SkillPoints)
+		return afterAkaraStatPoints > beforeStatPoints || afterAkaraSkillPoints > beforeSkillPoints
 	}
 
-	ctx.RefreshGameData()
-	afterAkaraStatPoints := getStatValue(stat.StatPoints)
-	afterAkaraSkillPoints := getStatValue(stat.SkillPoints)
-	usedAkara := afterAkaraStatPoints > beforeStatPoints || afterAkaraSkillPoints > beforeSkillPoints
+	tryToken := func() bool {
+		used, err := tryConsumeRespecToken()
+		if err != nil {
+			ctx.Logger.Warn("Auto respec: token use failed", "error", err)
+		}
+		return used
+	}
 
-	if !usedAkara {
-		tokenUsed, tokenErr := tryConsumeRespecToken()
-		if tokenErr != nil {
-			ctx.Logger.Warn("Auto respec: token use failed", "error", tokenErr)
-		}
+	if autoCfg.Respec.TokenFirst {
+		tokenUsed = tryToken()
 		if !tokenUsed {
-			ctx.Logger.Warn("Auto respec: no respec method succeeded")
-			return nil
+			usedAkara = tryAkara()
 		}
+	} else {
+		usedAkara = tryAkara()
+		if !usedAkara {
+			tokenUsed = tryToken()
+		}
+	}
+
+	if !usedAkara && !tokenUsed {
+		ctx.Logger.Warn("Auto respec: no respec method succeeded")
+		return nil
 	}
 
 	ctx.RefreshGameData()

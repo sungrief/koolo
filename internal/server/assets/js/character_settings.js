@@ -983,6 +983,18 @@ document.addEventListener('DOMContentLoaded', function () {
         if (respecEnabled && respecTarget) {
             const respecTargetInput = respecTarget.querySelector('input[name="autoRespecTargetLevel"]');
             const respecHelp = document.getElementById('autoRespecHelp');
+            const respecTokenFirst = document.getElementById('autoRespecTokenFirstRow');
+            const respecTokenFirstInput = respecTokenFirst?.querySelector('input[name="autoRespecTokenFirst"]');
+            const updateRespecHelp = () => {
+                if (!respecHelp) {
+                    return;
+                }
+                if (respecTokenFirstInput?.checked) {
+                    respecHelp.textContent = "At target level, resets and reallocates stats/skills. Tries a token first, then uses Akara if unavailable. ⚠️ Set target level to 0 or leave it blank to respec immediately.";
+                } else {
+                    respecHelp.textContent = "At target level, resets and reallocates stats/skills. Tries Akara first, then uses a token if unavailable. ⚠️ Set target level to 0 or leave it blank to respec immediately.";
+                }
+            };
             const toggleRespec = () => {
                 respecTarget.classList.toggle('auto-respec-hidden', !respecEnabled.checked);
                 if (respecTargetInput) {
@@ -992,8 +1004,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     respecHelp.hidden = !respecEnabled.checked;
                     respecHelp.classList.toggle('auto-stat-skill-hidden', !respecEnabled.checked);
                 }
+                if (respecTokenFirst) {
+                    respecTokenFirst.classList.toggle('auto-respec-hidden', !respecEnabled.checked);
+                    respecTokenFirstInput?.toggleAttribute('disabled', !respecEnabled.checked);
+                }
+                updateRespecHelp();
             };
             respecEnabled.addEventListener('change', toggleRespec);
+            respecTokenFirstInput?.addEventListener('change', updateRespecHelp);
             toggleRespec();
         }
 

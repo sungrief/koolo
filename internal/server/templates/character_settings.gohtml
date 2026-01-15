@@ -109,11 +109,13 @@
         font-size: 0.8rem;
     }
     .auto-stat-skill-header {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
         margin-bottom: 0px;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        width: 100%;
     }
     .auto-stat-skill-respec {
         display: contents;
@@ -126,20 +128,30 @@
         align-items: center;
         gap: 8px;
         min-height: 32px;
-        width: 100%;
+        flex: 1 1 0;
+        min-width: 0;
     }
     #autoRespecTargetRow {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         min-height: 32px;
+        flex-wrap: nowrap;
     }
-    #autoRespecTargetRow.auto-respec-hidden {
+    .auto-respec-hidden {
         visibility: hidden;
         pointer-events: none;
     }
     .auto-stat-skill-respec input[type="number"] {
         width: 120px;
+    }
+    .auto-respec-token-first {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 6px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
     }
     .auto-stat-skill-settings select {
         color-scheme: light;
@@ -192,8 +204,11 @@
             grid-template-columns: 28px 1fr 90px 72px;
         }
         .auto-stat-skill-header {
-            grid-template-columns: 1fr;
+            flex-wrap: wrap;
             gap: 8px;
+        }
+        .auto-stat-skill-header-item {
+            flex: 1 1 100%;
         }
     }
     </style>
@@ -339,17 +354,21 @@
                             <input type="checkbox" id="autoRespecEnabled" name="autoRespecEnabled" {{ if .Config.Character.AutoStatSkill.Respec.Enabled }}checked{{ end }} {{ if not .Config.Character.AutoStatSkill.Enabled }}disabled{{ end }}/>
                             Enable Auto Respec
                         </label>
-                            <label id="autoRespecTargetRow" class="auto-stat-skill-header-item {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}auto-respec-hidden{{ end }}">
-                                Target level:
-                                <input type="number" name="autoRespecTargetLevel" min="2" max="99" value="{{ .Config.Character.AutoStatSkill.Respec.TargetLevel }}" placeholder="e.g. 80" {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}disabled{{ end }}>
+                            <label id="autoRespecTokenFirstRow" class="auto-stat-skill-header-item auto-respec-token-first {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}auto-respec-hidden{{ end }}">
+                                <input type="checkbox" name="autoRespecTokenFirst" {{ if .Config.Character.AutoStatSkill.Respec.TokenFirst }}checked{{ end }} {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}disabled{{ end }}/>
+                                Token first
                             </label>
+                        <label id="autoRespecTargetRow" class="auto-stat-skill-header-item {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}auto-respec-hidden{{ end }}">
+                            Target level:
+                            <input type="number" name="autoRespecTargetLevel" min="0" max="99" value="{{ .Config.Character.AutoStatSkill.Respec.TargetLevel }}" placeholder="e.g. 80" {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}disabled{{ end }}>
+                        </label>
                         </div>
                     </div>
                     <small id="autoStatSkillHelp" class="auto-stat-skill-help {{ if not .Config.Character.AutoStatSkill.Enabled }}auto-stat-skill-hidden{{ end }}" {{ if not .Config.Character.AutoStatSkill.Enabled }}hidden{{ end }}>
-                        Skills and stats are allocated in the order shown. Drag the row number to change the order. Missing prerequisites are assigned automatically.
+                        Skills and stats allocated in order shown. Drag numbers to reorder. Missing skill prerequisites automatically assigned.
                     </small>
                     <small id="autoRespecHelp" class="auto-stat-skill-help {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}auto-stat-skill-hidden{{ end }}" {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}hidden{{ end }}>
-                        When the target level is reached, the character resets stats/skills and allocates the configured targets. It tries Akara first, then uses a token if that fails.
+                        At target level, resets and reallocates stats/skills. Tries Akara first, then uses a token if unavailable. Set target level to 0 or leave it blank to respec immediately.
                     </small>
                     <div id="autoStatSkillPanel">
                         <script>
