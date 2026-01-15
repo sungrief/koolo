@@ -341,6 +341,9 @@
                     <small id="autoStatSkillHelp" class="auto-stat-skill-help {{ if not .Config.Character.AutoStatSkill.Enabled }}auto-stat-skill-hidden{{ end }}" {{ if not .Config.Character.AutoStatSkill.Enabled }}hidden{{ end }}>
                         Skills and stats are allocated in the order shown. Drag the row number to change the order. Missing prerequisites are assigned automatically.
                     </small>
+                    <small id="autoRespecHelp" class="auto-stat-skill-help {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}auto-stat-skill-hidden{{ end }}" {{ if not .Config.Character.AutoStatSkill.Respec.Enabled }}hidden{{ end }}>
+                        When the target level is reached, the character resets stats/skills and allocates the configured targets. It tries Akara first, then uses a token if that fails.
+                    </small>
                     <div id="autoStatSkillPanel">
                         <script>
                             window.autoStatSkillPrereqs = {{ toJSON .SkillPrereqs }};

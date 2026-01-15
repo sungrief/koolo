@@ -981,10 +981,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (respecEnabled && respecTarget) {
             const respecTargetInput = respecTarget.querySelector('input[name="autoRespecTargetLevel"]');
+            const respecHelp = document.getElementById('autoRespecHelp');
             const toggleRespec = () => {
                 respecTarget.classList.toggle('auto-respec-hidden', !respecEnabled.checked);
                 if (respecTargetInput) {
                     respecTargetInput.disabled = !respecEnabled.checked;
+                }
+                if (respecHelp) {
+                    respecHelp.hidden = !respecEnabled.checked;
+                    respecHelp.classList.toggle('auto-stat-skill-hidden', !respecEnabled.checked);
                 }
             };
             respecEnabled.addEventListener('change', toggleRespec);
