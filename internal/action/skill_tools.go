@@ -31,6 +31,7 @@ func HasSkillPointsToUse() bool {
 
 func EnsureSkillPoints() error {
 	ctx := context.Get()
+	ctx.SetLastAction("EnsureSkillPoints")
 
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	if !isLevelingChar {
@@ -260,16 +261,19 @@ func EnsureSkillBindings() error {
 	ctx.SetLastAction("EnsureSkillBindings")
 
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
-	if !isLevelingChar {
-		return nil
-	}
 	// New: avoid opening skill UI on a brand-new character; this is where crashes happen.
 	clvl, _ := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
 	if clvl.Value <= 1 {
 		ctx.Logger.Debug("Level 1 character detected, skipping EnsureSkillBindings for now.")
 		return nil
 	}
-	mainSkill, skillsToBind := char.SkillsToBind()
+	var mainSkill skill.ID
+	var skillsToBind []skill.ID
+	if isLevelingChar {
+		mainSkill, skillsToBind = char.SkillsToBind()
+	} else {
+		skillsToBind = ctx.Char.CheckKeyBindings()
+	}
 
 	notBoundSkills := make([]skill.ID, 0, len(skillsToBind))
 	for _, sk := range skillsToBind {
@@ -385,7 +389,7 @@ func EnsureSkillBindings() error {
 		}
 		// Close the skill assignment menu if it was opened for binding F-keys
 		closeSkillMenu()
-	} else {
+	} else if isLevelingChar {
 		if _, found := ctx.Data.KeyBindings.KeyBindingForSkill(skill.FireBolt); !found {
 			if _, known := ctx.Data.PlayerUnit.Skills[skill.FireBolt]; !known {
 				ctx.Logger.Debug("Fire Bolt not learned; skipping Fire Bolt binding.")
@@ -416,20 +420,22 @@ func EnsureSkillBindings() error {
 		}
 	}
 
-	// Set left (main) skill
-	if legacyGraphics {
-		ctx.HID.Click(game.LeftButton, ui.MainSkillButtonXClassic, ui.MainSkillButtonYClassic)
-	} else {
-		ctx.HID.Click(game.LeftButton, ui.MainSkillButtonX, ui.MainSkillButtonY)
-	}
-	utils.Sleep(300) // Give time for the main skill assignment UI to open
+	if isLevelingChar {
+		// Set left (main) skill
+		if legacyGraphics {
+			ctx.HID.Click(game.LeftButton, ui.MainSkillButtonXClassic, ui.MainSkillButtonYClassic)
+		} else {
+			ctx.HID.Click(game.LeftButton, ui.MainSkillButtonX, ui.MainSkillButtonY)
+		}
+		utils.Sleep(300) // Give time for the main skill assignment UI to open
 
-	skillPosition, found := calculateSkillPositionInUI(true, mainSkill)
-	if found {
-		ctx.HID.Click(game.LeftButton, skillPosition.X, skillPosition.Y)
-		utils.Sleep(300)
-	} else {
-		ctx.Logger.Error(fmt.Sprintf("Failed to find UI position for main skill %v (ID: %d)", skill.SkillNames[mainSkill], mainSkill))
+		skillPosition, found := calculateSkillPositionInUI(true, mainSkill)
+		if found {
+			ctx.HID.Click(game.LeftButton, skillPosition.X, skillPosition.Y)
+			utils.Sleep(300)
+		} else {
+			ctx.Logger.Error(fmt.Sprintf("Failed to find UI position for main skill %v (ID: %d)", skill.SkillNames[mainSkill], mainSkill))
+		}
 	}
 
 	return nil

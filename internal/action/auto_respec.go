@@ -62,15 +62,23 @@ func AutoRespecIfNeeded() error {
 	beforeStatPoints := getStatValue(stat.StatPoints)
 	beforeSkillPoints := getStatValue(stat.SkillPoints)
 
-	tokenUsed, tokenErr := tryConsumeRespecToken()
-	if tokenErr != nil {
-		ctx.Logger.Warn("Auto respec: token use failed", "error", tokenErr)
+	if err := respecAtAkara(); err != nil {
+		ctx.Logger.Warn("Auto respec: Akara respec failed", "error", err)
 	}
 
-	if !tokenUsed {
-		if err := respecAtAkara(); err != nil {
-			ctx.Logger.Warn("Auto respec: Akara respec failed", "error", err)
-			return err
+	ctx.RefreshGameData()
+	afterAkaraStatPoints := getStatValue(stat.StatPoints)
+	afterAkaraSkillPoints := getStatValue(stat.SkillPoints)
+	usedAkara := afterAkaraStatPoints > beforeStatPoints || afterAkaraSkillPoints > beforeSkillPoints
+
+	if !usedAkara {
+		tokenUsed, tokenErr := tryConsumeRespecToken()
+		if tokenErr != nil {
+			ctx.Logger.Warn("Auto respec: token use failed", "error", tokenErr)
+		}
+		if !tokenUsed {
+			ctx.Logger.Warn("Auto respec: no respec method succeeded")
+			return nil
 		}
 	}
 
@@ -80,10 +88,6 @@ func AutoRespecIfNeeded() error {
 	if afterStatPoints <= beforeStatPoints && afterSkillPoints <= beforeSkillPoints {
 		ctx.Logger.Warn("Auto respec: no point increase detected", "statBefore", beforeStatPoints, "statAfter", afterStatPoints, "skillBefore", beforeSkillPoints, "skillAfter", afterSkillPoints)
 		return nil
-	}
-
-	if err := EnsureSkillBindings(); err != nil {
-		ctx.Logger.Warn("Auto respec: failed to rebind skills", "error", err)
 	}
 
 	ctx.CharacterCfg.Character.AutoStatSkill.Respec.Applied = true

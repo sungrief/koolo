@@ -385,6 +385,19 @@ func (s *SinglePlayerSupervisor) Start() error {
 					}
 
 					currentPos := s.bot.ctx.Data.PlayerUnit.Position
+					lastAction := s.bot.ctx.ContextDebug[s.bot.ctx.ExecutionPriority].LastAction
+					isAllocating := lastAction == "AutoRespecIfNeeded" ||
+						lastAction == "EnsureStatPoints" ||
+						lastAction == "EnsureSkillPoints" ||
+						lastAction == "EnsureSkillBindings" ||
+						lastAction == "AllocateStatPointPacket" ||
+						lastAction == "LearnSkillPacket"
+					if isAllocating && (s.bot.ctx.Data.OpenMenus.Character || s.bot.ctx.Data.OpenMenus.SkillTree || s.bot.ctx.Data.OpenMenus.Inventory) {
+						stuckSince = time.Time{}
+						droppedMouseItem = false
+						lastPosition = currentPos
+						continue
+					}
 					if currentPos.X == lastPosition.X && currentPos.Y == lastPosition.Y {
 						if stuckSince.IsZero() {
 							stuckSince = time.Now()

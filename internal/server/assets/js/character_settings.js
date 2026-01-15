@@ -962,8 +962,13 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         };
 
+        const helpText = document.getElementById('autoStatSkillHelp');
         const togglePanel = () => {
             panel.style.display = enabledCheckbox.checked ? 'block' : 'none';
+            if (helpText) {
+                helpText.hidden = !enabledCheckbox.checked;
+                helpText.classList.toggle('auto-stat-skill-hidden', !enabledCheckbox.checked);
+            }
             if (respecEnabled) {
                 respecEnabled.disabled = !enabledCheckbox.checked;
                 if (!enabledCheckbox.checked) {
@@ -1184,6 +1189,32 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (excludeQuestSkills) {
             excludeQuestSkills.addEventListener('change', recalcTotals);
+        }
+
+        if (window.Sortable) {
+            const handleClass = '.auto-stat-skill-index';
+            if (statList) {
+                new Sortable(statList, {
+                    animation: 150,
+                    handle: handleClass,
+                    onEnd: function () {
+                        updateStatTargetConstraints();
+                        updateSkillTargetConstraints();
+                        recalcTotals();
+                    }
+                });
+            }
+            if (skillList) {
+                new Sortable(skillList, {
+                    animation: 150,
+                    handle: handleClass,
+                    onEnd: function () {
+                        updateStatTargetConstraints();
+                        updateSkillTargetConstraints();
+                        recalcTotals();
+                    }
+                });
+            }
         }
 
         if (mainCharacterClassSelect) {

@@ -154,6 +154,7 @@ func PreRun(firstRun bool) error {
 		AutoRespecIfNeeded()
 		EnsureStatPoints()
 		EnsureSkillPoints()
+		EnsureSkillBindings()
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {

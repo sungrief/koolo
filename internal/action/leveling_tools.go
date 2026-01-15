@@ -162,6 +162,7 @@ func dropItemFromInventoryUI(i data.Item) error {
 
 func EnsureStatPoints() error {
 	ctx := context.Get()
+	ctx.SetLastAction("EnsureStatPoints")
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	if !isLevelingChar {
 		if !ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
