@@ -184,6 +184,7 @@ func EnsureSkillBindings() error {
 		menuIsMain = bindOnLeft
 	}
 
+	preferLeftBindings := mainSkill != skill.AttackSkill
 	resolveBindOnLeft := func(skillID skill.ID) (bool, bool) {
 		if skillID == skill.TomeOfTownPortal {
 			return false, true
@@ -194,6 +195,8 @@ func EnsureSkillBindings() error {
 			return false, false
 		}
 		switch {
+		case skillDesc.LeftSkill && skillDesc.RightSkill:
+			return preferLeftBindings, true
 		case skillDesc.LeftSkill:
 			return true, true
 		case skillDesc.RightSkill:
