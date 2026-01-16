@@ -339,6 +339,18 @@ func spendStatPoint(statID stat.ID, useBulk bool) int {
 
 	afterPoints, _ := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 	spent := beforePoints.Value - afterPoints.Value
+	if spent == 0 && useBulk {
+		ctx.RefreshGameData()
+		afterPoints, _ = ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
+		spent = beforePoints.Value - afterPoints.Value
+		if spent == 0 {
+			ctx.HID.Click(game.LeftButton, statBtnPosition.X, statBtnPosition.Y)
+			utils.Sleep(300)
+			ctx.RefreshGameData()
+			afterPoints, _ = ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
+			spent = beforePoints.Value - afterPoints.Value
+		}
+	}
 	if spent < 0 {
 		return 0
 	}

@@ -283,6 +283,22 @@ func spendSkillPoint(skillID skill.ID, useBulk bool) int {
 	utils.Sleep(300)
 	afterPoints, _ := ctx.Data.PlayerUnit.FindStat(stat.SkillPoints, 0)
 	spent := beforePoints.Value - afterPoints.Value
+	if spent == 0 && useBulk {
+		ctx.RefreshGameData()
+		afterPoints, _ = ctx.Data.PlayerUnit.FindStat(stat.SkillPoints, 0)
+		spent = beforePoints.Value - afterPoints.Value
+		if spent == 0 {
+			if ctx.Data.LegacyGraphics {
+				ctx.HID.Click(game.LeftButton, uiSkillColumnPositionLegacy[skillDesc.Column-1], uiSkillRowPositionLegacy[skillDesc.Row-1])
+			} else {
+				ctx.HID.Click(game.LeftButton, uiSkillColumnPosition[skillDesc.Column-1], uiSkillRowPosition[skillDesc.Row-1])
+			}
+			utils.Sleep(300)
+			ctx.RefreshGameData()
+			afterPoints, _ = ctx.Data.PlayerUnit.FindStat(stat.SkillPoints, 0)
+			spent = beforePoints.Value - afterPoints.Value
+		}
+	}
 	if spent < 0 {
 		return 0
 	}

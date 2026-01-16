@@ -120,6 +120,11 @@
     .auto-stat-skill-respec {
         display: contents;
     }
+    .auto-stat-skill-respec.auto-stat-skill-hidden {
+        display: contents;
+        visibility: hidden;
+        pointer-events: none;
+    }
     .auto-stat-skill-respec label {
         margin: 0;
     }
@@ -349,7 +354,7 @@
                             <input type="checkbox" id="autoStatSkillEnabled" name="autoStatSkillEnabled" {{ if .Config.Character.AutoStatSkill.Enabled }}checked{{ end }}/>
                             Enable Auto Stat & Skill
                         </label>
-                        <div class="auto-stat-skill-respec">
+                        <div id="autoStatSkillRespec" class="auto-stat-skill-respec {{ if not .Config.Character.AutoStatSkill.Enabled }}auto-stat-skill-hidden{{ end }}">
                         <label class="auto-stat-skill-header-item">
                             <input type="checkbox" id="autoRespecEnabled" name="autoRespecEnabled" {{ if .Config.Character.AutoStatSkill.Respec.Enabled }}checked{{ end }} {{ if not .Config.Character.AutoStatSkill.Enabled }}disabled{{ end }}/>
                             Enable Auto Respec
@@ -427,7 +432,7 @@
                                 </div>
                                 <label class="auto-stat-skill-checkbox">
                                     <input type="checkbox" name="autoStatSkillExcludeQuestStats" id="autoStatSkillExcludeQuestStats" {{ if .Config.Character.AutoStatSkill.ExcludeQuestStats }}checked{{ end }}/>
-                                    Exclude quest stat points
+                                    Exclude quest points from level estimate <span id="autoStatSkillExcludeQuestStatsDifficulty"></span>
                                 </label>
                             </div>
                             <div>
@@ -480,7 +485,7 @@
                                 </div>
                                 <label class="auto-stat-skill-checkbox">
                                     <input type="checkbox" name="autoStatSkillExcludeQuestSkills" id="autoStatSkillExcludeQuestSkills" {{ if .Config.Character.AutoStatSkill.ExcludeQuestSkills }}checked{{ end }}/>
-                                    Exclude quest skill points
+                                    Exclude quest points from level estimate <span id="autoStatSkillExcludeQuestSkillsDifficulty"></span>
                                 </label>
                             </div>
                         </div>

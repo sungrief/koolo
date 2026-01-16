@@ -837,6 +837,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const panel = document.getElementById('autoStatSkillPanel');
         const respecEnabled = document.getElementById('autoRespecEnabled');
         const respecTarget = document.getElementById('autoRespecTargetRow');
+        const respecContainer = document.getElementById('autoStatSkillRespec');
         const statList = document.getElementById('autoStatSkillStats');
         const skillList = document.getElementById('autoStatSkillSkills');
         const statTemplate = document.getElementById('autoStatSkillStatRowTemplate');
@@ -845,6 +846,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const skillTotal = document.getElementById('autoStatSkillSkillTotal');
         const excludeQuestStats = document.getElementById('autoStatSkillExcludeQuestStats');
         const excludeQuestSkills = document.getElementById('autoStatSkillExcludeQuestSkills');
+        const questStatDifficulty = document.getElementById('autoStatSkillExcludeQuestStatsDifficulty');
+        const questSkillDifficulty = document.getElementById('autoStatSkillExcludeQuestSkillsDifficulty');
         let skillPrereqs = window.autoStatSkillPrereqs || {};
         let skillOptionsCache = null;
 
@@ -875,10 +878,39 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         };
 
+        const formatDifficultyLabel = (difficulty) => {
+            switch (difficulty) {
+                case 'nightmare':
+                    return 'Nightmare';
+                case 'hell':
+                    return 'Hell';
+                case 'normal':
+                default:
+                    if (!difficulty) {
+                        return 'Normal';
+                    }
+                    return difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+            }
+        };
+
+        const updateQuestDifficultyLabels = () => {
+            const difficultySelect = document.getElementById('gameDifficulty');
+            const difficulty = difficultySelect ? difficultySelect.value : 'normal';
+            const label = `(${formatDifficultyLabel(difficulty)})`;
+            if (questStatDifficulty) {
+                questStatDifficulty.textContent = label;
+            }
+            if (questSkillDifficulty) {
+                questSkillDifficulty.textContent = label;
+            }
+        };
+
         const recalcTotals = () => {
             const questBonus = getQuestBonusPoints();
             const questStatOffset = excludeQuestStats && excludeQuestStats.checked ? questBonus.stat : 0;
             const questSkillOffset = excludeQuestSkills && excludeQuestSkills.checked ? questBonus.skill : 0;
+            const questStatLabel = excludeQuestStats && excludeQuestStats.checked ? '(quest excluded)' : '(quest included)';
+            const questSkillLabel = excludeQuestSkills && excludeQuestSkills.checked ? '(quest excluded)' : '(quest included)';
 
             if (statTotal) {
                 const rows = panel.querySelectorAll('.auto-stat-skill-row');
@@ -910,7 +942,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
                 const statLevelPoints = Math.max(0, statRequiredPoints - questStatOffset);
                 const statLevel = statLevelPoints > 0 ? 1 + Math.ceil(statLevelPoints / 5) : 1;
-                statTotal.textContent = `Total: ${statTargetSum} (LV ${statLevel})`;
+                statTotal.textContent = `Total: ${statTargetSum} | Estimated level ${questStatLabel}: ${statLevel}`;
             }
             if (skillTotal) {
                 const rows = panel.querySelectorAll('.auto-stat-skill-row');
@@ -959,22 +991,29 @@ document.addEventListener('DOMContentLoaded', function () {
                 const totalSkillPoints = skillSum + prereqSet.size;
                 const skillLevelPoints = Math.max(0, totalSkillPoints - questSkillOffset);
                 const skillLevel = skillLevelPoints > 0 ? 1 + skillLevelPoints : 1;
-                skillTotal.textContent = `Total: ${totalSkillPoints} (LV ${skillLevel})`;
+                skillTotal.textContent = `Total: ${totalSkillPoints} | Estimated level ${questSkillLabel}: ${skillLevel}`;
             }
         };
 
         const helpText = document.getElementById('autoStatSkillHelp');
+        let toggleRespec = null;
         const togglePanel = () => {
             panel.style.display = enabledCheckbox.checked ? 'block' : 'none';
             if (helpText) {
                 helpText.hidden = !enabledCheckbox.checked;
                 helpText.classList.toggle('auto-stat-skill-hidden', !enabledCheckbox.checked);
             }
+            if (respecContainer) {
+                respecContainer.classList.toggle('auto-stat-skill-hidden', !enabledCheckbox.checked);
+            }
             if (respecEnabled) {
                 respecEnabled.disabled = !enabledCheckbox.checked;
                 if (!enabledCheckbox.checked) {
                     respecEnabled.checked = false;
                 }
+            }
+            if (toggleRespec) {
+                toggleRespec();
             }
         };
         enabledCheckbox.addEventListener('change', togglePanel);
@@ -995,7 +1034,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     respecHelp.textContent = "At target level, resets and reallocates stats/skills. Tries Akara first, then uses a token if unavailable. ⚠️ Set target level to 0 or leave it blank to respec immediately.";
                 }
             };
-            const toggleRespec = () => {
+            toggleRespec = () => {
                 respecTarget.classList.toggle('auto-respec-hidden', !respecEnabled.checked);
                 if (respecTargetInput) {
                     respecTargetInput.disabled = !respecEnabled.checked;
@@ -1054,6 +1093,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 applySkillOptionsToSelect(templateSelect, options, '');
             }
             updateSkillTargetConstraints();
+            updateSkillOptionsAvailability();
             recalcTotals();
         };
 
@@ -1097,6 +1137,60 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         };
 
+        const collectSkillMaxTargets = () => {
+            const maxTargets = {};
+            const rows = panel.querySelectorAll('.auto-stat-skill-row');
+            rows.forEach(row => {
+                const skillSelect = row.querySelector('select[name="autoStatSkillSkill[]"]');
+                const targetInput = row.querySelector('input[name="autoStatSkillSkillTarget[]"]');
+                if (!skillSelect || !targetInput) {
+                    return;
+                }
+                const skillKey = (skillSelect.value || '').trim();
+                const value = parseInt(targetInput.value, 10);
+                if (!skillKey || Number.isNaN(value) || value <= 0) {
+                    return;
+                }
+                if (!(skillKey in maxTargets) || value > maxTargets[skillKey]) {
+                    maxTargets[skillKey] = value;
+                }
+            });
+            return maxTargets;
+        };
+
+        const updateSkillOptionsAvailability = () => {
+            if (!skillOptionsCache) {
+                return;
+            }
+            const maxTargets = collectSkillMaxTargets();
+            const hiddenSkills = new Set();
+            Object.keys(maxTargets).forEach(skillKey => {
+                if (maxTargets[skillKey] >= 20) {
+                    hiddenSkills.add(skillKey);
+                }
+            });
+            const filterOptions = (currentValue) => skillOptionsCache.filter(opt => {
+                const key = opt?.key ?? opt?.Key ?? '';
+                const name = opt?.name ?? opt?.Name ?? '';
+                if (!name) {
+                    return false;
+                }
+                if (hiddenSkills.has(key) && key !== currentValue) {
+                    return false;
+                }
+                return true;
+            });
+            const selects = panel.querySelectorAll('select[name="autoStatSkillSkill[]"]');
+            selects.forEach(select => {
+                const currentValue = select.value;
+                applySkillOptionsToSelect(select, filterOptions(currentValue), currentValue);
+            });
+            if (skillTemplate) {
+                const templateSelect = skillTemplate.content.querySelector('select[name="autoStatSkillSkill[]"]');
+                applySkillOptionsToSelect(templateSelect, filterOptions(''), '');
+            }
+        };
+
         const updateStatTargetConstraints = () => {
             const rows = panel.querySelectorAll('.auto-stat-skill-row');
             const lastTargets = {};
@@ -1137,12 +1231,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     targetInput.removeAttribute('min');
                     return;
                 }
-                const minValue = lastTargets[skillKey] || 1;
+                const previousTarget = lastTargets[skillKey] || 0;
+                let minValue = previousTarget > 0 ? previousTarget + 1 : 1;
+                if (minValue > 20) {
+                    minValue = 20;
+                }
                 targetInput.min = minValue;
                 targetInput.dataset.minValue = String(minValue);
                 const nextValue = parseInt(targetInput.value, 10);
                 if (!Number.isNaN(nextValue) && nextValue > 0) {
-                    lastTargets[skillKey] = nextValue;
+                    lastTargets[skillKey] = Math.min(20, Math.max(nextValue, minValue));
                 } else {
                     lastTargets[skillKey] = minValue;
                 }
@@ -1162,6 +1260,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (kind === 'skill') {
                 addRow(skillList, skillTemplate);
                 updateSkillTargetConstraints();
+                updateSkillOptionsAvailability();
                 recalcTotals();
             }
         });
@@ -1190,6 +1289,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 updateStatTargetConstraints();
                 updateSkillTargetConstraints();
+                updateSkillOptionsAvailability();
                 recalcTotals();
             }
         });
@@ -1201,6 +1301,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 updateStatTargetConstraints();
                 updateSkillTargetConstraints();
+                updateSkillOptionsAvailability();
                 recalcTotals();
             }
         });
@@ -1208,6 +1309,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (event.target.matches('select[name="autoStatSkillStat[]"], select[name="autoStatSkillSkill[]"]')) {
                 updateStatTargetConstraints();
                 updateSkillTargetConstraints();
+                updateSkillOptionsAvailability();
                 recalcTotals();
                 return;
             }
@@ -1219,6 +1321,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 updateStatTargetConstraints();
                 updateSkillTargetConstraints();
+                updateSkillOptionsAvailability();
                 recalcTotals();
             }
         });
@@ -1249,6 +1352,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     onEnd: function () {
                         updateStatTargetConstraints();
                         updateSkillTargetConstraints();
+                        updateSkillOptionsAvailability();
                         recalcTotals();
                     }
                 });
@@ -1261,9 +1365,18 @@ document.addEventListener('DOMContentLoaded', function () {
         if (characterClassSelect) {
             characterClassSelect.addEventListener('change', recalcTotals);
         }
+        const difficultySelect = document.getElementById('gameDifficulty');
+        if (difficultySelect) {
+            difficultySelect.addEventListener('change', function () {
+                updateQuestDifficultyLabels();
+                recalcTotals();
+            });
+        }
 
         updateStatTargetConstraints();
         updateSkillTargetConstraints();
+        updateSkillOptionsAvailability();
+        updateQuestDifficultyLabels();
         recalcTotals();
 
         if (characterClassSelect && characterClassSelect.value) {
