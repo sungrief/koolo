@@ -1368,6 +1368,33 @@ func UnEquipMercenary() error {
 	return nil
 }
 
+// remove shield first run if under 31
+func RemoveShield() {
+	ctx := context.Get()
+
+	if ctx.CharacterCfg.Character.Class != "barb_leveling" {
+		return
+	}
+
+	lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+	if !found || lvl.Value >= 31 {
+		return
+	}
+
+	rightEquipped := GetEquippedItem(ctx.Data.Inventory, item.LocRightArm)
+	if rightEquipped.UnitID == 0 || !slices.Contains(shieldTypes, string(rightEquipped.Desc().Type)) {
+		return
+	}
+
+	ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+	utils.Sleep(500)
+	rightArmCoords, _ := getBodyLocationScreenCoords(item.LocRightArm)
+	ctx.HID.ClickWithModifier(game.LeftButton, rightArmCoords.X, rightArmCoords.Y, game.ShiftKey)
+	utils.Sleep(500)
+	step.CloseAllMenus()
+	*ctx.Data = ctx.GameReader.GetData()
+}
+
 // Special Barb Logic
 func barblogic(newItem data.Item, bodyloc item.LocationType) bool {
 	ctx := context.Get()

@@ -91,8 +91,13 @@ func PreRun(firstRun bool) error {
 	// Just to make sure messages like TZ change or public game spam arent on the way
 	ClearMessages()
 	RefillBeltFromInventory()
-	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 
+	// barb shield remove under 31
+	if firstRun {
+		RemoveShield()
+	}
+
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	if firstRun && !isLevelingChar {
 		Stash(false)
 	}
