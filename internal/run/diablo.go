@@ -489,36 +489,53 @@ func (d *Diablo) goToAct5() error {
 	d.ctx.RefreshGameData()
 	utils.Sleep(1000)
 
-	d.trySkipCinematic()
-
+	d.ctx.RefreshGameData()
 	if d.ctx.Data.PlayerUnit.Area.Act() != 5 {
 		harrogathPortal, found := d.ctx.Data.Objects.FindOne(object.LastLastPortal)
 		if found {
-			err = action.InteractObject(harrogathPortal, func() bool {
+			if err = action.InteractObject(harrogathPortal, func() bool {
 				utils.Sleep(100)
 				ctx := context.Get()
-				return !ctx.Manager.InGame() || d.ctx.Data.PlayerUnit.Area.Act() == 5
-			})
-
-			if err != nil {
+				isInCinematic := ctx.Data.OpenMenus.Cinematic
+				isInAct5 := ctx.Data.PlayerUnit.Area.Act() == 5
+				return isInCinematic || isInAct5
+			}); err != nil {
 				return err
 			}
-
-			d.trySkipCinematic()
+		} else {
+			return errors.New("failed to find Harrogath portal")
 		}
-		return errors.New("failed to go to act 5")
+
+	}
+
+	timeout := time.Second * 20
+	startTime := time.Now()
+	for time.Since(startTime) < timeout {
+		d.ctx.RefreshGameData()
+
+		if d.ctx.Data.OpenMenus.Cinematic {
+			d.skipCinematic()
+			continue
+		}
+
+		break
+	}
+
+	utils.Sleep(2000)
+
+	// final check
+	d.ctx.RefreshGameData()
+	if d.ctx.Data.OpenMenus.Cinematic {
+		return errors.New("failed to skip act 5 cinematic")
 	}
 
 	return nil
 }
 
-func (d Diablo) trySkipCinematic() {
-	if !d.ctx.Manager.InGame() {
-		// Skip Cinematics
-		utils.Sleep(2000)
-		action.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(2000)
-		action.HoldKey(win.VK_SPACE, 2000)
-		utils.Sleep(2000)
-	}
+func (d Diablo) skipCinematic() {
+	utils.Sleep(2000)
+	action.HoldKey(win.VK_SPACE, 2000)
+	utils.Sleep(2000)
+	action.HoldKey(win.VK_SPACE, 2000)
+	utils.Sleep(2000)
 }
