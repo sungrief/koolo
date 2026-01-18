@@ -653,10 +653,6 @@
                     Use Classic Mode (Legacy Graphics)
                 </label>
                 <label>
-                    <input id="close_mini_panel" type="checkbox" name="close_mini_panel" {{ if .Config.CloseMiniPanel }}checked{{ end }}/>
-                    Close the mini panel at game start (Legacy Graphics)
-                </label>
-                <label>
                     <input id="hide_portraits" type="checkbox" name="hide_portraits" {{ if .Config.HidePortraits }}checked{{ end }}/>
                     Hide Portraits
                 </label>
@@ -1338,12 +1334,10 @@
                 </label>
                 {{ end }}
             </div>
-            <!-- New field: Jewels to keep -->
             <label>
-                Jewels to keep:
+                Jewels to keep in stash for crafting:
                 <input type="number" name="jewelsToKeep" min="1"
                     value="{{ .Config.CubeRecipes.JewelsToKeep }}" />
-                <small>Number of magic jewels to stash for crafting</small>
             </label>
             <h3 id="back-to-town-settings"><i class="bi bi-house-door section-icon" aria-hidden="true"></i>Back to Town Settings:</h3>
             <fieldset class="grid">

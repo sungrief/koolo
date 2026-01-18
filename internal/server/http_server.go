@@ -1479,7 +1479,6 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		}
 		cfg.KillD2OnStop = values.Has("kill_d2_process")
 		cfg.ClassicMode = values.Has("classic_mode")
-		cfg.CloseMiniPanel = values.Has("close_mini_panel")
 		cfg.HidePortraits = values.Has("hide_portraits")
 	}
 
@@ -2179,7 +2178,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.CommandLineArgs = r.Form.Get("commandLineArgs")
 		cfg.KillD2OnStop = r.Form.Has("kill_d2_process")
 		cfg.ClassicMode = r.Form.Has("classic_mode")
-		cfg.CloseMiniPanel = r.Form.Has("close_mini_panel")
 		cfg.HidePortraits = r.Form.Has("hide_portraits")
 
 		// Health config
