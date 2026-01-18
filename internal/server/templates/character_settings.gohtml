@@ -1024,10 +1024,6 @@
                     Use Classic Mode (Legacy Graphics)
                 </label>
                 <label>
-                    <input id="close_mini_panel" type="checkbox" name="close_mini_panel" {{ if .Config.CloseMiniPanel }}checked{{ end }}/>
-                    Close the mini panel at game start (Legacy Graphics)
-                </label>
-                <label>
                     <input id="hide_portraits" type="checkbox" name="hide_portraits" {{ if .Config.HidePortraits }}checked{{ end }}/>
                     Hide Portraits
                 </label>
@@ -1546,6 +1542,11 @@
                 <input type="checkbox" name="gamblingEnabled" {{ if .Config.Gambling.Enabled }}checked{{ end }}/>
                 Enabled
             </label>
+            <label>
+                Items to gamble (comma-separated):
+                <input type="text" name="gamblingItems" value="{{ range $i, $v := .Config.Gambling.Items }}{{ if gt $i 0 }}, {{ end }}{{$v}}{{ end }}" placeholder="coronet, circlet, amulet"/>
+                <small>Example: coronet, circlet, amulet</small>
+            </label>
             <h3 id="muling-settings"><i class="bi bi-box-seam section-icon" aria-hidden="true"></i>Muling</h3>
             <p>Configure automatic muling to transfer items from this character to mule characters. Items will be moved from shared stash tabs (2-4) to the mule's private stash (tab 1).</p>
             <label>
@@ -1709,12 +1710,10 @@
                 </label>
                 {{ end }}
             </div>
-            <!-- New field: Jewels to keep -->
             <label>
-                Jewels to keep:
+                Jewels to keep in stash for crafting:
                 <input type="number" name="jewelsToKeep" min="1"
                     value="{{ .Config.CubeRecipes.JewelsToKeep }}" />
-                <small>Number of magic jewels to stash for crafting</small>
             </label>
             <h3 id="back-to-town-settings"><i class="bi bi-house-door section-icon" aria-hidden="true"></i>Back to Town Settings:</h3>
             <fieldset class="grid">

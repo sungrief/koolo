@@ -21,13 +21,11 @@ func SwitchToLegacyMode() {
 
 		ctx.Logger.Debug("Switching to legacy mode...")
 		ctx.HID.PressKey(ctx.Data.KeyBindings.LegacyToggle.Key1[0])
-		utils.Sleep(500) // Add small delay to allow the game to switch
+		utils.Sleep(1250) // delay to ensure legacy gfx is activ before closing mini panel
 
-		// Close the mini panel if option is enabled
-		if ctx.CharacterCfg.CloseMiniPanel {
-			utils.Sleep(100)
-			ctx.HID.Click(game.LeftButton, ui.CloseMiniPanelClassicX, ui.CloseMiniPanelClassicY)
-			utils.Sleep(100)
-		}
+		ctx.Logger.Debug("Closing mini panel...")
+		ctx.HID.Click(game.LeftButton, ui.CloseMiniPanelClassicX, ui.CloseMiniPanelClassicY)
+		utils.Sleep(100)
+
 	}
 }

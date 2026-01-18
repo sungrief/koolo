@@ -11,6 +11,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
@@ -420,12 +421,23 @@ func (s *SinglePlayerSupervisor) Start() error {
 						stuckDuration := time.Since(stuckSince)
 
 						// After 90 seconds stuck, try dropping mouse item
-						if stuckDuration > 90*time.Second && !droppedMouseItem {
-							s.bot.ctx.Logger.Warn("Player stuck for 90 seconds. Attempting to drop any item on cursor...")
-							// Click to drop any item that might be stuck on cursor
-							s.bot.ctx.HID.Click(game.LeftButton, 500, 500)
-							droppedMouseItem = true
-							s.bot.ctx.Logger.Info("Clicked to drop mouse item (if any). Continuing to monitor for movement...")
+						if stuckDuration > 90*time.Second {
+							if len(s.bot.ctx.Data.Inventory.ByLocation(item.LocationCursor)) > 0 && !droppedMouseItem {
+								s.bot.ctx.Logger.Warn("Player stuck for 90 seconds - Clicking to drop mouse item - Continuing to monitor for movement...")
+								s.bot.ctx.HID.Click(game.LeftButton, 500, 500)
+								droppedMouseItem = true
+							} else if s.bot.ctx.IsAllocatingStatsOrSkills.Load() {
+								// We don't want a false positive on being stuck when the character is respeccing
+								s.bot.ctx.Logger.Debug("Player stuck for 90 seconds - Currently respeccing - letting it continue.")
+								stuckSince = time.Now()
+							} else if droppedMouseItem {
+								s.bot.ctx.Logger.Warn("Player still stuck after dropping the item - Forcing client restart.")
+								if err := s.KillClient(); err != nil {
+									s.bot.ctx.Logger.Error(fmt.Sprintf("Activity monitor failed to kill client: %v", err))
+								}
+								runCancel()
+								return
+							}
 						}
 
 						// After 3 minutes stuck, force restart

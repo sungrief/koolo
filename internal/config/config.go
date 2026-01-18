@@ -17,7 +17,6 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
-	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	cp "github.com/otiai10/copy"
 
@@ -214,7 +213,6 @@ type CharacterCfg struct {
 	CommandLineArgs      string `yaml:"commandLineArgs"`
 	KillD2OnStop         bool   `yaml:"killD2OnStop"`
 	ClassicMode          bool   `yaml:"classicMode"`
-	CloseMiniPanel       bool   `yaml:"closeMiniPanel"`
 	UseCentralizedPickit bool   `yaml:"useCentralizedPickit"`
 	HidePortraits        bool   `yaml:"hidePortraits"`
 	AutoStart            bool   `yaml:"autoStart"`
@@ -526,8 +524,8 @@ type CharacterCfg struct {
 		CompanionGamePassword string `yaml:"companionGamePassword"`
 	} `yaml:"companion"`
 	Gambling struct {
-		Enabled bool        `yaml:"enabled"`
-		Items   []item.Name `yaml:"items"`
+		Enabled bool     `yaml:"enabled"`
+		Items   []string `yaml:"items,omitempty"`
 	} `yaml:"gambling"`
 	Muling struct {
 		Enabled      bool     `yaml:"enabled"`
@@ -655,6 +653,10 @@ func Load() error {
 
 		if charCfg.Game.MaxFailedMenuAttempts == 0 {
 			charCfg.Game.MaxFailedMenuAttempts = 10
+		}
+
+		if len(charCfg.Gambling.Items) == 0 {
+			charCfg.Gambling.Items = []string{"coronet", "circlet", "amulet"}
 		}
 
 		var pickitPath string

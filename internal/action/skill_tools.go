@@ -37,6 +37,10 @@ func EnsureSkillPoints() error {
 			return nil
 		}
 	}
+
+	ctx.IsAllocatingStatsOrSkills.Store(true)
+	defer ctx.IsAllocatingStatsOrSkills.Store(false)
+
 	// New: avoid opening skill UI on a brand-new character; this is where crashes happen.
 	clvl, _ := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
 	if clvl.Value <= 1 {
@@ -368,6 +372,7 @@ func EnsureSkillBindings() error {
 		menuOpen = false
 	}
 
+	preferLeftBindings := mainSkill != skill.AttackSkill
 	resolveBindOnLeft := func(skillID skill.ID) (bool, bool) {
 		if skillID == skill.TomeOfTownPortal {
 			return false, true
@@ -378,6 +383,8 @@ func EnsureSkillBindings() error {
 			return false, false
 		}
 		switch {
+		case skillDesc.LeftSkill && skillDesc.RightSkill:
+			return preferLeftBindings, true
 		case skillDesc.LeftSkill:
 			return true, true
 		case skillDesc.RightSkill:

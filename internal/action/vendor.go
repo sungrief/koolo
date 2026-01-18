@@ -29,6 +29,14 @@ func VendorRefill(opts VendorRefillOpts) (err error) {
 	ctx := botCtx.Get()
 	ctx.SetLastAction("VendorRefill")
 
+	if !opts.ForceRefill {
+		if ctx.Data.PlayerUnit.TotalPlayerGold() <= 100 && ctx.Data.IsLevelingCharacter {
+			if lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); found && lvl.Value <= 1 {
+				return nil
+			}
+		}
+	}
+
 	// Check if we should skip vendor visit
 	hasJunkToSell := false
 	if opts.SellJunk {
@@ -135,12 +143,6 @@ type VendorItemRequest struct {
 func shouldVisitVendor() bool {
 	ctx := botCtx.Get()
 	ctx.SetLastStep("shouldVisitVendor")
-
-	if ctx.Data.PlayerUnit.TotalPlayerGold() <= 100 && ctx.Data.IsLevelingCharacter {
-		if lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); found && lvl.Value <= 1 {
-			return false
-		}
-	}
 
 	if len(town.ItemsToBeSold()) > 0 {
 		return true
