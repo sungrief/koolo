@@ -167,6 +167,9 @@ func EnsureStatPoints() error {
 		return nil
 	}
 
+	ctx.IsAllocatingStatsOrSkills.Store(true)
+	defer ctx.IsAllocatingStatsOrSkills.Store(false)
+
 	statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 	if !hasUnusedPoints || statPoints.Value == 0 {
 		return nil

@@ -33,6 +33,10 @@ func EnsureSkillPoints() error {
 	if !isLevelingChar {
 		return nil
 	}
+
+	ctx.IsAllocatingStatsOrSkills.Store(true)
+	defer ctx.IsAllocatingStatsOrSkills.Store(false)
+
 	// New: avoid opening skill UI on a brand-new character; this is where crashes happen.
 	clvl, _ := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
 	if clvl.Value <= 1 {
