@@ -690,7 +690,7 @@ func (ls LevelingSequence) setupLevelOneConfig() {
 	ls.ctx.CharacterCfg.Character.UseMerc = false
 	ls.ctx.CharacterCfg.Character.StashToShared = false
 	ls.ctx.CharacterCfg.Game.UseCainIdentify = true
-	ls.ctx.CharacterCfg.CloseMiniPanel = false
+	ls.ctx.CharacterCfg.ClassicMode = true
 	ls.ctx.CharacterCfg.Gambling.Enabled = true
 	ls.ctx.CharacterCfg.MaxGameLength = 1200
 	ls.ctx.CharacterCfg.CubeRecipes.Enabled = true
@@ -751,7 +751,7 @@ func (ls LevelingSequence) AdjustDifficultyConfig() {
 	ls.ctx.CharacterCfg.Game.RunewordMaker.EnabledRecipes = ls.GetRunewords()
 	ls.ctx.CharacterCfg.Game.MinGoldPickupThreshold = 5000 * lvl.Value
 
-	if !ls.ctx.CharacterCfg.Character.UseMerc && ls.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() {
+	if !ls.ctx.CharacterCfg.Character.UseMerc && (ls.ctx.Data.Quests[quest.Act1SistersBurialGrounds].Completed() || lvl.Value >= 8) {
 		ls.ctx.CharacterCfg.Character.UseMerc = true
 	}
 

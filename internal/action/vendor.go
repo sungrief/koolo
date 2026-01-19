@@ -6,6 +6,7 @@ import (
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/npc"
+	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
 	botCtx "github.com/hectorgimenez/koolo/internal/context"
@@ -16,16 +17,45 @@ import (
 	"github.com/lxn/win"
 )
 
-func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err error) {
+// VendorRefillOpts configures vendor refill behavior
+type VendorRefillOpts struct {
+	ForceRefill    bool     // Force refill even if not needed
+	SellJunk       bool     // Sell junk items to vendor
+	BuyConsumables bool     // Buy potions, scrolls, keys (default behavior when not specified)
+	LockConfig     [][]int  // Inventory slots to protect from selling
+}
+
+func VendorRefill(opts VendorRefillOpts) (err error) {
 	ctx := botCtx.Get()
 	ctx.SetLastAction("VendorRefill")
 
-	// This is a special case, we want to sell junk, but we don't have enough space to unequip items
-	if !forceRefill && !shouldVisitVendor() && len(tempLock) == 0 {
+	if !opts.ForceRefill {
+		if ctx.Data.PlayerUnit.TotalPlayerGold() <= 100 && ctx.Data.IsLevelingCharacter {
+			if lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0); found && lvl.Value <= 1 {
+				return nil
+			}
+		}
+	}
+
+	// Check if we should skip vendor visit
+	hasJunkToSell := false
+	if opts.SellJunk {
+		if len(opts.LockConfig) > 0 {
+			hasJunkToSell = len(town.ItemsToBeSold(opts.LockConfig)) > 0
+		} else {
+			hasJunkToSell = len(town.ItemsToBeSold()) > 0
+		}
+	}
+
+	// Skip if nothing to do
+	if !opts.ForceRefill && !opts.BuyConsumables && !hasJunkToSell {
+		return nil
+	}
+	if !opts.ForceRefill && !hasJunkToSell && !shouldVisitVendor() && len(opts.LockConfig) == 0 {
 		return nil
 	}
 
-	ctx.Logger.Info("Visiting vendor...", slog.Bool("forceRefill", forceRefill))
+	ctx.Logger.Info("Visiting vendor...", slog.Bool("forceRefill", opts.ForceRefill))
 
 	vendorNPC := town.GetTownByArea(ctx.Data.PlayerUnit.Area).RefillNPC()
 	if vendorNPC == npc.Drognan {
@@ -57,18 +87,20 @@ func VendorRefill(forceRefill bool, sellJunk bool, tempLock ...[][]int) (err err
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_DOWN, win.VK_RETURN)
 	}
 
-	if sellJunk {
-		var lockConfig [][]int
-		if len(tempLock) > 0 {
-			lockConfig = tempLock[0]
-			town.SellJunk(lockConfig)
+	if opts.SellJunk {
+		if len(opts.LockConfig) > 0 {
+			town.SellJunk(opts.LockConfig)
 		} else {
 			town.SellJunk()
 		}
 	}
 	SwitchVendorTab(4)
 	ctx.RefreshGameData()
-	town.BuyConsumables(forceRefill)
+
+	// Only buy consumables if requested (defaults to false, so explicit opt-in required)
+	if opts.BuyConsumables {
+		town.BuyConsumables(opts.ForceRefill)
+	}
 
 	return step.CloseAllMenus()
 }

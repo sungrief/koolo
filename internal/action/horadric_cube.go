@@ -41,12 +41,19 @@ func CubeAddItems(items ...data.Item) error {
 			continue
 		}
 
-		// Check in which tab the item is and switch to it
-		switch nwIt.Location.LocationType {
-		case item.LocationStash:
+		if requiresPersonalStash(nwIt) {
+			if nwIt.Location.LocationType == item.LocationSharedStash {
+				return fmt.Errorf("quest item %s must be in personal stash to use the cube", nwIt.Name)
+			}
 			SwitchStashTab(1)
-		case item.LocationSharedStash:
-			SwitchStashTab(nwIt.Location.Page + 1)
+		} else {
+			// Check in which tab the item is and switch to it
+			switch nwIt.Location.LocationType {
+			case item.LocationStash:
+				SwitchStashTab(1)
+			case item.LocationSharedStash:
+				SwitchStashTab(nwIt.Location.Page + 1)
+			}
 		}
 
 		ctx.Logger.Debug("Item found on the stash, picking it up", slog.String("Item", string(nwIt.Name)))

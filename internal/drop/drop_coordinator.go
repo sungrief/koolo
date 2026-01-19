@@ -11,7 +11,7 @@ import (
 type Coordinator struct {
 	logger *slog.Logger
 
-	// Per-supervisor Drop filter configuration (including optional "global")
+	// Per-supervisor Drop filter configuration.
 	filters   map[string]Filters
 	filtersMu sync.RWMutex
 
@@ -22,7 +22,7 @@ type Coordinator struct {
 	clearPersistentRequest func(supervisor string)
 
 	// Callback to report Drop run result back to server
-	onDropResult func(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string)
+	onDropResult func(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string, filters Filters)
 }
 
 // NewCoordinator creates a new Coordinator and initializes its filter map.
@@ -58,7 +58,7 @@ func (c *Coordinator) SetClearPersistentRequestCallback(callback func(supervisor
 }
 
 // SetDropResultCallback registers a callback used to report Drop results to the server.
-func (c *Coordinator) SetDropResultCallback(callback func(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string)) {
+func (c *Coordinator) SetDropResultCallback(callback func(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string, filters Filters)) {
 	c.onDropResult = callback
 }
 
@@ -115,7 +115,5 @@ func (c *Coordinator) ClearIndividualFilters(supervisor string) {
 		c.clearServerFilter(supervisor)
 	}
 
-	// Note: global filters (key "global") remain in the map; callers that
-	// care about re-applying them to running supervisors should query
-	// filters via GetFilters and apply as needed.
+	// Note: filters are per-supervisor only.
 }

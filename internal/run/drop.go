@@ -68,8 +68,9 @@ func (d Drop) runSingle(ctx *context.Status, req *drop.Request) error {
 		return nil
 	}
 
+	// Always apply request filters so disabled filters clear any previous state.
+	ctx.Drop.UpdateFilters(req.Filters)
 	if req.Filters.Enabled {
-		ctx.Drop.UpdateFilters(req.Filters)
 		ctx.Logger.Debug("Drop: Applied filters from request",
 			"room", req.RoomName,
 			"filterMode", req.Filters.DropperOnlySelected)
@@ -88,7 +89,7 @@ func (d Drop) runSingle(ctx *context.Status, req *drop.Request) error {
 
 		if runCompleted {
 			ctx.Drop.ClearRequest(req)
-			ctx.Drop.ReportResult(req.RoomName, "Success", itemsDroppered, duration, "")
+			ctx.Drop.ReportResult(req.RoomName, "Success", itemsDroppered, duration, "", req.Filters)
 			return
 		}
 
@@ -119,7 +120,7 @@ func (d Drop) runSingle(ctx *context.Status, req *drop.Request) error {
 		if DropError != nil {
 			errorMsg = DropError.Error()
 		}
-		ctx.Drop.ReportResult(req.RoomName, "Failed", itemsDroppered, duration, errorMsg)
+		ctx.Drop.ReportResult(req.RoomName, "Failed", itemsDroppered, duration, errorMsg, req.Filters)
 	}()
 	utils.PingSleep(utils.Medium, 100)
 

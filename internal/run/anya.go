@@ -122,7 +122,7 @@ func (a Anya) Run(parameters *RunParameters) error {
 		action.Stash(false)
 		action.ReviveMerc()
 		action.Repair()
-		action.VendorRefill(false, true)
+		action.VendorRefill(action.VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 
 		for range 5 {
 			err = action.InteractNPC(npc.Malah)

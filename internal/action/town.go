@@ -91,8 +91,13 @@ func PreRun(firstRun bool) error {
 	// Just to make sure messages like TZ change or public game spam arent on the way
 	ClearMessages()
 	RefillBeltFromInventory()
-	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 
+	// barb shield remove under 31
+	if firstRun {
+		RemoveShield()
+	}
+
+	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	if firstRun && !isLevelingChar {
 		Stash(false)
 	}
@@ -115,7 +120,7 @@ func PreRun(firstRun bool) error {
 	Stash(false)
 
 	// Refill pots, sell, buy etc
-	VendorRefill(false, true)
+	VendorRefill(VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 
 	// Gamble
 	Gamble()
@@ -146,10 +151,19 @@ func PreRun(firstRun bool) error {
 	}
 
 	// Leveling related checks
-	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
+	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation && isLevelingChar {
 		ResetStats()
 		EnsureStatPoints()
 		EnsureSkillPoints()
+	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+		AutoRespecIfNeeded()
+		EnsureStatPoints()
+		if !shouldDeferAutoSkillsForStats() {
+			EnsureSkillPoints()
+			EnsureSkillBindings()
+		} else {
+			ctx.Logger.Debug("Auto stat targets pending; skipping skill allocation for now.")
+		}
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {
@@ -199,7 +213,7 @@ func InRunReturnTownRoutine() error {
 		ctx.PauseIfNotPriority() // Check after AutoEquip
 	}
 
-	VendorRefill(false, true)
+	VendorRefill(VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 	ctx.PauseIfNotPriority() // Check after VendorRefill
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after Stash
@@ -235,11 +249,24 @@ func InRunReturnTownRoutine() error {
 	Stash(false)
 	ctx.PauseIfNotPriority() // Check after post-reroll Stash
 
-	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation {
+	if ctx.CharacterCfg.Game.Leveling.EnsurePointsAllocation && isLevelingChar {
 		EnsureStatPoints()
 		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
 		EnsureSkillPoints()
 		ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
+	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+		AutoRespecIfNeeded()
+		ctx.PauseIfNotPriority() // Check after AutoRespecIfNeeded
+		EnsureStatPoints()
+		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
+		if !shouldDeferAutoSkillsForStats() {
+			EnsureSkillPoints()
+			ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
+			EnsureSkillBindings()
+			ctx.PauseIfNotPriority() // Check after EnsureSkillBindings
+		} else {
+			ctx.Logger.Debug("Auto stat targets pending; skipping skill allocation for now.")
+		}
 	}
 
 	if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {

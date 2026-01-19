@@ -68,7 +68,7 @@ func IdentifyAll(skipIdentify bool) error {
 
 	if st, statFound := idTome.FindStat(stat.Quantity, 0); !statFound || st.Value < len(items) {
 		ctx.Logger.Info("Not enough ID scrolls, refilling...")
-		VendorRefill(true, false)
+		VendorRefill(VendorRefillOpts{ForceRefill: true, BuyConsumables: true})
 	}
 
 	ctx.Logger.Info(fmt.Sprintf("Identifying %d items...", len(items)))

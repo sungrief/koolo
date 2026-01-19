@@ -206,11 +206,17 @@ func equipCTAIfFound(allItems []data.Item) (bool, error) {
 
 	for _, itm := range allItems {
 		if itm.RunewordName == item.RunewordCallToArms {
+			if !isAllowedEtherealForPlayer(itm) {
+				continue
+			}
 			ctaWeapon = itm
 			foundCta = true
 		}
 		if itm.RunewordName == item.RunewordSpirit && slices.Contains(shieldTypes, string(itm.Desc().Type)) {
 			if itm.Location.LocationType != item.LocationEquipped {
+				if !isAllowedEtherealForPlayer(itm) {
+					continue
+				}
 				spiritShield = itm
 				foundSpirit = true
 			}
@@ -275,6 +281,9 @@ func isEquippable(newItem data.Item, bodyloc item.LocationType, target item.Loca
 	}
 	isQuestItem := slices.Contains(questItems, newItem.Name)
 	if isQuestItem {
+		return false
+	}
+	if target == item.LocationEquipped && !isAllowedEtherealForPlayer(newItem) {
 		return false
 	}
 
@@ -376,6 +385,19 @@ func isEquippable(newItem data.Item, bodyloc item.LocationType, target item.Loca
 	}
 
 	return true
+}
+
+func isAllowedEtherealForPlayer(itm data.Item) bool {
+	if !itm.Ethereal {
+		return true
+	}
+	if _, found := itm.FindStat(stat.Indestructible, 0); found {
+		return true
+	}
+	if _, found := itm.FindStat(stat.ReplenishDurability, 0); found {
+		return true
+	}
+	return false
 }
 
 func isValidLocation(i data.Item, bodyLoc item.LocationType, target item.LocationType) bool {
@@ -668,7 +690,7 @@ func equipBestItems(itemsByLoc map[item.LocationType][]data.Item, itemScores map
 				}
 			}
 
-			if sellErr := VendorRefill(false, true, tempLock); sellErr != nil {
+			if sellErr := VendorRefill(VendorRefillOpts{SellJunk: true, BuyConsumables: true, LockConfig: tempLock}); sellErr != nil {
 				return false, fmt.Errorf("failed to sell junk to make space: %w", sellErr)
 			}
 			equippedSomething = true // We made a change (selling junk), so we should re-evaluate
@@ -1035,6 +1057,10 @@ func equip(itm data.Item, bodyloc item.LocationType, target item.LocationType) e
 	ctx.SetLastAction("Equip")
 	defer step.CloseAllMenus()
 
+	if target == item.LocationEquipped && !isAllowedEtherealForPlayer(itm) {
+		return fmt.Errorf("ethereal item %s is not allowed for player equip", itm.IdentifiedName)
+	}
+
 	// Move item from stash to inventory if needed
 	if itm.Location.LocationType == item.LocationStash || itm.Location.LocationType == item.LocationSharedStash {
 		OpenStash()
@@ -1366,6 +1392,33 @@ func UnEquipMercenary() error {
 	}
 
 	return nil
+}
+
+// remove shield first run if under 31
+func RemoveShield() {
+	ctx := context.Get()
+
+	if ctx.CharacterCfg.Character.Class != "barb_leveling" {
+		return
+	}
+
+	lvl, found := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+	if !found || lvl.Value >= 31 {
+		return
+	}
+
+	rightEquipped := GetEquippedItem(ctx.Data.Inventory, item.LocRightArm)
+	if rightEquipped.UnitID == 0 || !slices.Contains(shieldTypes, string(rightEquipped.Desc().Type)) {
+		return
+	}
+
+	ctx.HID.PressKeyBinding(ctx.Data.KeyBindings.Inventory)
+	utils.Sleep(500)
+	rightArmCoords, _ := getBodyLocationScreenCoords(item.LocRightArm)
+	ctx.HID.ClickWithModifier(game.LeftButton, rightArmCoords.X, rightArmCoords.Y, game.ShiftKey)
+	utils.Sleep(500)
+	step.CloseAllMenus()
+	*ctx.Data = ctx.GameReader.GetData()
 }
 
 // Special Barb Logic

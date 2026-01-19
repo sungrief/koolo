@@ -17,7 +17,6 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data/area"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
-	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	cp "github.com/otiai10/copy"
 
@@ -176,6 +175,32 @@ type TimeRange struct {
 	EndVarianceMin   int       `yaml:"endVarianceMin,omitempty"`   // +/- minutes for end time
 }
 
+type AutoStatSkillConfig struct {
+	Enabled            bool                 `yaml:"enabled"`
+	Stats              []AutoStatSkillStat  `yaml:"stats,omitempty"`
+	Skills             []AutoStatSkillSkill `yaml:"skills,omitempty"`
+	Respec             AutoRespecConfig     `yaml:"autoRespec,omitempty"`
+	ExcludeQuestStats  bool                 `yaml:"excludeQuestStats,omitempty"`
+	ExcludeQuestSkills bool                 `yaml:"excludeQuestSkills,omitempty"`
+}
+
+type AutoStatSkillStat struct {
+	Stat   string `yaml:"stat"`
+	Target int    `yaml:"target"`
+}
+
+type AutoStatSkillSkill struct {
+	Skill  string `yaml:"skill"`
+	Target int    `yaml:"target"`
+}
+
+type AutoRespecConfig struct {
+	Enabled     bool `yaml:"enabled"`
+	TokenFirst  bool `yaml:"tokenFirst,omitempty"`
+	TargetLevel int  `yaml:"targetLevel,omitempty"`
+	Applied     bool `yaml:"applied,omitempty"`
+}
+
 type CharacterCfg struct {
 	MaxGameLength        int    `yaml:"maxGameLength"`
 	Username             string `yaml:"username"`
@@ -188,7 +213,6 @@ type CharacterCfg struct {
 	CommandLineArgs      string `yaml:"commandLineArgs"`
 	KillD2OnStop         bool   `yaml:"killD2OnStop"`
 	ClassicMode          bool   `yaml:"classicMode"`
-	CloseMiniPanel       bool   `yaml:"closeMiniPanel"`
 	UseCentralizedPickit bool   `yaml:"useCentralizedPickit"`
 	HidePortraits        bool   `yaml:"hidePortraits"`
 	AutoStart            bool   `yaml:"autoStart"`
@@ -239,16 +263,17 @@ type CharacterCfg struct {
 		RejuvPotionCount   int         `yaml:"rejuvPotionCount"`
 	} `yaml:"inventory"`
 	Character struct {
-		Class                        string `yaml:"class"`
-		UseMerc                      bool   `yaml:"useMerc"`
-		StashToShared                bool   `yaml:"stashToShared"`
-		UseTeleport                  bool   `yaml:"useTeleport"`
-		ClearPathDist                int    `yaml:"clearPathDist"`
-		ShouldHireAct2MercFrozenAura bool   `yaml:"shouldHireAct2MercFrozenAura"`
-		UseExtraBuffs                bool   `yaml:"useExtraBuffs"`
-		UseSwapForBuffs              bool   `yaml:"use_swap_for_buffs"`
-		BuffOnNewArea                bool   `yaml:"buffOnNewArea"`
-		BuffAfterWP                  bool   `yaml:"buffAfterWP"`
+		Class                        string              `yaml:"class"`
+		UseMerc                      bool                `yaml:"useMerc"`
+		StashToShared                bool                `yaml:"stashToShared"`
+		UseTeleport                  bool                `yaml:"useTeleport"`
+		ClearPathDist                int                 `yaml:"clearPathDist"`
+		ShouldHireAct2MercFrozenAura bool                `yaml:"shouldHireAct2MercFrozenAura"`
+		UseExtraBuffs                bool                `yaml:"useExtraBuffs"`
+		UseSwapForBuffs              bool                `yaml:"use_swap_for_buffs"`
+		BuffOnNewArea                bool                `yaml:"buffOnNewArea"`
+		BuffAfterWP                  bool                `yaml:"buffAfterWP"`
+		AutoStatSkill                AutoStatSkillConfig `yaml:"autoStatSkill"`
 		BerserkerBarb                struct {
 			FindItemSwitch              bool `yaml:"find_item_switch"`
 			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
@@ -261,6 +286,11 @@ type CharacterCfg struct {
 			HorkNormalMonsters          bool `yaml:"hork_normal_monsters"`
 			HorkMonsterCheckRange       int  `yaml:"hork_monster_check_range"`
 		} `yaml:"berserker_barb"`
+		WhirlwindBarb struct {
+			SkipPotionPickupInTravincal bool `yaml:"skip_potion_pickup_in_travincal"`
+			HorkNormalMonsters          bool `yaml:"hork_normal_monsters"`
+			HorkMonsterCheckRange       int  `yaml:"hork_monster_check_range"`
+		} `yaml:"whirlwind_barb"`
 		BlizzardSorceress struct {
 			UseMoatTrick        bool `yaml:"use_moat_trick"`
 			UseStaticOnMephisto bool `yaml:"use_static_on_mephisto"`
@@ -351,6 +381,7 @@ type CharacterCfg struct {
 		InteractWithSuperChests bool                  `yaml:"interactWithSuperChests"`
 		StopLevelingAt          int                   `yaml:"stopLevelingAt"`
 		IsNonLadderChar         bool                  `yaml:"isNonLadderChar"`
+		IsHardCoreChar          bool                  `yaml:"isHardCoreChar"`
 		ClearTPArea             bool                  `yaml:"clearTPArea"`
 		Difficulty              difficulty.Difficulty `yaml:"difficulty"`
 		RandomizeRuns           bool                  `yaml:"randomizeRuns"`
@@ -498,8 +529,8 @@ type CharacterCfg struct {
 		CompanionGamePassword string `yaml:"companionGamePassword"`
 	} `yaml:"companion"`
 	Gambling struct {
-		Enabled bool        `yaml:"enabled"`
-		Items   []item.Name `yaml:"items"`
+		Enabled bool     `yaml:"enabled"`
+		Items   []string `yaml:"items,omitempty"`
 	} `yaml:"gambling"`
 	Muling struct {
 		Enabled      bool     `yaml:"enabled"`
@@ -627,6 +658,10 @@ func Load() error {
 
 		if charCfg.Game.MaxFailedMenuAttempts == 0 {
 			charCfg.Game.MaxFailedMenuAttempts = 10
+		}
+
+		if len(charCfg.Gambling.Items) == 0 {
+			charCfg.Gambling.Items = []string{"coronet", "circlet", "amulet"}
 		}
 
 		var pickitPath string

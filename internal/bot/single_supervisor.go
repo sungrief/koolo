@@ -11,6 +11,7 @@ import (
 
 	"github.com/hectorgimenez/d2go/pkg/data"
 	"github.com/hectorgimenez/d2go/pkg/data/difficulty"
+	"github.com/hectorgimenez/d2go/pkg/data/item"
 	"github.com/hectorgimenez/d2go/pkg/data/skill"
 	"github.com/hectorgimenez/d2go/pkg/data/stat"
 	"github.com/hectorgimenez/koolo/internal/action"
@@ -123,6 +124,27 @@ func (s *SinglePlayerSupervisor) changeDifficulty(d difficulty.Difficulty) {
 
 }
 
+func (s *SinglePlayerSupervisor) shouldSkipKeybindingsForRespec() bool {
+	ctx := s.bot.ctx
+	if ctx == nil || ctx.CharacterCfg == nil {
+		return false
+	}
+	if _, isLevelingChar := ctx.Char.(ct.LevelingCharacter); isLevelingChar {
+		return false
+	}
+
+	autoCfg := ctx.CharacterCfg.Character.AutoStatSkill
+	if !autoCfg.Enabled || !autoCfg.Respec.Enabled || autoCfg.Respec.Applied {
+		return false
+	}
+	if autoCfg.Respec.TargetLevel == 0 {
+		return true
+	}
+
+	level, ok := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
+	return ok && level.Value == autoCfg.Respec.TargetLevel
+}
+
 // Start will return error if it can be started, otherwise will always return nil
 func (s *SinglePlayerSupervisor) Start() error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -131,6 +153,10 @@ func (s *SinglePlayerSupervisor) Start() error {
 	err := s.ensureProcessIsRunningAndPrepare()
 	if err != nil {
 		return fmt.Errorf("error preparing game: %w", err)
+	}
+
+	if err := s.ensureSkillKeyBindingsReady(); err != nil {
+		return err
 	}
 
 	// MANUAL MODE: Early exit - handle before normal game loop
@@ -206,22 +232,6 @@ func (s *SinglePlayerSupervisor) Start() error {
 			if err = s.waitUntilCharacterSelectionScreen(); err != nil {
 				return fmt.Errorf("error waiting for character selection screen: %w", err)
 			}
-			// warning for barb to set keybinds
-			if s.bot.ctx.CharacterCfg.Character.Class == "barb_leveling" {
-				lvl, _ := s.bot.ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
-				if lvl.Value == 1 {
-					warningText := "IMPORTANT: The Leveling Barbarian requires F9-F12 keybindings for Skills 9-12!\n\n"
-					warningText += "Please set in the Controller Settings (Diablo 2):\n"
-					warningText += "- F9 for Skill 9\n"
-					warningText += "- F10 for Skill 10\n"
-					warningText += "- F11 for Skill 11\n"
-					warningText += "- F12 for Skill 12\n\n"
-					warningText += "Bot will be paused..."
-
-					utils.ShowDialog("F9-F12 Keybindings Required", warningText)
-					s.TogglePause()
-				}
-			}
 		}
 
 		// LOGIC OUTSIDE OF GAME (MENUS)
@@ -294,22 +304,36 @@ func (s *SinglePlayerSupervisor) Start() error {
 		s.bot.ctx.LastBuffAt = time.Time{}
 		s.logGameStart(runs)
 		s.bot.ctx.RefreshGameData()
+		if s.bot.ctx.Data.IsLevelingCharacter && s.bot.ctx.Data.ActiveWeaponSlot != 0 {
+			for attempt := 0; attempt < 3 && s.bot.ctx.Data.ActiveWeaponSlot != 0; attempt++ {
+				s.bot.ctx.HID.PressKeyBinding(s.bot.ctx.Data.KeyBindings.SwapWeapons)
+				utils.PingSleep(utils.Light, 150)
+				s.bot.ctx.RefreshGameData()
+			}
+			if s.bot.ctx.Data.ActiveWeaponSlot != 0 {
+				s.bot.ctx.Logger.Warn("Failed to return to main weapon slot after game start", "slot", s.bot.ctx.Data.ActiveWeaponSlot)
+			}
+		}
 
 		if s.bot.ctx.CharacterCfg.Companion.Enabled && s.bot.ctx.CharacterCfg.Companion.Leader {
 			event.Send(event.RequestCompanionJoinGame(event.Text(s.name, "New Game Started "+s.bot.ctx.Data.Game.LastGameName), s.bot.ctx.CharacterCfg.CharacterName, s.bot.ctx.Data.Game.LastGameName, s.bot.ctx.Data.Game.LastGamePassword))
 		}
 
 		if firstRun {
-			missingKeybindings := s.bot.ctx.Char.CheckKeyBindings()
-			if len(missingKeybindings) > 0 {
-				var missingKeybindingsText = "Missing key binding for skill(s):"
-				for _, v := range missingKeybindings {
-					missingKeybindingsText += fmt.Sprintf("\n%s", skill.SkillNames[v])
-				}
-				missingKeybindingsText += "\nPlease bind the skills. Pausing bot..."
+			if s.shouldSkipKeybindingsForRespec() {
+				s.bot.ctx.Logger.Info("Auto respec pending; skipping keybinding check for this run")
+			} else {
+				missingKeybindings := s.bot.ctx.Char.CheckKeyBindings()
+				if len(missingKeybindings) > 0 {
+					var missingKeybindingsText = "Missing key binding for skill(s):"
+					for _, v := range missingKeybindings {
+						missingKeybindingsText += fmt.Sprintf("\n%s", skill.SkillNames[v])
+					}
+					missingKeybindingsText += "\nPlease bind the skills. Pausing bot..."
 
-				utils.ShowDialog("Missing keybindings for "+s.name, missingKeybindingsText)
-				s.TogglePause()
+					utils.ShowDialog("Missing keybindings for "+s.name, missingKeybindingsText)
+					s.TogglePause()
+				}
 			}
 		}
 
@@ -385,6 +409,19 @@ func (s *SinglePlayerSupervisor) Start() error {
 					}
 
 					currentPos := s.bot.ctx.Data.PlayerUnit.Position
+					lastAction := s.bot.ctx.ContextDebug[s.bot.ctx.ExecutionPriority].LastAction
+					isAllocating := lastAction == "AutoRespecIfNeeded" ||
+						lastAction == "EnsureStatPoints" ||
+						lastAction == "EnsureSkillPoints" ||
+						lastAction == "EnsureSkillBindings" ||
+						lastAction == "AllocateStatPointPacket" ||
+						lastAction == "LearnSkillPacket"
+					if isAllocating && (s.bot.ctx.Data.OpenMenus.Character || s.bot.ctx.Data.OpenMenus.SkillTree || s.bot.ctx.Data.OpenMenus.Inventory) {
+						stuckSince = time.Time{}
+						droppedMouseItem = false
+						lastPosition = currentPos
+						continue
+					}
 					if currentPos.X == lastPosition.X && currentPos.Y == lastPosition.Y {
 						if stuckSince.IsZero() {
 							stuckSince = time.Now()
@@ -394,12 +431,23 @@ func (s *SinglePlayerSupervisor) Start() error {
 						stuckDuration := time.Since(stuckSince)
 
 						// After 90 seconds stuck, try dropping mouse item
-						if stuckDuration > 90*time.Second && !droppedMouseItem {
-							s.bot.ctx.Logger.Warn("Player stuck for 90 seconds. Attempting to drop any item on cursor...")
-							// Click to drop any item that might be stuck on cursor
-							s.bot.ctx.HID.Click(game.LeftButton, 500, 500)
-							droppedMouseItem = true
-							s.bot.ctx.Logger.Info("Clicked to drop mouse item (if any). Continuing to monitor for movement...")
+						if stuckDuration > 90*time.Second {
+							if len(s.bot.ctx.Data.Inventory.ByLocation(item.LocationCursor)) > 0 && !droppedMouseItem {
+								s.bot.ctx.Logger.Warn("Player stuck for 90 seconds - Clicking to drop mouse item - Continuing to monitor for movement...")
+								s.bot.ctx.HID.Click(game.LeftButton, 500, 500)
+								droppedMouseItem = true
+							} else if s.bot.ctx.IsAllocatingStatsOrSkills.Load() {
+								// We don't want a false positive on being stuck when the character is respeccing
+								s.bot.ctx.Logger.Debug("Player stuck for 90 seconds - Currently respeccing - letting it continue.")
+								stuckSince = time.Now()
+							} else if droppedMouseItem {
+								s.bot.ctx.Logger.Warn("Player still stuck after dropping the item - Forcing client restart.")
+								if err := s.KillClient(); err != nil {
+									s.bot.ctx.Logger.Error(fmt.Sprintf("Activity monitor failed to kill client: %v", err))
+								}
+								runCancel()
+								return
+							}
 						}
 
 						// After 3 minutes stuck, force restart
@@ -504,6 +552,102 @@ func (s *SinglePlayerSupervisor) Start() error {
 		s.bot.ctx.Data.AreaData = game.AreaData{}
 		timeSpentNotInGameStart = time.Now()
 	}
+}
+
+func (s *SinglePlayerSupervisor) ensureSkillKeyBindingsReady() error {
+	cfg := s.bot.ctx.CharacterCfg
+	if cfg == nil {
+		s.bot.ctx.Logger.Debug("Skipping key binding check: character config is nil")
+		return nil
+	}
+	characterName := strings.TrimSpace(cfg.CharacterName)
+	if characterName == "" {
+		s.bot.ctx.Logger.Debug("Skipping key binding check: character name is empty")
+		return nil
+	}
+	if s.bot.ctx.ManualModeActive {
+		s.bot.ctx.Logger.Debug("Skipping key binding check: manual mode active")
+		return nil
+	}
+	if s.bot.ctx.Manager.InGame() {
+		s.bot.ctx.Logger.Debug("Skipping key binding check: already in game")
+		return nil
+	}
+
+	kbResult, kbErr := config.EnsureSkillKeyBindings(cfg, config.Koolo.UseCustomSettings)
+	if kbErr != nil {
+		s.bot.ctx.Logger.Warn("Failed to ensure skill key bindings", slog.Any("error", kbErr))
+	}
+
+	if kbResult.Updated {
+		s.bot.ctx.Logger.Info("Skill key bindings updated on disk; restarting client to apply")
+		if killErr := s.KillClient(); killErr != nil {
+			return killErr
+		}
+		return ErrUnrecoverableClientState
+	}
+
+	if !kbResult.Missing {
+		return nil
+	}
+
+	s.bot.ctx.Logger.Info("Key binding file missing; entering a game to bootstrap", slog.String("character", characterName))
+
+	if err := s.waitUntilCharacterSelectionScreen(); err != nil {
+		return err
+	}
+	enterDeadline := time.Now().Add(2 * time.Minute)
+	for !s.bot.ctx.Manager.InGame() {
+		if time.Now().After(enterDeadline) {
+			return fmt.Errorf("timed out entering game for key binding bootstrap")
+		}
+		if err := s.HandleMenuFlow(); err != nil {
+			if errors.Is(err, ErrUnrecoverableClientState) {
+				return err
+			}
+			if err.Error() == "loading screen" || err.Error() == "" || err.Error() == "idle" {
+				utils.Sleep(100)
+				continue
+			}
+			return err
+		}
+		utils.Sleep(100)
+	}
+
+	if waitErr := config.WaitForKeyBindings(kbResult.SaveDir, characterName, cfg.AuthMethod, 45*time.Second); waitErr != nil {
+		s.bot.ctx.Logger.Warn("Timed out waiting for key binding file", slog.Any("error", waitErr))
+	}
+
+	kbResult, kbErr = config.EnsureSkillKeyBindings(cfg, config.Koolo.UseCustomSettings)
+	if kbErr != nil {
+		s.bot.ctx.Logger.Warn("Failed to ensure skill key bindings after bootstrap", slog.Any("error", kbErr))
+	}
+
+	if s.bot.ctx.Manager.InGame() {
+		if exitErr := s.bot.ctx.Manager.ExitGame(); exitErr != nil {
+			s.bot.ctx.Logger.Warn("Failed to exit game after key binding bootstrap", slog.Any("error", exitErr))
+		} else {
+			exitDeadline := time.Now().Add(15 * time.Second)
+			for s.bot.ctx.Manager.InGame() && time.Now().Before(exitDeadline) {
+				utils.Sleep(250)
+				s.bot.ctx.RefreshGameData()
+			}
+		}
+	}
+
+	if kbResult.Updated {
+		s.bot.ctx.Logger.Info("Skill key bindings updated on disk; restarting client to apply")
+		if killErr := s.KillClient(); killErr != nil {
+			return killErr
+		}
+		return ErrUnrecoverableClientState
+	}
+
+	if kbResult.Missing {
+		s.bot.ctx.Logger.Warn("Key binding file still missing after bootstrap", slog.String("character", characterName))
+	}
+
+	return nil
 }
 
 // NEW HELPER FUNCTION that wraps a blocking operation with a timeout

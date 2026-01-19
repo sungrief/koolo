@@ -231,7 +231,7 @@ func (a Andariel) Run(parameters *RunParameters) error {
 					}
 				}
 
-				action.VendorRefill(true, true)
+				action.VendorRefill(action.VendorRefillOpts{ForceRefill: true, SellJunk: true, BuyConsumables: true})
 				action.BuyAtVendor(npc.Akara, action.VendorItemRequest{
 					Item:     "AntidotePotion",
 					Quantity: potsToBuy,
@@ -297,6 +297,9 @@ func (a Andariel) Run(parameters *RunParameters) error {
 	err = a.ctx.Char.KillAndariel()
 
 	a.ctx.EnableItemPickup()
+	if err == nil {
+		action.ItemPickup(30)
+	}
 
 	if IsQuestRun(parameters) {
 		a.goToAct2()

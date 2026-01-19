@@ -49,7 +49,7 @@ type DropQueueEntry struct {
 type DropHistoryEntry struct {
 	Supervisor     string    `json:"supervisor"`
 	Room           string    `json:"room"`
-	FilterApplied  string    `json:"filterApplied"` // "None", "Global", "Individual"
+	FilterApplied  string    `json:"filterApplied"` // "None", "Individual"
 	FilterMode     string    `json:"filterMode"`    // "Exclusive", "Inclusive", "-"
 	Result         string    `json:"result"`        // "Success", "Failed", "Timeout"
 	ItemsDroppered int       `json:"itemsDroppered"`
@@ -103,28 +103,18 @@ func (s *HttpServer) onDropClearPersistentRequest(supervisor string) {
 
 // onDropResult is invoked when a Drop run finishes so that the
 // result can be recorded in the in-memory history for the UI.
-func (s *HttpServer) onDropResult(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string) {
-	// Determine which filter configuration was applied
-	filterApplied := "-"
+func (s *HttpServer) onDropResult(supervisorName, room, result string, itemsDroppered int, duration time.Duration, errorMsg string, filters drop.Filters) {
+	// Determine which filter configuration was actually applied for this run.
+	filterApplied := "None"
 	filterMode := "-"
-
-	s.DropMux.Lock()
-	if filters, exists := s.DropFilters[supervisorName]; exists {
+	if filters.Enabled {
 		filterApplied = "Individual"
 		if filters.DropperOnlySelected {
 			filterMode = "Exclusive"
 		} else {
 			filterMode = "Inclusive"
 		}
-	} else if globalFilters, exists := s.DropFilters["global"]; exists && globalFilters.Enabled {
-		filterApplied = "Global"
-		if globalFilters.DropperOnlySelected {
-			filterMode = "Exclusive"
-		} else {
-			filterMode = "Inclusive"
-		}
 	}
-	s.DropMux.Unlock()
 
 	// Format duration nicely for the UI
 	durationStr := fmt.Sprintf("%.1fs", duration.Seconds())
@@ -235,10 +225,6 @@ func (s *HttpServer) getDropFilters(supervisor string) drop.Filters {
 		return filters.Normalize()
 	}
 
-	if global, ok := s.DropFilters["global"]; ok && global.Enabled {
-		return global.Normalize()
-	}
-
 	// If a supervisor entry exists but is disabled, fall back to defaults (unfiltered)
 	return drop.Filters{DropperOnlySelected: false}.Normalize()
 }
@@ -273,12 +259,16 @@ func (s *HttpServer) submitDropRequest(supervisor, room, password string, filter
 	}
 
 	actualFilters := s.resolveFilterValue(filters)
-	ctx.Drop.UpdateFilters(actualFilters)
+	// Avoid overwriting active Drop filters; apply per-request filters when the run starts.
+	if ctx.Drop.Active() == nil {
+		ctx.Drop.UpdateFilters(actualFilters)
+	}
 	s.setDropFilters(supervisor, actualFilters)
 
 	req := ctx.Drop.RequestDrop(room, password)
 	req.CardID = cardID
 	req.CardName = cardName
+	req.Filters = actualFilters
 	s.setDropCardInfo(supervisor, cardID, cardName)
 	req.Filters = actualFilters
 	ctx.Logger.Info("Drop request queued", "supervisor", supervisor, "room", room)

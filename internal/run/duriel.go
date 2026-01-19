@@ -282,6 +282,8 @@ func (d Duriel) Run(parameters *RunParameters) error {
 		return err
 	}
 
+	action.ItemPickup(30)
+
 	if IsQuestRun(parameters) {
 		action.ClearAreaAroundPlayer(30, d.durielFilter())
 
@@ -376,7 +378,17 @@ func (d Duriel) prepareStaff() error {
 		return nil
 	}
 
-	err := action.CubeAddItems(staff, amulet)
+	staff, err := action.EnsureItemNotEquipped(staff)
+	if err != nil {
+		return err
+	}
+
+	amulet, err = action.EnsureItemNotEquipped(amulet)
+	if err != nil {
+		return err
+	}
+
+	err = action.CubeAddItems(staff, amulet)
 	if err != nil {
 		return err
 	}

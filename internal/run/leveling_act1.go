@@ -33,7 +33,7 @@ func (a Leveling) act1() error {
 
 	// Refill potions and ensure bindings for players level > 1
 	if lvl.Value > 1 {
-		action.VendorRefill(false, true)
+		action.VendorRefill(action.VendorRefillOpts{SellJunk: true, BuyConsumables: true})
 		if err := action.EnsureSkillBindings(); err != nil {
 			a.ctx.Logger.Error(fmt.Sprintf("Error ensuring skill bindings after vendor refill: %s", err.Error()))
 		}
@@ -282,6 +282,8 @@ func (a Leveling) killRavenGetMerc() error {
 			return bloodRaven.UnitID, true
 		}, nil)
 	}
+
+	action.ItemPickup(30)
 
 	return nil
 }

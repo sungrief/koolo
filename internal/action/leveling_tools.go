@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/hectorgimenez/koolo/internal/action/step"
 	"github.com/hectorgimenez/koolo/internal/context"
@@ -161,14 +162,24 @@ func dropItemFromInventoryUI(i data.Item) error {
 
 func EnsureStatPoints() error {
 	ctx := context.Get()
+	ctx.SetLastAction("EnsureStatPoints")
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	if !isLevelingChar {
-		return nil
+		if !ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
+			return nil
+		}
 	}
+
+	ctx.IsAllocatingStatsOrSkills.Store(true)
+	defer ctx.IsAllocatingStatsOrSkills.Store(false)
 
 	statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 	if !hasUnusedPoints || statPoints.Value == 0 {
 		return nil
+	}
+
+	if !isLevelingChar {
+		return ensureConfiguredStatPoints(statPoints.Value)
 	}
 
 	// Check if we should use packet mode for any leveling class
@@ -202,29 +213,39 @@ func EnsureStatPoints() error {
 
 		// Calculate how many points we can actually spend
 		pointsToSpend := min(allocation.Points-currentValue.Value, remainingPoints)
-		for i := 0; i < pointsToSpend; i++ {
-
-			var success bool
+		failures := 0
+		for pointsToSpend > 0 && remainingPoints > 0 {
+			var spent int
 			if usePacketMode {
-				// Use packet mode
 				err := AllocateStatPointPacket(allocation.Stat)
-				success = err == nil
-				if !success {
+				if err != nil {
 					ctx.Logger.Error(fmt.Sprintf("Failed to spend point in %v via packet: %v", allocation.Stat, err))
+				} else {
+					spent = 1
 				}
 			} else {
-				// Use traditional UI mode
-				success = spendStatPoint(allocation.Stat)
-				if !success {
+				useBulk := pointsToSpend >= 5 && remainingPoints >= 5
+				spent = spendStatPoint(allocation.Stat, useBulk)
+				if spent == 0 {
 					ctx.Logger.Error(fmt.Sprintf("Failed to spend point in %v", allocation.Stat))
 				}
 			}
 
-			if !success {
+			if spent <= 0 {
+				failures++
+				if failures >= 3 {
+					break
+				}
 				continue
 			}
 
-			remainingPoints--
+			failures = 0
+			if spent > pointsToSpend {
+				ctx.Logger.Warn(fmt.Sprintf("Spent more stat points than requested in %v (spent=%d, needed=%d)", allocation.Stat, spent, pointsToSpend))
+				spent = pointsToSpend
+			}
+			remainingPoints -= spent
+			pointsToSpend -= spent
 
 			updatedValue, _ := ctx.Data.PlayerUnit.BaseStats.FindStat(allocation.Stat, 0)
 			if updatedValue.Value >= allocation.Points {
@@ -240,7 +261,65 @@ func EnsureStatPoints() error {
 	return nil
 }
 
-func spendStatPoint(statID stat.ID) bool {
+func ensureConfiguredStatPoints(remainingPoints int) error {
+	ctx := context.Get()
+
+	statKeyToID := map[string]stat.ID{
+		"strength":  stat.Strength,
+		"dexterity": stat.Dexterity,
+		"vitality":  stat.Vitality,
+		"energy":    stat.Energy,
+	}
+
+	usePacketMode := false
+	for _, entry := range ctx.CharacterCfg.Character.AutoStatSkill.Stats {
+		if remainingPoints <= 0 {
+			break
+		}
+		statKey := strings.ToLower(strings.TrimSpace(entry.Stat))
+		statID, ok := statKeyToID[statKey]
+		if !ok {
+			ctx.Logger.Warn(fmt.Sprintf("Unknown stat key in auto stat config: %s", entry.Stat))
+			continue
+		}
+		if entry.Target <= 0 {
+			continue
+		}
+
+		currentValue, _ := ctx.Data.PlayerUnit.BaseStats.FindStat(statID, 0)
+		if currentValue.Value >= entry.Target {
+			continue
+		}
+
+		pointsToSpend := min(entry.Target-currentValue.Value, remainingPoints)
+		failures := 0
+		for pointsToSpend > 0 && remainingPoints > 0 {
+			useBulk := pointsToSpend >= 5 && remainingPoints >= 5
+			spent := spendStatPoint(statID, useBulk)
+			if spent <= 0 {
+				failures++
+				if failures >= 3 {
+					break
+				}
+				continue
+			}
+			failures = 0
+			if spent > pointsToSpend {
+				ctx.Logger.Warn(fmt.Sprintf("Spent more stat points than requested in %v (spent=%d, needed=%d)", statID, spent, pointsToSpend))
+				spent = pointsToSpend
+			}
+			remainingPoints -= spent
+			pointsToSpend -= spent
+		}
+	}
+
+	if !usePacketMode {
+		return step.CloseAllMenus()
+	}
+	return nil
+}
+
+func spendStatPoint(statID stat.ID, useBulk bool) int {
 	ctx := context.Get()
 	beforePoints, _ := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
 
@@ -254,11 +333,31 @@ func spendStatPoint(statID stat.ID) bool {
 		statBtnPosition = uiStatButtonPositionLegacy[statID]
 	}
 
-	ctx.HID.Click(game.LeftButton, statBtnPosition.X, statBtnPosition.Y)
+	if useBulk {
+		ctx.HID.ClickWithModifier(game.LeftButton, statBtnPosition.X, statBtnPosition.Y, game.CtrlKey)
+	} else {
+		ctx.HID.Click(game.LeftButton, statBtnPosition.X, statBtnPosition.Y)
+	}
 	utils.Sleep(300)
 
 	afterPoints, _ := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
-	return beforePoints.Value-afterPoints.Value == 1
+	spent := beforePoints.Value - afterPoints.Value
+	if spent == 0 && useBulk {
+		ctx.RefreshGameData()
+		afterPoints, _ = ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
+		spent = beforePoints.Value - afterPoints.Value
+		if spent == 0 {
+			ctx.HID.Click(game.LeftButton, statBtnPosition.X, statBtnPosition.Y)
+			utils.Sleep(300)
+			ctx.RefreshGameData()
+			afterPoints, _ = ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
+			spent = beforePoints.Value - afterPoints.Value
+		}
+	}
+	if spent < 0 {
+		return 0
+	}
+	return spent
 }
 
 func getAvailableSkillKB() []data.KeyBinding {
@@ -267,7 +366,7 @@ func getAvailableSkillKB() []data.KeyBinding {
 	ctx.SetLastAction("getAvailableSkillKB")
 
 	for _, sb := range ctx.Data.KeyBindings.Skills {
-		if sb.SkillID == -1 && (sb.Key1[0] != 0 && sb.Key1[0] != 255) || (sb.Key2[0] != 0 && sb.Key2[0] != 255) {
+		if sb.SkillID == -1 && ((sb.Key1[0] != 0 && sb.Key1[0] != 255) || (sb.Key2[0] != 0 && sb.Key2[0] != 255)) {
 			availableSkillKB = append(availableSkillKB, sb.KeyBinding)
 		}
 	}
@@ -277,27 +376,29 @@ func getAvailableSkillKB() []data.KeyBinding {
 
 func ResetBindings() error {
 	ctx := context.Get()
-	ctx.SetLastAction("BindTomeOfTownPortalToFKeys") // Updated action name
+	ctx.SetLastAction("BindTomeOfTownPortalToSkillActions")
 
 	// 1. Check if Tome of Town Portal is available in inventory (inventory-based check for legacy compatibility)
 	if _, found := ctx.Data.Inventory.Find(item.TomeOfTownPortal, item.LocationInventory); !found {
-		ctx.Logger.Debug("TomeOfTownPortal tome not found in inventory. Skipping F-key binding sequence.")
+		ctx.Logger.Debug("TomeOfTownPortal tome not found in inventory. Skipping skill action binding sequence.")
 		return nil
 	}
 
 	// Determine the skill position once, as it's always TomeOfTownPortal
 	skillPosition, found := calculateSkillPositionInUI(false, skill.TomeOfTownPortal)
 	if !found {
-		ctx.Logger.Error("TomeOfTownPortal skill UI position not found. Cannot proceed with F-key binding.")
+		ctx.Logger.Error("TomeOfTownPortal skill UI position not found. Cannot proceed with skill action binding.")
 		step.CloseAllMenus()
 		return fmt.Errorf("TomeOfTownPortal skill UI position not found")
 	}
 
-	// Loop for F1 through F8
-	for i := 0; i < 8; i++ {
-		fKey := byte(win.VK_F1 + i)                            // win.VK_F1 is 0x70, win.VK_F2 is 0x71, and so on.
-		fKeyBinding := data.KeyBinding{Key1: [2]byte{fKey, 0}} // Assuming 0 for no modifier key
-		ctx.Logger.Info(fmt.Sprintf("Attempting to bind TomeOfTownPortal to F%d", i+1))
+	// Loop for skill action 1 through 16 based on configured keybindings.
+	for i, skillBinding := range ctx.Data.KeyBindings.Skills {
+		if (skillBinding.Key1[0] == 0 || skillBinding.Key1[0] == 255) && (skillBinding.Key2[0] == 0 || skillBinding.Key2[0] == 255) {
+			ctx.Logger.Debug(fmt.Sprintf("Skipping skill action %d: no keybinding assigned.", i+1))
+			continue
+		}
+		ctx.Logger.Info(fmt.Sprintf("Attempting to bind TomeOfTownPortal to skill action %d", i+1))
 
 		// 2. Open the secondary skill assignment UI
 		if ctx.GameReader.LegacyGraphics() {
@@ -311,8 +412,8 @@ func ResetBindings() error {
 		ctx.HID.MovePointer(skillPosition.X, skillPosition.Y)
 		utils.Sleep(500) // Delay for mouse to move and for the hover effect
 
-		// 4. Press current F-key to assign the skill
-		ctx.HID.PressKeyBinding(fKeyBinding)
+		// 4. Press current skill action keybinding to assign the skill
+		ctx.HID.PressKeyBinding(skillBinding.KeyBinding)
 		utils.Sleep(700) // Delay for the binding to register
 
 		// 5. Close the skill assignment menu
@@ -321,7 +422,7 @@ func ResetBindings() error {
 		utils.Sleep(500) // Delay after closing for the next iteration
 	}
 
-	ctx.Logger.Info("TomeOfTownPortal binding to F1-F8 sequence completed.")
+	ctx.Logger.Info("TomeOfTownPortal binding to skill action 1-16 sequence completed.")
 	return nil
 }
 
@@ -350,7 +451,17 @@ func HireMerc() error {
 		}
 
 		// Only hire in Normal difficulty
-		if ctx.CharacterCfg.Game.Difficulty == difficulty.Normal && ctx.Data.PlayerUnit.TotalPlayerGold() > 5000 && ctx.Data.PlayerUnit.Area == area.LutGholein {
+		if ctx.CharacterCfg.Game.Difficulty == difficulty.Normal {
+			if ctx.Data.PlayerUnit.Area != area.LutGholein {
+				if err := WayPoint(area.LutGholein); err != nil {
+					if strings.Contains(err.Error(), "no available waypoint found to reach destination") {
+						ctx.Logger.Debug("Lut Gholein waypoint not unlocked, skipping merc hire.")
+						return nil
+					}
+					return err
+				}
+			}
+
 			ctx.Logger.Info("Attempting to hire 'Prayer' mercenary...")
 
 			isLegacy := ctx.Data.LegacyGraphics
@@ -378,14 +489,19 @@ func HireMerc() error {
 			}
 
 			if mercToHire != nil {
-				ctx.Logger.Info(fmt.Sprintf("Hiring merc: %s with skill %s", mercToHire.Name, mercToHire.Skill.Name))
-				keySequence := []byte{win.VK_HOME}
-				for i := 0; i < mercToHire.Index; i++ {
-					keySequence = append(keySequence, win.VK_DOWN)
+				currentGold := ctx.Data.PlayerUnit.TotalPlayerGold()
+				if currentGold < mercToHire.Cost {
+					ctx.Logger.Info(fmt.Sprintf("Not enough gold to hire merc (gold: %d, cost: %d).", currentGold, mercToHire.Cost))
+				} else {
+					ctx.Logger.Info(fmt.Sprintf("Hiring merc: %s with skill %s", mercToHire.Name, mercToHire.Skill.Name))
+					keySequence := []byte{win.VK_HOME}
+					for i := 0; i < mercToHire.Index; i++ {
+						keySequence = append(keySequence, win.VK_DOWN)
+					}
+					keySequence = append(keySequence, win.VK_RETURN, win.VK_UP, win.VK_RETURN)
+					ctx.HID.KeySequence(keySequence...)
+					utils.Sleep(1000)
 				}
-				keySequence = append(keySequence, win.VK_RETURN, win.VK_UP, win.VK_RETURN)
-				ctx.HID.KeySequence(keySequence...)
-				utils.Sleep(1000)
 			} else {
 				ctx.Logger.Info("No merc with Prayer found.")
 				utils.Sleep(1000)
@@ -460,7 +576,7 @@ func ResetStats() error {
 					continue
 				}
 
-				// Shift-click to unequip the item to inventory
+				// Ctrl-click to unequip the item to stash directly
 				ctx.HID.ClickWithModifier(game.LeftButton, slotCoords.X, slotCoords.Y, game.CtrlKey)
 				utils.Sleep(500)
 
@@ -480,6 +596,7 @@ func ResetStats() error {
 		utils.Sleep(1000)
 		ctx.HID.KeySequence(win.VK_HOME, win.VK_RETURN)
 		utils.Sleep(1000)
+		ctx.GameReader.GetData() // Refresh data to update skill values
 
 		// 4. Now, drop any remaining items directly in the inventory
 		ctx.Logger.Info("Dropping all remaining inventory items.")
@@ -510,20 +627,33 @@ func ResetStats() error {
 
 		step.CloseAllMenus()
 		utils.Sleep(500)
+		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
+		utils.Sleep(500)
 
 		// 5. Finalize the reset process
 		err := ResetBindings()
 		if err != nil {
-			ctx.Logger.Error("Failed to bind TomeOfTownPortal to F8 after stats reset", slog.Any("error", err))
+			ctx.Logger.Error("Failed to bind TomeOfTownPortal after stats reset", slog.Any("error", err))
 		}
+		utils.Sleep(500)
+		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
 		utils.Sleep(500)
 
 		EnsureStatPoints()
 		utils.Sleep(500)
+		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
+		utils.Sleep(500)
+		ctx.GameReader.GetData() // Refresh data to update stat values
+
 		EnsureSkillPoints()
 		utils.Sleep(500)
+		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
+		utils.Sleep(500)
+		ctx.GameReader.GetData() // Refresh data to update skill values
 
 		EnsureSkillBindings()
+		utils.Sleep(500)
+		ctx.PathFinder.RandomMovement() // Avoid being considered stuck
 		utils.Sleep(500)
 
 		ctx.EnableItemPickup()
