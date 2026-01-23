@@ -1079,12 +1079,21 @@
                 <label style="grid-column: 1 / -1;">
                     Authentication Token <small style="margin-left: 6px; margin-bottom: 4px; display: inline-block;">(Tokens are now valid for 1 year. Click Generate to auto-create.)</small>
                     <div style="display: flex; gap: 10px; align-items: flex-start;">
-                        <input type="password"
-                               id="authTokenField"
-                               name="AuthToken"
-                               placeholder="{{ .Config.AuthToken }}"
-                               value="{{ .Config.AuthToken }}"
-                               style="flex: 1; margin-bottom: 0;"/>
+                        <div style="position: relative; flex: 1;">
+                            <input type="password"
+                                   id="authTokenField"
+                                   name="AuthToken"
+                                   placeholder="{{ .Config.AuthToken }}"
+                                   value="{{ .Config.AuthToken }}"
+                                   style="width: 100%; margin-bottom: 0; padding-right: 38px;"/>
+                            <button type="button"
+                                    id="toggleTokenVisibility"
+                                    aria-label="Show token"
+                                    aria-pressed="false"
+                                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 0; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
                                 <button type="button"
                                         id="generateTokenBtn"
                                         onclick="generateBattleNetToken()"
@@ -1102,6 +1111,9 @@
             <script>
             const authMethodSelect = document.querySelector('select[name="authmethod"]');
             const tokenButton = document.getElementById('generateTokenBtn');
+            const tokenField = document.getElementById('authTokenField');
+            const tokenVisibilityBtn = document.getElementById('toggleTokenVisibility');
+            const tokenVisibilityIcon = tokenVisibilityBtn ? tokenVisibilityBtn.querySelector('i') : null;
             const clearCredentialsOption = document.getElementById('clearCredentialsOption');
 
             function updateTokenButtonState() {
@@ -1121,10 +1133,22 @@
                 updateTokenButtonState();
             }
 
+            if (tokenVisibilityBtn && tokenVisibilityIcon) {
+                tokenVisibilityBtn.addEventListener('click', function () {
+                    if (!tokenField) {
+                        return;
+                    }
+                    const isMasked = tokenField.type === 'password';
+                    tokenField.type = isMasked ? 'text' : 'password';
+                    tokenVisibilityBtn.setAttribute('aria-pressed', isMasked ? 'true' : 'false');
+                    tokenVisibilityBtn.setAttribute('aria-label', isMasked ? 'Hide token' : 'Show token');
+                    tokenVisibilityIcon.className = isMasked ? 'bi bi-eye-slash' : 'bi bi-eye';
+                });
+            }
+
             async function generateBattleNetToken() {
                 const btn = document.getElementById('generateTokenBtn');
                 const status = document.getElementById('tokenStatus');
-                const tokenField = document.getElementById('authTokenField');
                 const cleanLogLine = (line) => line.replace(/^\[(DEBUG|INFO)(?:[^\]]*)\]\s*/, '');
                 const mapLogLine = (line) => {
                     if (line.startsWith('Current URL:')) {
