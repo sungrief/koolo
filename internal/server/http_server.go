@@ -3658,7 +3658,7 @@ func (s *HttpServer) generateBattleNetToken(w http.ResponseWriter, r *http.Reque
 		flusher.Flush()
 	}
 
-	token, err := game.GetBattleNetTokenWithDebug(req.Username, req.Password, req.Realm, sendLine)
+	token, err := game.GetBattleNetTokenWithDebugContext(r.Context(), req.Username, req.Password, req.Realm, sendLine)
 	if err != nil {
 		s.logger.Error("Failed to generate Battle.net token",
 			slog.String("username", req.Username),
