@@ -156,7 +156,7 @@ func getBattleNetTokenWithUI(ctx context.Context, username, password, realm stri
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	logLine := func(format string, args ...any) {
 		line := fmt.Sprintf(format, args...)
@@ -220,10 +220,10 @@ func getBattleNetTokenWithUI(ctx context.Context, username, password, realm stri
 		}
 	}
 
-	logLine("[INFO] Waiting for authentication completion (2 minutes timeout)...\n")
+	logLine("[INFO] Waiting for authentication completion (5 minutes timeout)...\n")
 	logLine("[INFO] Please check your email or Battle.net app for verification code\n")
 
-	maxAttempts := 120
+	maxAttempts := 300
 	for i := 0; i < maxAttempts; i++ {
 		if err := ctx.Err(); err != nil {
 			return "", err
@@ -252,7 +252,7 @@ func getBattleNetTokenWithUI(ctx context.Context, username, password, realm stri
 		time.Sleep(1 * time.Second)
 	}
 
-	return "", errors.New("authentication timeout (2 minutes)")
+	return "", errors.New("authentication timeout (5 minutes)")
 }
 
 func getBattleNetLoginURL(realm string) string {
