@@ -891,10 +891,11 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/reset-droplogs", s.resetDroplogs)
 	http.HandleFunc("/process-list", s.getProcessList)
 	http.HandleFunc("/attach-process", s.attachProcess)
-	http.HandleFunc("/ws", s.wsServer.HandleWebSocket)      // Web socket
-	http.HandleFunc("/initial-data", s.initialData)         // Web socket data
-	http.HandleFunc("/api/reload-config", s.reloadConfig)   // New handler
-	http.HandleFunc("/api/companion-join", s.companionJoin) // Companion join handler
+	http.HandleFunc("/ws", s.wsServer.HandleWebSocket)                         // Web socket
+	http.HandleFunc("/initial-data", s.initialData)                            // Web socket data
+	http.HandleFunc("/api/reload-config", s.reloadConfig)                      // New handler
+	http.HandleFunc("/api/companion-join", s.companionJoin)                    // Companion join handler
+	http.HandleFunc("/api/generate-battlenet-token", s.generateBattleNetToken) // Battle.net token generation
 	http.HandleFunc("/reset-muling", s.resetMuling)
 
 	// Pickit Editor routes
@@ -3610,4 +3611,64 @@ func buildTZGroups() []TZGroup {
 	})
 
 	return result
+}
+
+func (s *HttpServer) generateBattleNetToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Realm    string `json:"realm"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.logger.Error("Failed to decode request", slog.Any("error", err))
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	// Validate input
+	if req.Username == "" || req.Password == "" {
+		http.Error(w, "Username and password are required", http.StatusBadRequest)
+		return
+	}
+
+	s.logger.Info("Generating Battle.net token",
+		slog.String("username", req.Username),
+		slog.String("realm", req.Realm))
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+
+	sendLine := func(line string) {
+		if line == "" {
+			return
+		}
+		fmt.Fprintln(w, line)
+		flusher.Flush()
+	}
+
+	token, err := game.GetBattleNetTokenWithDebugContext(r.Context(), req.Username, req.Password, req.Realm, sendLine)
+	if err != nil {
+		s.logger.Error("Failed to generate Battle.net token",
+			slog.String("username", req.Username),
+			slog.Any("error", err))
+		sendLine("ERROR: " + err.Error())
+		return
+	}
+
+	s.logger.Info("Battle.net token generated successfully",
+		slog.String("username", req.Username))
+
+	sendLine("TOKEN: " + token)
 }

@@ -1049,7 +1049,7 @@
                 </label>
             </fieldset>
             <h3 id="battle-net-settings"><i class="bi bi-globe2 section-icon" aria-hidden="true"></i>Battle.net settings</h3><br>
-            <fieldset class="grid">
+            <fieldset class="grid" style="margin-bottom: 0;">
                 <label>
                     Username
                     <input name="username" placeholder="{{ .Config.Username }}" value="{{ .Config.Username }}"/>
@@ -1076,11 +1076,222 @@
                 </label>
             </fieldset>
             <fieldset class="grid">
-                <label>
-                    Authentication Token <small>(⚠️tokens issued after Blizzard's policy update expire in 30 minutes. We recommend logging in with username and password.)</small>
-                    <input type="password" name="AuthToken" placeholder="{{ .Config.AuthToken }}" value="{{ .Config.AuthToken }}"/>
+                <label style="grid-column: 1 / -1;">
+                    Authentication Token <small style="margin-left: 6px; margin-bottom: 4px; display: inline-block;">(Tokens are now valid for 1 year. Click Generate to auto-create.)</small>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <div style="position: relative; flex: 1;">
+                            <input type="password"
+                                   id="authTokenField"
+                                   name="AuthToken"
+                                   placeholder="{{ .Config.AuthToken }}"
+                                   value="{{ .Config.AuthToken }}"
+                                   style="width: 100%; margin-bottom: 0; padding-right: 38px;"/>
+                            <button type="button"
+                                    id="toggleTokenVisibility"
+                                    aria-label="Show token"
+                                    aria-pressed="false"
+                                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); padding: 0; border: none; background: transparent; color: var(--text-secondary); cursor: pointer;">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                                <button type="button"
+                                        id="generateTokenBtn"
+                                        onclick="generateBattleNetToken()"
+                                        style="white-space: nowrap; min-width: 140px; margin-bottom: 0;">
+                            Generate Token
+                        </button>
+                    </div>
+                    <small id="tokenStatus" style="color: #666; display: block; margin-top: 5px;"></small>
+                </label>
+                <label id="clearCredentialsOption" style="display: flex; align-items: center; gap: 6px; margin-top: -16px; grid-column: 1 / -1;">
+                    <input type="checkbox" id="clearCredentialsOnToken" name="clearCredentialsOnToken"/>
+                    <small style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">Clear username/password after successful token generation</small>
                 </label>
             </fieldset>
+            <script>
+            const authMethodSelect = document.querySelector('select[name="authmethod"]');
+            const tokenButton = document.getElementById('generateTokenBtn');
+            const tokenField = document.getElementById('authTokenField');
+            const tokenVisibilityBtn = document.getElementById('toggleTokenVisibility');
+            const tokenVisibilityIcon = tokenVisibilityBtn ? tokenVisibilityBtn.querySelector('i') : null;
+            const clearCredentialsOption = document.getElementById('clearCredentialsOption');
+
+            function updateTokenButtonState() {
+                if (!authMethodSelect || !tokenButton) {
+                    return;
+                }
+
+                const isTokenAuth = authMethodSelect.value === 'TokenAuth';
+                tokenButton.disabled = !isTokenAuth;
+                if (clearCredentialsOption) {
+                    clearCredentialsOption.style.display = isTokenAuth ? 'flex' : 'none';
+                }
+            }
+
+            if (authMethodSelect && tokenButton) {
+                authMethodSelect.addEventListener('change', updateTokenButtonState);
+                updateTokenButtonState();
+            }
+
+            if (tokenVisibilityBtn && tokenVisibilityIcon) {
+                tokenVisibilityBtn.addEventListener('click', function () {
+                    if (!tokenField) {
+                        return;
+                    }
+                    const isMasked = tokenField.type === 'password';
+                    tokenField.type = isMasked ? 'text' : 'password';
+                    tokenVisibilityBtn.setAttribute('aria-pressed', isMasked ? 'true' : 'false');
+                    tokenVisibilityBtn.setAttribute('aria-label', isMasked ? 'Hide token' : 'Show token');
+                    tokenVisibilityIcon.className = isMasked ? 'bi bi-eye-slash' : 'bi bi-eye';
+                });
+            }
+
+            async function generateBattleNetToken() {
+                const btn = document.getElementById('generateTokenBtn');
+                const status = document.getElementById('tokenStatus');
+                const cleanLogLine = (line) => line.replace(/^\[(DEBUG|INFO)(?:[^\]]*)\]\s*/, '');
+                const mapLogLine = (line) => {
+                    if (line.startsWith('Current URL:')) {
+                        return 'Waiting for token issuance...';
+                    }
+                    return line;
+                };
+
+                // Get username, password, and realm from the form
+                const username = document.querySelector('input[name="username"]').value;
+                const password = document.querySelector('input[name="password"]').value;
+                const realm = document.querySelector('select[name="realm"]').value;
+
+                // Validate input
+                if (!username || !password) {
+                    status.textContent = 'Error: Please enter username and password first';
+                    status.style.color = 'red';
+                    return;
+                }
+
+                // Disable button and show loading state
+                btn.disabled = true;
+                btn.textContent = 'Generating...';
+                status.textContent = 'Starting token generation...';
+                status.style.color = '#0066cc';
+
+                let token = '';
+                let errorMsg = '';
+
+                try {
+                    const response = await fetch('/api/generate-battlenet-token', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            username: username,
+                            password: password,
+                            realm: realm
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        status.textContent = 'Error: ' + (errorText || 'Failed to generate token');
+                        status.style.color = 'red';
+                        return;
+                    }
+
+                    if (!response.body) {
+                        const text = await response.text();
+                        const lines = text.split('\n');
+                        for (const rawLine of lines) {
+                            const line = rawLine.trim();
+                            if (!line) {
+                                continue;
+                            }
+                            if (line.startsWith('TOKEN:')) {
+                                token = line.slice('TOKEN:'.length).trim();
+                                continue;
+                            }
+                            if (line.startsWith('ERROR:')) {
+                                errorMsg = line.slice('ERROR:'.length).trim();
+                                break;
+                            }
+                            const cleanedLine = mapLogLine(cleanLogLine(line));
+                            if (!cleanedLine) {
+                                continue;
+                            }
+                            status.textContent = cleanedLine;
+                            status.style.color = '#0066cc';
+                        }
+                    } else {
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = '';
+
+                        while (true) {
+                            const {value, done} = await reader.read();
+                            if (done) {
+                                break;
+                            }
+
+                            buffer += decoder.decode(value, {stream: true});
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop();
+
+                            for (const rawLine of lines) {
+                                const line = rawLine.trim();
+                                if (!line) {
+                                    continue;
+                                }
+                                if (line.startsWith('TOKEN:')) {
+                                    token = line.slice('TOKEN:'.length).trim();
+                                    continue;
+                                }
+                                if (line.startsWith('ERROR:')) {
+                                    errorMsg = line.slice('ERROR:'.length).trim();
+                                    status.textContent = 'Error: ' + errorMsg;
+                                    status.style.color = 'red';
+                                    await reader.cancel();
+                                    break;
+                                }
+                                const cleanedLine = mapLogLine(cleanLogLine(line));
+                                if (!cleanedLine) {
+                                    continue;
+                                }
+                                status.textContent = cleanedLine;
+                                status.style.color = '#0066cc';
+                            }
+
+                            if (errorMsg) {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (errorMsg) {
+                        status.textContent = 'Error: ' + errorMsg;
+                        status.style.color = 'red';
+                        return;
+                    }
+
+                    if (token) {
+                        tokenField.value = token;
+                        const clearCredentials = document.getElementById('clearCredentialsOnToken');
+                        if (clearCredentials && clearCredentials.checked) {
+                            document.querySelector('input[name="username"]').value = '';
+                            document.querySelector('input[name="password"]').value = '';
+                        }
+                        status.textContent = "Token generated successfully! Don't forget to Save below.";
+                        status.style.color = 'green';
+                    } else {
+                        status.textContent = 'Error: Failed to generate token';
+                        status.style.color = 'red';
+                    }
+                } catch (error) {
+                    status.textContent = 'Error: ' + error.message;
+                    status.style.color = 'red';
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Generate Token';
+                }
+            }
+            </script>
             <h3 id="scheduler-section"><i class="bi bi-calendar-week section-icon" aria-hidden="true"></i>Scheduler</h3><br>
             <label>Automate when the bot runs. Choose between Time Slots (specific hours) or Duration (human-like play patterns).</label><br>
             <fieldset class="grid">

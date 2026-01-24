@@ -18,8 +18,17 @@ require (
 )
 
 require (
+	github.com/ysmood/fetchup v0.2.3 // indirect
+	github.com/ysmood/goob v0.4.0 // indirect
+	github.com/ysmood/got v0.40.0 // indirect
+	github.com/ysmood/gson v0.7.3 // indirect
+	github.com/ysmood/leakless v0.9.0 // indirect
+)
+
+require (
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/expr-lang/expr v1.16.9 // indirect
+	github.com/go-rod/rod v0.116.2
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/inconshreveable/log15 v3.0.0-testing.5+incompatible // indirect
 	github.com/inconshreveable/log15/v3 v3.0.0-testing.5 // indirect
@@ -37,4 +46,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/hectorgimenez/d2go => github.com/kwader2k/d2go v0.0.0-20260116194611-ec04b2f00dad
+replace github.com/hectorgimenez/d2go => github.com/kwader2k/d2go v0.0.0-20260123230834-ba3d781a0b20
