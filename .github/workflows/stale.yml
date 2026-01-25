@@ -28,7 +28,8 @@ jobs:
             
             We’ll leave this open for another 7 days in case you have final 
             thoughts, but otherwise, it will be closed automatically to keep 
-            things tidy.
+            things tidy. This doesn't mean the content is lost! Your work is archived here and 
+            may be referenced or reused in the future.
           
           # The closing message
           close-pr-message: >
