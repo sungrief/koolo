@@ -215,30 +215,47 @@ func getArmoryStatName(id stat.ID) string {
 	return fmt.Sprintf("Stat_%d", id)
 }
 
+// supportedImageExtensions lists image formats in order of preference
+var supportedImageExtensions = []string{".webp", ".png", ".jpg", ".jpeg", ".gif"}
+
+// findArmoryImageFile checks for an image file with supported extensions
+// Returns the filename with extension if found, empty string otherwise
+func findArmoryImageFile(baseName, assetsPath string) string {
+	for _, ext := range supportedImageExtensions {
+		filename := baseName + ext
+		if _, err := os.Stat(filepath.Join(assetsPath, filename)); err == nil {
+			return filename
+		}
+	}
+	return ""
+}
+
 // getArmoryItemImageName returns the image filename for an item
 // Tries to use identified name first, falls back to base item name
+// Supports multiple image formats: .webp, .png, .jpg, .jpeg, .gif
 func getArmoryItemImageName(itm data.Item, assetsPath string) string {
 	// For unique/set items, try identified name first
 	if (itm.Quality == item.QualityUnique || itm.Quality == item.QualitySet) && itm.IdentifiedName != "" {
 		identifiedName := sanitizeArmoryImageName(itm.IdentifiedName)
-		identifiedFile := identifiedName + ".webp"
-		// Check if the image file exists
-		if _, err := os.Stat(filepath.Join(assetsPath, identifiedFile)); err == nil {
-			return identifiedFile
+		if found := findArmoryImageFile(identifiedName, assetsPath); found != "" {
+			return found
 		}
 	}
 
 	// For runewords, try runeword name first
 	if itm.IsRuneword && itm.RunewordName != "" {
 		runewordName := sanitizeArmoryImageName(string(itm.RunewordName))
-		runewordFile := runewordName + ".webp"
-		if _, err := os.Stat(filepath.Join(assetsPath, runewordFile)); err == nil {
-			return runewordFile
+		if found := findArmoryImageFile(runewordName, assetsPath); found != "" {
+			return found
 		}
 	}
 
-	// Fall back to base item name
+	// Fall back to base item name - try to find with any supported extension
 	name := sanitizeArmoryImageName(string(itm.Name))
+	if found := findArmoryImageFile(name, assetsPath); found != "" {
+		return found
+	}
+	// Default to .webp if no file found (will show missing image)
 	return name + ".webp"
 }
 
