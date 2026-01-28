@@ -463,6 +463,12 @@
             <p class="dump-time">Last updated: {{ .Armory.DumpTime.Format "Jan 02, 2006 15:04:05" }} (Game: {{ .Armory.GameName }})</p>
         </div>
 
+        <!-- Warning Notice -->
+        <div class="bg-[rgba(60,50,30,0.9)] border border-[#8B7500] rounded-lg p-3 mb-4 flex items-center gap-3" style="max-width: 1100px; margin: 0 auto 16px auto;">
+            <i class="bi bi-exclamation-triangle-fill text-[#FFD700] text-xl"></i>
+            <span class="text-[#FFD700] text-sm">PLEASE NOTE: There might be some images missing, if you find a missing image please report it to bug section.</span>
+        </div>
+
         <!-- Row 1: Equipped | Inventory | Belt -->
         <div class="bg-[rgba(30,30,50,0.9)] border border-[#4a4a4a] rounded-lg flex flex-wrap armory-row">
             <!-- Equipment Panel -->
