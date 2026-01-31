@@ -84,6 +84,11 @@
             {
                 "run": "tristram_early_gold_farm",
                 "maxLevel": 23,
+                "lowGoldRun": true,
+                "exitGame": true
+            },
+            {
+                "run": "lower_kurast",
                 "lowGoldRun": true
             },
             {
@@ -101,10 +106,6 @@
             {
                 "run": "tal_rasha_tombs",
                 "maxLevel": 23
-            },
-            {
-                "run": "lower_kurast",
-                "lowGoldRun": true
             },
             {
                 "run": "travincal",
@@ -229,6 +230,14 @@
         ],
         "beforeQuests": [
             {
+                "run": "tristram_early_gold_farm",
+                "lowGoldRun": true
+            },
+            {
+                "run": "lower_kurast_chest",
+                "lowGoldRun": true
+            },
+            {
                 "run": "countess",
                 "maxLevel": 59
             },
@@ -239,10 +248,6 @@
             {
                 "run": "diablo",
                 "maxLevel": 49
-            },
-            {
-                "run": "lower_kurast_chest",
-                "lowGoldRun": true
             },
             {
                 "run": "travincal",
@@ -318,12 +323,16 @@
         ],
         "beforeQuests": [
             {
-                "run": "mausoleum",
-                "maxLevel": 84
+                "run": "tristram_early_gold_farm",
+                "lowGoldRun": true
             },
             {
                 "run": "lower_kurast_chest",
                 "lowGoldRun": true
+            },
+            {
+                "run": "mausoleum",
+                "maxLevel": 84
             }
         ],
         "afterQuests": [
