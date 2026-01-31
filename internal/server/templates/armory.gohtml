@@ -20,10 +20,78 @@
         }
 
         body {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
             min-height: 100vh;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background 0.3s, color 0.3s;
         }
+
+        /* Colorful Theme (Default) */
+        body.theme-colorful {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            color: #fff;
+        }
+        body.theme-colorful .panel { background: rgba(30,30,50,0.9); border-color: #4a4a4a; }
+        body.theme-colorful .panel-header { background: linear-gradient(180deg, rgba(40, 40, 60, 0.9) 0%, rgba(30, 30, 50, 0.9) 100%); }
+        body.theme-colorful .inventory-slot { background: rgba(20, 20, 40, 0.8); border-color: #333; }
+        body.theme-colorful .inventory-grid { background: rgba(0,0,0,0.5); border-color: #4a4a4a; }
+        body.theme-colorful .equip-slot { background: rgba(20, 20, 40, 0.8); border-color: #444; }
+        body.theme-colorful .section-title { color: #bfa969; border-color: #4a4a4a; }
+        body.theme-colorful .selector { background: rgba(30, 30, 50, 0.9); border-color: #4a4a4a; color: #fff; }
+        body.theme-colorful .btn-back { background: rgba(40, 40, 60, 0.9); border-color: #4a4a4a; color: #fff; }
+        body.theme-colorful .gold-display { background: rgba(30, 30, 50, 0.8); border-color: #4a4a4a; }
+        body.theme-colorful .stash-tab { background: rgba(40, 40, 60, 0.6); border-color: #4a4a4a; color: #888; }
+        body.theme-colorful .stash-tab.active { background: rgba(80, 80, 100, 0.8); color: #fff; }
+        body.theme-colorful .warning-banner { background: rgba(60,50,30,0.9); border-color: #8B7500; }
+        body.theme-colorful .text-muted { color: #888; }
+        body.theme-colorful .text-secondary { color: #aaa; }
+
+        /* Dark Theme */
+        body.theme-dark {
+            background: #0d0d0d;
+            color: #e0e0e0;
+        }
+        body.theme-dark .panel { background: #1a1a1a; border-color: #333; }
+        body.theme-dark .panel-header { background: #1f1f1f; }
+        body.theme-dark .inventory-slot { background: #141414; border-color: #2a2a2a; }
+        body.theme-dark .inventory-grid { background: #0a0a0a; border-color: #333; }
+        body.theme-dark .equip-slot { background: #141414; border-color: #333; }
+        body.theme-dark .section-title { color: #bfa969; border-color: #333; }
+        body.theme-dark .selector { background: #1a1a1a; border-color: #333; color: #e0e0e0; }
+        body.theme-dark .btn-back { background: #1a1a1a; border-color: #333; color: #e0e0e0; }
+        body.theme-dark .gold-display { background: #1a1a1a; border-color: #333; }
+        body.theme-dark .stash-tab { background: #1a1a1a; border-color: #333; color: #666; }
+        body.theme-dark .stash-tab.active { background: #2a2a2a; color: #fff; }
+        body.theme-dark .warning-banner { background: #2a2200; border-color: #665500; }
+        body.theme-dark .text-muted { color: #666; }
+        body.theme-dark .text-secondary { color: #888; }
+
+        /* Light Theme */
+        body.theme-light {
+            background: #f5f5f5;
+            color: #222;
+        }
+        body.theme-light .panel { background: #ffffff; border-color: #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        body.theme-light .panel-header { background: #fafafa; }
+        body.theme-light .inventory-slot { background: #f0f0f0; border-color: #ccc; }
+        body.theme-light .inventory-grid { background: #e8e8e8; border-color: #ccc; }
+        body.theme-light .equip-slot { background: #f0f0f0; border-color: #ccc; }
+        body.theme-light .section-title { color: #8B7500; border-color: #ddd; }
+        body.theme-light .selector { background: #fff; border-color: #ccc; color: #333; }
+        body.theme-light .btn-back { background: #fff; border-color: #ccc; color: #333; }
+        body.theme-light .btn-back:hover { background: #f0f0f0; border-color: #999; }
+        body.theme-light .gold-display { background: #fff; border-color: #ddd; }
+        body.theme-light .stash-tab { background: #f0f0f0; border-color: #ccc; color: #666; }
+        body.theme-light .stash-tab.active { background: #fff; color: #333; border-bottom-color: #fff; }
+        body.theme-light .warning-banner { background: #fff8e0; border-color: #e0c000; }
+        body.theme-light .warning-banner span { color: #856404 !important; }
+        body.theme-light .warning-banner i { color: #856404 !important; }
+        body.theme-light .text-muted { color: #888; }
+        body.theme-light .text-secondary { color: #666; }
+        body.theme-light .text-white { color: #222 !important; }
+        body.theme-light .text-gray-400 { color: #666 !important; }
+        body.theme-light .text-gray-500 { color: #888 !important; }
+        body.theme-light .text-\[\#bfa969\] { color: #8B7500 !important; }
+        body.theme-light .dump-time { color: #888; }
 
         .item-quality-low { color: var(--quality-low); }
         .item-quality-normal { color: var(--quality-normal); }
@@ -322,24 +390,21 @@
         }
 
         .character-header {
-            background: linear-gradient(180deg, rgba(40, 40, 60, 0.9) 0%, rgba(30, 30, 50, 0.9) 100%);
-            border: 1px solid #4a4a4a;
+            border: 1px solid;
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 24px;
         }
 
-        .character-selector {
-            background: rgba(30, 30, 50, 0.9);
-            border: 1px solid #4a4a4a;
+        .selector {
+            border: 1px solid;
             border-radius: 4px;
             padding: 8px 12px;
-            color: #fff;
             font-size: 14px;
             cursor: pointer;
         }
 
-        .character-selector:focus {
+        .selector:focus {
             outline: none;
             border-color: #6B8AFF;
         }
@@ -413,8 +478,13 @@
             <h1 class="text-2xl font-bold text-[#bfa969]">
                 <i class="bi bi-shield-shaded mr-2"></i>Armory
             </h1>
-            <div>
-                <select class="character-selector" onchange="loadCharacter(this.value)">
+            <div class="flex items-center gap-4">
+                <select class="selector theme-selector" onchange="changeTheme(this.value)" title="Theme">
+                    <option value="colorful">Colorful</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                </select>
+                <select class="selector" onchange="loadCharacter(this.value)">
                     <option value="">Select Character...</option>
                     {{ range .Characters }}
                     <option value="{{ . }}" {{ if eq . $.Character }}selected{{ end }}>{{ . }}</option>
@@ -431,7 +501,7 @@
         </div>
         {{ else if .Armory }}
         <!-- Character Info -->
-        <div class="character-header">
+        <div class="character-header panel panel-header">
             <div class="flex items-center justify-between">
                 <div>
                     <h2 class="text-xl font-bold">{{ .Armory.CharacterName }}</h2>
@@ -454,13 +524,13 @@
         </div>
 
         <!-- Warning Notice -->
-        <div class="bg-[rgba(60,50,30,0.9)] border border-[#8B7500] rounded-lg p-3 mb-4 flex items-center gap-3" style="max-width: 1100px; margin: 0 auto 16px auto;">
+        <div class="warning-banner rounded-lg p-3 mb-4 flex items-center gap-3 border" style="max-width: 1100px; margin: 0 auto 16px auto;">
             <i class="bi bi-exclamation-triangle-fill text-[#FFD700] text-xl"></i>
             <span class="text-[#FFD700] text-sm">PLEASE NOTE: There might be some images missing, if you find a missing image please report it to bug section.</span>
         </div>
 
         <!-- Row 1: Equipped | Inventory | Belt -->
-        <div class="bg-[rgba(30,30,50,0.9)] border border-[#4a4a4a] rounded-lg flex flex-wrap armory-row">
+        <div class="panel border rounded-lg flex flex-wrap armory-row">
             <!-- Equipment Panel -->
             <div class="p-4 flex-1 min-w-[200px] border-r border-[#4a4a4a]">
                 <h3 class="section-title"><i class="bi bi-person-fill mr-2"></i>Equipped</h3>
@@ -651,7 +721,7 @@
         </div>
 
         <!-- Row 2: Stash | Cube | Mercenary -->
-        <div class="bg-[rgba(30,30,50,0.9)] border border-[#4a4a4a] rounded-lg flex flex-wrap mt-6 armory-row">
+        <div class="panel border rounded-lg flex flex-wrap mt-6 armory-row">
             <!-- Stash -->
             <div class="p-4 flex-1 min-w-[200px] border-r border-[#4a4a4a]">
                 <h3 class="section-title"><i class="bi bi-box-seam mr-2"></i>Stash</h3>
@@ -962,6 +1032,23 @@
             
             return html;
         }
+
+        // Theme handling
+        function changeTheme(theme) {
+            document.body.classList.remove('theme-colorful', 'theme-dark', 'theme-light');
+            document.body.classList.add('theme-' + theme);
+            localStorage.setItem('armoryTheme', theme);
+        }
+
+        // Restore saved theme on page load
+        (function() {
+            const saved = localStorage.getItem('armoryTheme') || 'colorful';
+            const selector = document.querySelector('.theme-selector');
+            if (selector) {
+                selector.value = saved;
+            }
+            changeTheme(saved);
+        })();
     </script>
 </body>
 </html>
