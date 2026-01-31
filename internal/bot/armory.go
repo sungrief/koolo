@@ -331,13 +331,15 @@ func dumpArmoryData(characterName string, gameData *game.Data, gameName string) 
 	// Belt items are stored separately in Inventory.Belt.Items
 	// Belt positions come as linear index (0-15) in X, Y always 0
 	// Convert to 4x4 grid: col = index % 4, row = index / 4
+	// In-game, bottom row (index 0-3) is consumed first, so we flip Y
+	// to display bottom row at the bottom visually
 	for _, itm := range gameData.Inventory.Belt.Items {
 		armoryItem := convertArmoryItem(itm, assetsPath)
 		// Convert linear belt index to 4x4 grid position
 		beltIndex := itm.Position.X
 		armoryItem.Position = data.Position{
-			X: beltIndex % 4, // Column (0-3)
-			Y: beltIndex / 4, // Row (0-3)
+			X: beltIndex % 4,     // Column (0-3)
+			Y: 3 - beltIndex/4,   // Row flipped: 0->3, 1->2, 2->1, 3->0
 		}
 		armory.Belt = append(armory.Belt, armoryItem)
 	}

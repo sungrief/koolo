@@ -223,16 +223,6 @@
             border-color: #666;
         }
 
-        .equip-slot::before {
-            content: attr(data-slot);
-            position: absolute;
-            bottom: -16px;
-            font-size: 9px;
-            color: #666;
-            text-transform: capitalize;
-            white-space: nowrap;
-        }
-
         .equip-head { width: 60px; height: 60px; }
         .equip-torso { width: 60px; height: 90px; }
         .equip-weapon { width: 60px; height: 120px; }
@@ -493,7 +483,7 @@
                             </div>
                             <div class="equip-spacer"></div>
                         </div>
-                        <!-- Row 2: Weapon, Torso, Weapon2 / Neck -->
+                        <!-- Row 2: Weapon, Torso, Amulet + Shield -->
                         <div class="equip-row">
                             <div class="equip-slot equip-weapon" data-slot="left_arm">
                                 {{ range .Armory.Equipped }}{{ if eq .BodyLocation "left_arm" }}
@@ -517,19 +507,32 @@
                                 </div>
                                 {{ end }}{{ end }}
                             </div>
-                            <div class="equip-slot equip-shield" data-slot="right_arm">
-                                {{ range .Armory.Equipped }}{{ if eq .BodyLocation "right_arm" }}
-                                <div class="equip-item item-quality-{{ .Quality | lower }}"
-                                     style="background-image: url('/items/{{ .ImageName }}');"
-                                     data-item='{{ . | json }}'
-                                     onmouseenter="showTooltip(event, this)"
-                                     onmouseleave="hideTooltip()"
-                                     onmousemove="moveTooltip(event)">
+                            <div class="equip-slot-group">
+                                <div class="equip-slot equip-neck" data-slot="neck">
+                                    {{ range .Armory.Equipped }}{{ if eq .BodyLocation "neck" }}
+                                    <div class="equip-item item-quality-{{ .Quality | lower }}"
+                                         style="background-image: url('/items/{{ .ImageName }}');"
+                                         data-item='{{ . | json }}'
+                                         onmouseenter="showTooltip(event, this)"
+                                         onmouseleave="hideTooltip()"
+                                         onmousemove="moveTooltip(event)">
+                                    </div>
+                                    {{ end }}{{ end }}
                                 </div>
-                                {{ end }}{{ end }}
+                                <div class="equip-slot equip-shield" data-slot="right_arm">
+                                    {{ range .Armory.Equipped }}{{ if eq .BodyLocation "right_arm" }}
+                                    <div class="equip-item item-quality-{{ .Quality | lower }}"
+                                         style="background-image: url('/items/{{ .ImageName }}');"
+                                         data-item='{{ . | json }}'
+                                         onmouseenter="showTooltip(event, this)"
+                                         onmouseleave="hideTooltip()"
+                                         onmousemove="moveTooltip(event)">
+                                    </div>
+                                    {{ end }}{{ end }}
+                                </div>
                             </div>
                         </div>
-                        <!-- Row 3: Gloves, Belt, Amulet/Rings -->
+                        <!-- Row 3: Gloves, Belt + Rings, Boots -->
                         <div class="equip-row">
                             <div class="equip-slot equip-gloves" data-slot="gloves">
                                 {{ range .Armory.Equipped }}{{ if eq .BodyLocation "gloves" }}
@@ -554,9 +557,9 @@
                                     </div>
                                     {{ end }}{{ end }}
                                 </div>
-                                <div class="equip-accessories">
-                                    <div class="equip-slot equip-neck" data-slot="neck">
-                                        {{ range .Armory.Equipped }}{{ if eq .BodyLocation "neck" }}
+                                <div class="equip-rings">
+                                    <div class="equip-slot equip-ring" data-slot="left_ring">
+                                        {{ range .Armory.Equipped }}{{ if eq .BodyLocation "left_ring" }}
                                         <div class="equip-item item-quality-{{ .Quality | lower }}"
                                              style="background-image: url('/items/{{ .ImageName }}');"
                                              data-item='{{ . | json }}'
@@ -566,29 +569,16 @@
                                         </div>
                                         {{ end }}{{ end }}
                                     </div>
-                                    <div class="equip-rings">
-                                        <div class="equip-slot equip-ring" data-slot="left_ring">
-                                            {{ range .Armory.Equipped }}{{ if eq .BodyLocation "left_ring" }}
-                                            <div class="equip-item item-quality-{{ .Quality | lower }}"
-                                                 style="background-image: url('/items/{{ .ImageName }}');"
-                                                 data-item='{{ . | json }}'
-                                                 onmouseenter="showTooltip(event, this)"
-                                                 onmouseleave="hideTooltip()"
-                                                 onmousemove="moveTooltip(event)">
-                                            </div>
-                                            {{ end }}{{ end }}
+                                    <div class="equip-slot equip-ring" data-slot="right_ring">
+                                        {{ range .Armory.Equipped }}{{ if eq .BodyLocation "right_ring" }}
+                                        <div class="equip-item item-quality-{{ .Quality | lower }}"
+                                             style="background-image: url('/items/{{ .ImageName }}');"
+                                             data-item='{{ . | json }}'
+                                             onmouseenter="showTooltip(event, this)"
+                                             onmouseleave="hideTooltip()"
+                                             onmousemove="moveTooltip(event)">
                                         </div>
-                                        <div class="equip-slot equip-ring" data-slot="right_ring">
-                                            {{ range .Armory.Equipped }}{{ if eq .BodyLocation "right_ring" }}
-                                            <div class="equip-item item-quality-{{ .Quality | lower }}"
-                                                 style="background-image: url('/items/{{ .ImageName }}');"
-                                                 data-item='{{ . | json }}'
-                                                 onmouseenter="showTooltip(event, this)"
-                                                 onmouseleave="hideTooltip()"
-                                                 onmousemove="moveTooltip(event)">
-                                            </div>
-                                            {{ end }}{{ end }}
-                                        </div>
+                                        {{ end }}{{ end }}
                                     </div>
                                 </div>
                             </div>
