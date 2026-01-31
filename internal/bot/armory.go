@@ -338,8 +338,8 @@ func dumpArmoryData(characterName string, gameData *game.Data, gameName string) 
 		// Convert linear belt index to 4x4 grid position
 		beltIndex := itm.Position.X
 		armoryItem.Position = data.Position{
-			X: beltIndex % 4,     // Column (0-3)
-			Y: 3 - beltIndex/4,   // Row flipped: 0->3, 1->2, 2->1, 3->0
+			X: beltIndex % 4,   // Column (0-3)
+			Y: 3 - beltIndex/4, // Row flipped: 0->3, 1->2, 2->1, 3->0
 		}
 		armory.Belt = append(armory.Belt, armoryItem)
 	}
