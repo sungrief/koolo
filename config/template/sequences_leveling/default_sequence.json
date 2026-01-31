@@ -265,7 +265,8 @@
         ],
         "nextDifficultyConditions": {
             "level": 70,
-            "fireRes": 15,
+            "fireRes": 0,
+            "lightRes": 0,
             "aboveGoldThreshold": true
         },
         "configSettings": []
@@ -341,8 +342,8 @@
             }
         ],
         "stayDifficultyConditions": {
-            "fireRes": 15,
-            "lightRes": 15,
+            "fireRes": 0,
+            "lightRes": 0,
             "aboveLowGold": true
         },
         "configSettings": [
