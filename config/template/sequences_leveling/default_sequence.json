@@ -118,7 +118,7 @@
         ],
         "nextDifficultyConditions": {
             "level": 41,
-            "fireRes": 15,
+            "fireRes": 0,
             "aboveGoldThreshold": true
         },
         "configSettings": [
@@ -263,11 +263,6 @@
             "fireRes": 15,
             "aboveGoldThreshold": true
         },
-        "stayDifficultyConditions": {
-            "level": 41,
-            "fireRes": 15,
-            "aboveGoldThreshold": true
-        },
         "configSettings": []
     },
     "hell": {
@@ -337,9 +332,9 @@
             }
         ],
         "stayDifficultyConditions": {
-            "level": 70,
             "fireRes": 15,
-            "aboveGoldThreshold": true
+            "lightRes": 15,
+            "aboveLowGold": true
         },
         "configSettings": [
             {
