@@ -648,7 +648,7 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			adjustMinDist = false
 		}
 
-		//We're not done yet, split the path into smaller segments when outside of town
+		//We're not done yet, split the path into smaller segments
 		nextPosition := targetPosition
 		pathStep := 0
 		if !ctx.Data.AreaData.Area.IsTown() {
@@ -673,6 +673,19 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 			nextPosition = utils.PositionAddCoords(nextPathPos, pathOffsetX, pathOffsetY)
 			if pather.DistanceFromPoint(nextPosition, targetPosition) <= minDistanceToFinishMoving {
 				nextPosition = targetPosition
+			}
+		} else {
+			// In town: use path segmentation to avoid getting stuck on corners/objects
+			// Larger steps than combat but still segmented for obstacle avoidance
+			maxPathStep := 12
+
+			pathStep = min(maxPathStep, len(path)-1)
+			if pathStep > 0 {
+				nextPathPos := path[pathStep]
+				nextPosition = utils.PositionAddCoords(nextPathPos, pathOffsetX, pathOffsetY)
+				if pather.DistanceFromPoint(nextPosition, targetPosition) <= minDistanceToFinishMoving {
+					nextPosition = targetPosition
+				}
 			}
 		}
 
@@ -706,8 +719,8 @@ func MoveTo(toFunc func() (data.Position, bool), options ...step.MoveOption) err
 
 		stuck = false
 		previousPosition = ctx.Data.PlayerUnit.Position
-		//If we're not in town and moved without errors, move forward in the path
-		if !ctx.Data.AreaData.Area.IsTown() {
+		//Move forward in the path after successful movement
+		if pathStep > 0 {
 			path = path[pathStep:]
 		}
 	}
