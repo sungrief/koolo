@@ -410,6 +410,8 @@ func (s *SinglePlayerSupervisor) Start() error {
 
 					currentPos := s.bot.ctx.Data.PlayerUnit.Position
 					lastAction := s.bot.ctx.ContextDebug[s.bot.ctx.ExecutionPriority].LastAction
+
+					// Check for stat/skill allocation activities
 					isAllocating := lastAction == "AutoRespecIfNeeded" ||
 						lastAction == "EnsureStatPoints" ||
 						lastAction == "EnsureSkillPoints" ||
@@ -417,6 +419,24 @@ func (s *SinglePlayerSupervisor) Start() error {
 						lastAction == "AllocateStatPointPacket" ||
 						lastAction == "LearnSkillPacket"
 					if isAllocating && (s.bot.ctx.Data.OpenMenus.Character || s.bot.ctx.Data.OpenMenus.SkillTree || s.bot.ctx.Data.OpenMenus.Inventory) {
+						stuckSince = time.Time{}
+						droppedMouseItem = false
+						lastPosition = currentPos
+						continue
+					}
+
+					// Check for cube transmutation activities (player is stationary but actively working)
+					isCubing := lastAction == "CubeRecipes" || lastAction == "CubeAddItems"
+					if isCubing && s.bot.ctx.Data.OpenMenus.Cube {
+						stuckSince = time.Time{}
+						droppedMouseItem = false
+						lastPosition = currentPos
+						continue
+					}
+
+					// Check for gambling activities (player is stationary at vendor)
+					isGambling := lastAction == "Gamble" || lastAction == "GambleSingleItem" || lastAction == "gambleItems"
+					if isGambling && s.bot.ctx.Data.OpenMenus.NPCShop {
 						stuckSince = time.Time{}
 						droppedMouseItem = false
 						lastPosition = currentPos
