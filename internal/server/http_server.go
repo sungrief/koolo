@@ -2792,7 +2792,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Pit.OnlyClearLevel2 = r.Form.Has("gamePitOnlyClearLevel2")
 
 		cfg.Game.Andariel.ClearRoom = r.Form.Has("gameAndarielClearRoom")
-		cfg.Game.Andariel.UseAntidoes = r.Form.Has("gameAndarielUseAntidoes")
+		cfg.Game.Andariel.UseAntidotes = r.Form.Has("gameAndarielUseAntidotes")
 
 		cfg.Game.Countess.ClearFloors = r.Form.Has("gameCountessClearFloors")
 
@@ -3254,7 +3254,7 @@ func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg
 		switch runID {
 		case "andariel":
 			cfg.Game.Andariel.ClearRoom = values.Has("gameAndarielClearRoom")
-			cfg.Game.Andariel.UseAntidoes = values.Has("gameAndarielUseAntidoes")
+			cfg.Game.Andariel.UseAntidotes = values.Has("gameAndarielUseAntidotes")
 		case "countess":
 			cfg.Game.Countess.ClearFloors = values.Has("gameCountessClearFloors")
 		case "duriel":

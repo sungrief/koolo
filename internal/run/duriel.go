@@ -28,7 +28,7 @@ import (
 const (
 	maxOrificeAttempts    = 10
 	orificeCheckDelay     = 200
-	thawingPotionsToDrink = 10 // Number of thawing potions consumed (counts separately for the character and the mercenary)
+	thawingPotionsToDrink = 10 // Number of thawing potions to consume (counts separately for the character and the mercenary)
 	thawingMinBuffSeconds = 100
 )
 
@@ -109,6 +109,7 @@ func (d Duriel) Run(parameters *RunParameters) error {
 
 	_, isLevelingChar := d.ctx.Char.(context.LevelingCharacter)
 	useThawing := d.ctx.CharacterCfg.Game.Duriel.UseThawing || isLevelingChar
+	// Track thawing buff duration based on player consumption (30 seconds per potion).
 	var thawingBuffDeadline time.Time
 	thawingBuffRemaining := func() time.Duration {
 		if thawingBuffDeadline.IsZero() {
@@ -126,6 +127,7 @@ func (d Duriel) Run(parameters *RunParameters) error {
 		}
 		thawingBuffDeadline = thawingBuffDeadline.Add(time.Duration(selfCount*30) * time.Second)
 	}
+	// Refresh thawing potions in town if the remaining buff is too low (or missing).
 	ensureThawingBuff := func(minSeconds int) error {
 		if !useThawing {
 			return nil
@@ -167,12 +169,13 @@ func (d Duriel) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	// Find and move to the real Tal Rasha tomb
+	// Find and move to the real Tal Rasha tomb.
 	realTalRashaTomb, err := d.findRealTomb()
 	if err != nil {
 		return err
 	}
 
+	// Leveling characters skip fighting in the canyon to speed up the run.
 	if isLevelingChar && d.ctx.Data.PlayerUnit.Area == area.CanyonOfTheMagi {
 		originalClearPathDist := d.ctx.CharacterCfg.Character.ClearPathDist
 		d.ctx.CharacterCfg.Character.ClearPathDist = 0
@@ -185,11 +188,11 @@ func (d Duriel) Run(parameters *RunParameters) error {
 		return err
 	}
 
-	// Wait for area to fully load and get synchronized
+	// Wait for area to fully load and get synchronized.
 	utils.Sleep(500)
 	d.ctx.RefreshGameData()
 
-	// Find orifice with retry logic
+	// Find orifice with retry logic.
 	var orifice data.Object
 	var found bool
 
@@ -206,7 +209,7 @@ func (d Duriel) Run(parameters *RunParameters) error {
 		return errors.New("failed to find Duriel's Lair entrance after multiple attempts")
 	}
 
-	// Move to orifice and clear the area
+	// Move to orifice and clear the area.
 	moveOptions := []step.MoveOption{}
 	if d.ctx.Data.CanTeleport() {
 		moveOptions = append(moveOptions, step.WithIgnoreMonsters())
@@ -241,6 +244,7 @@ func (d Duriel) Run(parameters *RunParameters) error {
 			utils.Sleep(500)
 			d.ctx.HID.Click(game.LeftButton, ui.AnvilBtnX, ui.AnvilBtnY)
 		}
+		// Leveling characters wait actively for the portal animation while staying safe.
 		if isLevelingChar {
 			d.ctx.Logger.Info("Waiting for Duriel's lair to open, securing area.")
 			nextClear := time.Now()
@@ -268,6 +272,7 @@ func (d Duriel) Run(parameters *RunParameters) error {
 		}
 	}
 
+	// In Normal/Nightmare check the remaining time of thawing potions buff after the town routine.
 	if isLevelingChar && d.ctx.CharacterCfg.Game.Difficulty != difficulty.Hell {
 		action.ClearAreaAroundPlayer(20, data.MonsterAnyFilter())
 		if err := action.InRunReturnTownRoutine(); err != nil {
@@ -289,6 +294,7 @@ func (d Duriel) Run(parameters *RunParameters) error {
 	d.ctx.RefreshGameData()
 	utils.Sleep(200)
 
+	// Ensure we enter the lair only with an active thawing buff.
 	if err := ensureThawingBuff(0); err != nil {
 		return err
 	}
@@ -340,6 +346,7 @@ func (d Duriel) Run(parameters *RunParameters) error {
 	return nil
 }
 
+// Consume thawing potions from the inventory only, optionally feeding the mercenary.
 func (d Duriel) drinkThawingPotions(selfTarget, mercTarget int) (int, int) {
 	mercAlive := d.ctx.Data.MercHPPercent() > 0
 	if selfTarget < 0 {
@@ -426,6 +433,7 @@ func (d Duriel) findRealTomb() (area.ID, error) {
 	return realTomb, nil
 }
 
+// Count only free, unlocked inventory cells.
 func (d Duriel) countFreeInventorySlots() int {
 	occupied := [4][10]bool{}
 	for _, i := range d.ctx.Data.Inventory.ByLocation(item.LocationInventory) {
@@ -461,6 +469,7 @@ func (d Duriel) countFreeInventorySlots() int {
 	return free
 }
 
+// Buy thawing potions in batches based on free inventory space, then consume them.
 func (d Duriel) buyAndDrinkThawingPotions(mercAlive bool, updateTimer func(int)) error {
 	selfTarget := thawingPotionsToDrink
 	mercTarget := 0
