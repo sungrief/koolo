@@ -363,8 +363,8 @@ func (u *Updater) buildNewVersion(ctx repoContext) error {
 		u.log(fmt.Sprintf("Garble version: %s", strings.TrimSpace(string(output))))
 	}
 
-	// Build output directory (matches better_build.bat)
-	buildDir := filepath.Join(ctx.RepoDir, "build")
+	// Build output directory (install dir so restart can pick it up directly)
+	buildDir := ctx.InstallDir
 	if err := os.MkdirAll(buildDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create build output directory: %w", err)
 	}
@@ -395,7 +395,7 @@ func (u *Updater) buildNewVersion(ctx repoContext) error {
 		restoreEnv("GOTMPDIR", gotmpPrev, gotmpSet)
 	}()
 
-	if err := os.Setenv("GOGARBLE", "!github.com/hectorgimenez/koolo/internal/server*,!github.com/hectorgimenez/koolo/internal/event*,!github.com/inkeliz/gowebview*"); err != nil {
+	if err := os.Setenv("GOGARBLE", "github.com/hectorgimenez/koolo/*,!github.com/hectorgimenez/koolo/internal/server*,!github.com/hectorgimenez/koolo/internal/event*,!github.com/inkeliz/gowebview*"); err != nil {
 		return fmt.Errorf("failed to set GOGARBLE: %w", err)
 	}
 
@@ -464,6 +464,7 @@ func (u *Updater) buildNewVersion(ctx repoContext) error {
 
 type buildCommitInfo struct {
 	Hash string
+	Time string
 }
 
 func (b buildCommitInfo) ldflags() string {
@@ -472,6 +473,9 @@ func (b buildCommitInfo) ldflags() string {
 	}
 	parts := []string{
 		fmt.Sprintf(" -X 'github.com/hectorgimenez/koolo/internal/updater.buildCommitHash=%s'", b.Hash),
+	}
+	if b.Time != "" {
+		parts = append(parts, fmt.Sprintf(" -X 'github.com/hectorgimenez/koolo/internal/updater.buildCommitTime=%s'", b.Time))
 	}
 	return strings.Join(parts, "")
 }
@@ -486,6 +490,11 @@ func getBuildCommitInfo(repoDir string) buildCommitInfo {
 	meta.Hash = strings.TrimSpace(string(hashOut))
 	if meta.Hash == "" {
 		return meta
+	}
+
+	dateOut, err := gitCmd(repoDir, "show", "-s", "--format=%cI", meta.Hash).Output()
+	if err == nil {
+		meta.Time = strings.TrimSpace(string(dateOut))
 	}
 
 	return meta
@@ -525,15 +534,13 @@ func (u *Updater) copyConfigFiles(ctx repoContext, destDir string) error {
 		return fmt.Errorf("failed to copy templates: %w", err)
 	}
 
-	// Copy assets folder
-	assetsDestRoot := destDir
-	if strings.EqualFold(filepath.Base(destDir), "build") {
-		parent := filepath.Dir(destDir)
-		if parent != "" && parent != destDir {
-			assetsDestRoot = parent
-		}
+	// Copy assets folder (one level above the executable directory)
+	assetsDestRoot := ctx.InstallDir
+	parent := filepath.Dir(ctx.InstallDir)
+	if parent != "" && parent != ctx.InstallDir {
+		assetsDestRoot = parent
 	}
-	u.log("Copying assets folder...")
+	u.log(fmt.Sprintf("Copying assets folder to: %s", filepath.Join(assetsDestRoot, "assets")))
 	if err := copyDir(filepath.Join(ctx.RepoDir, "assets"), filepath.Join(assetsDestRoot, "assets")); err != nil {
 		return fmt.Errorf("failed to copy assets: %w", err)
 	}

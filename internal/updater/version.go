@@ -10,6 +10,9 @@ import (
 // buildCommitHash is injected at build time via -ldflags.
 var buildCommitHash string
 
+// buildCommitTime is injected at build time via -ldflags (RFC3339).
+var buildCommitTime string
+
 type VersionInfo struct {
 	CommitHash string
 	CommitDate time.Time
@@ -77,9 +80,16 @@ func getEmbeddedVersion() *VersionInfo {
 		return nil
 	}
 
+	var commitDate time.Time
+	if buildCommitTime != "" {
+		if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(buildCommitTime)); err == nil {
+			commitDate = parsed
+		}
+	}
+
 	return &VersionInfo{
 		CommitHash:     shortHash(commitHash),
-		CommitDate:     time.Time{},
+		CommitDate:     commitDate,
 		CommitMsg:      "",
 		Branch:         "unknown",
 		commitHashFull: commitHash,
