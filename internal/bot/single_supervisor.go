@@ -226,6 +226,7 @@ func (s *SinglePlayerSupervisor) Start() error {
 			if err := DropRun.Run(nil); err != nil {
 				s.bot.ctx.Logger.Error("Drop run failed", "error", err)
 			}
+			timeSpentNotInGameStart = time.Now()
 			continue
 		}
 
@@ -483,6 +484,7 @@ func (s *SinglePlayerSupervisor) Start() error {
 				s.bot.ctx.Logger.Info("Drop interrupt received. Exiting game and restarting loop.")
 				s.bot.ctx.Manager.ExitGame()
 				utils.Sleep(2000)
+				timeSpentNotInGameStart = time.Now()
 				continue
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
