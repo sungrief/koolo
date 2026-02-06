@@ -270,6 +270,25 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager, scheduler *bot.Sch
 			}
 			return template.JS(b)
 		},
+		// Armory template helpers
+		"iterate": func(count int) []int {
+			result := make([]int, count)
+			for i := range result {
+				result[i] = i
+			}
+			return result
+		},
+		"mul": func(a, b int) int {
+			return a * b
+		},
+		"json": func(v interface{}) template.JS {
+			b, err := json.Marshal(v)
+			if err != nil {
+				return template.JS("{}")
+			}
+			return template.JS(b)
+		},
+		"lower": strings.ToLower,
 	}
 	templates, err := template.New("").Funcs(helperFuncs).ParseFS(templatesFS, "templates/*.gohtml")
 	if err != nil {
@@ -293,6 +312,11 @@ func New(logger *slog.Logger, manager *bot.SupervisorManager, scheduler *bot.Sch
 		DropFilters:  make(map[string]drop.Filters),
 		DropCardInfo: make(map[string]dropCardInfo),
 	}
+
+	server.updater.SetPreRestartCallback(func() error {
+		server.logger.Info("Stopping HTTP server before restart")
+		return server.Stop()
+	})
 
 	server.initDropCallbacks()
 	return server, nil
@@ -455,6 +479,13 @@ func containss(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func formatCommitDate(t time.Time) string {
+	if t.IsZero() {
+		return "unknown"
+	}
+	return t.Format("2006-01-02 15:04:05")
 }
 
 func resolveSkillClassFromBuild(build string) string {
@@ -948,10 +979,18 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/api/scheduler-history", s.schedulerHistory)
 	http.HandleFunc("/Drop-manager", s.DropManagerPage)
 
+	// Armory routes
+	http.HandleFunc("/armory", s.armoryPage)
+	http.HandleFunc("/api/armory", s.armoryAPI)
+	http.HandleFunc("/api/armory/characters", s.armoryCharactersAPI)
+
 	s.registerDropRoutes()
 
 	assets, _ := fs.Sub(assetsFS, "assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets))))
+
+	// Serve item images from the filesystem (assets/items folder relative to executable)
+	http.Handle("/items/", http.StripPrefix("/items/", http.FileServer(http.Dir("../assets/items"))))
 
 	s.server = &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
@@ -1516,11 +1555,11 @@ func validateSchedulerData(cfg *config.CharacterCfg) error {
 }
 
 func (s *HttpServer) getVersionData() *VersionData {
-	versionInfo, _ := updater.GetCurrentVersion()
+	versionInfo, _ := updater.GetCurrentVersionNoClone()
 	if versionInfo != nil {
 		return &VersionData{
 			CommitHash: versionInfo.CommitHash,
-			CommitDate: versionInfo.CommitDate.Format("2006-01-02 15:04:05"),
+			CommitDate: formatCommitDate(versionInfo.CommitDate),
 			CommitMsg:  versionInfo.CommitMsg,
 			Branch:     versionInfo.Branch,
 		}
@@ -1657,12 +1696,12 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get current version info
-	versionInfo, _ := updater.GetCurrentVersion()
+	versionInfo, _ := updater.GetCurrentVersionNoClone()
 	var versionData *VersionData
 	if versionInfo != nil {
 		versionData = &VersionData{
 			CommitHash: versionInfo.CommitHash,
-			CommitDate: versionInfo.CommitDate.Format("2006-01-02 15:04:05"),
+			CommitDate: formatCommitDate(versionInfo.CommitDate),
 			CommitMsg:  versionInfo.CommitMsg,
 			Branch:     versionInfo.Branch,
 		}
@@ -2792,7 +2831,7 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Game.Pit.OnlyClearLevel2 = r.Form.Has("gamePitOnlyClearLevel2")
 
 		cfg.Game.Andariel.ClearRoom = r.Form.Has("gameAndarielClearRoom")
-		cfg.Game.Andariel.UseAntidoes = r.Form.Has("gameAndarielUseAntidoes")
+		cfg.Game.Andariel.UseAntidotes = r.Form.Has("gameAndarielUseAntidotes")
 
 		cfg.Game.Countess.ClearFloors = r.Form.Has("gameCountessClearFloors")
 
@@ -3254,7 +3293,7 @@ func (s *HttpServer) applyRunDetails(values url.Values, cfg *config.CharacterCfg
 		switch runID {
 		case "andariel":
 			cfg.Game.Andariel.ClearRoom = values.Has("gameAndarielClearRoom")
-			cfg.Game.Andariel.UseAntidoes = values.Has("gameAndarielUseAntidoes")
+			cfg.Game.Andariel.UseAntidotes = values.Has("gameAndarielUseAntidotes")
 		case "countess":
 			cfg.Game.Countess.ClearFloors = values.Has("gameCountessClearFloors")
 		case "duriel":
@@ -3684,7 +3723,7 @@ func buildTZGroups() []TZGroup {
 // Updater handlers
 
 func (s *HttpServer) getVersion(w http.ResponseWriter, r *http.Request) {
-	version, err := updater.GetCurrentVersion()
+	version, err := updater.GetCurrentVersionNoClone()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get version: %v", err), http.StatusInternalServerError)
 		return
@@ -3693,7 +3732,7 @@ func (s *HttpServer) getVersion(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"commitHash": version.CommitHash,
-		"commitDate": version.CommitDate.Format("2006-01-02 15:04:05"),
+		"commitDate": formatCommitDate(version.CommitDate),
 		"commitMsg":  version.CommitMsg,
 		"branch":     version.Branch,
 	})
@@ -3737,7 +3776,7 @@ func (s *HttpServer) checkUpdates(w http.ResponseWriter, r *http.Request) {
 		"newCommits":    commits,
 		"currentVersion": map[string]interface{}{
 			"commitHash": result.CurrentVersion.CommitHash,
-			"commitDate": result.CurrentVersion.CommitDate.Format("2006-01-02 15:04:05"),
+			"commitDate": formatCommitDate(result.CurrentVersion.CommitDate),
 			"commitMsg":  result.CurrentVersion.CommitMsg,
 			"branch":     result.CurrentVersion.Branch,
 		},
