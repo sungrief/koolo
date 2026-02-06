@@ -426,8 +426,19 @@ func (s *SinglePlayerSupervisor) Start() error {
 					}
 
 					// Check for cube transmutation activities (player is stationary but actively working)
-					isCubing := lastAction == "CubeRecipes" || lastAction == "CubeAddItems"
-					if isCubing && s.bot.ctx.Data.OpenMenus.Cube {
+					// Cube activities involve opening cube, stash, moving items between them
+					isCubing := lastAction == "CubeRecipes" || lastAction == "CubeAddItems" ||
+						lastAction == "SocketAddItems" || strings.Contains(lastAction, "Cube")
+					cubeMenuOpen := s.bot.ctx.Data.OpenMenus.Cube || s.bot.ctx.Data.OpenMenus.Stash
+					if isCubing && cubeMenuOpen {
+						stuckSince = time.Time{}
+						droppedMouseItem = false
+						lastPosition = currentPos
+						continue
+					}
+
+					// Also reset stuck timer if cube or stash is open (player might be actively managing items)
+					if s.bot.ctx.Data.OpenMenus.Cube {
 						stuckSince = time.Time{}
 						droppedMouseItem = false
 						lastPosition = currentPos
