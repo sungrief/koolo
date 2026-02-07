@@ -417,6 +417,8 @@ func (s *SinglePlayerSupervisor) Start() error {
 
 					currentPos := s.bot.ctx.Data.PlayerUnit.Position
 					lastAction := s.bot.ctx.ContextDebug[s.bot.ctx.ExecutionPriority].LastAction
+
+					// Check for stat/skill allocation activities
 					isAllocating := lastAction == "AutoRespecIfNeeded" ||
 						lastAction == "EnsureStatPoints" ||
 						lastAction == "EnsureSkillPoints" ||
@@ -424,6 +426,35 @@ func (s *SinglePlayerSupervisor) Start() error {
 						lastAction == "AllocateStatPointPacket" ||
 						lastAction == "LearnSkillPacket"
 					if isAllocating && (s.bot.ctx.Data.OpenMenus.Character || s.bot.ctx.Data.OpenMenus.SkillTree || s.bot.ctx.Data.OpenMenus.Inventory) {
+						stuckSince = time.Time{}
+						droppedMouseItem = false
+						lastPosition = currentPos
+						continue
+					}
+
+					// Check for cube transmutation activities (player is stationary but actively working)
+					// Cube activities involve opening cube, stash, moving items between them
+					isCubing := lastAction == "CubeRecipes" || lastAction == "CubeAddItems" ||
+						lastAction == "SocketAddItems" || strings.Contains(lastAction, "Cube")
+					cubeMenuOpen := s.bot.ctx.Data.OpenMenus.Cube || s.bot.ctx.Data.OpenMenus.Stash
+					if isCubing && cubeMenuOpen {
+						stuckSince = time.Time{}
+						droppedMouseItem = false
+						lastPosition = currentPos
+						continue
+					}
+
+					// Also reset stuck timer if cube or stash is open (player might be actively managing items)
+					if s.bot.ctx.Data.OpenMenus.Cube {
+						stuckSince = time.Time{}
+						droppedMouseItem = false
+						lastPosition = currentPos
+						continue
+					}
+
+					// Check for gambling activities (player is stationary at vendor)
+					isGambling := lastAction == "Gamble" || lastAction == "GambleSingleItem" || lastAction == "gambleItems"
+					if isGambling && s.bot.ctx.Data.OpenMenus.NPCShop {
 						stuckSince = time.Time{}
 						droppedMouseItem = false
 						lastPosition = currentPos
