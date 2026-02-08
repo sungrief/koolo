@@ -983,6 +983,7 @@ func (s *HttpServer) Listen(port int) error {
 	http.HandleFunc("/armory", s.armoryPage)
 	http.HandleFunc("/api/armory", s.armoryAPI)
 	http.HandleFunc("/api/armory/characters", s.armoryCharactersAPI)
+	http.HandleFunc("/api/armory/all", s.armoryAllAPI)
 
 	s.registerDropRoutes()
 
@@ -1589,6 +1590,7 @@ func (s *HttpServer) config(w http.ResponseWriter, r *http.Request) {
 		// Debug
 		newConfig.Debug.Log = r.Form.Get("debug_log") == "true"
 		newConfig.Debug.Screenshots = r.Form.Get("debug_screenshots") == "true"
+		newConfig.Debug.OpenOverlayMapOnGameStart = r.Form.Get("debug_open_overlay_map") == "true"
 		// Discord
 		newConfig.Discord.Enabled = r.Form.Get("discord_enabled") == "true"
 		newConfig.Discord.EnableGameCreatedMessages = r.Form.Has("enable_game_created_messages")
@@ -1730,6 +1732,7 @@ type ConfigUpdateOptions struct {
 	Scheduler           bool `json:"scheduler"`
 	Muling              bool `json:"muling"`
 	Shopping            bool `json:"shopping"`
+	CharacterCreation   bool `json:"characterCreation"` // Auto-create character setting
 	UpdateAllRunDetails bool `json:"updateAllRunDetails"`
 }
 
@@ -1748,6 +1751,11 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 		cfg.Realm = values.Get("realm")
 		cfg.AuthMethod = values.Get("authmethod")
 		cfg.AuthToken = values.Get("AuthToken")
+	}
+
+	// Character Creation Settings
+	if sections.CharacterCreation {
+		cfg.AutoCreateCharacter = values.Has("autoCreateCharacter")
 	}
 
 	// Client Settings
