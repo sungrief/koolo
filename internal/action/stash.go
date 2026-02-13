@@ -29,7 +29,18 @@ const (
 	// NEW CONSTANTS FOR IMPROVED GOLD STASHING
 	minInventoryGoldForStashAggressiveLeveling = 1000   // Stash if inventory gold exceeds 1k during leveling when total gold is low
 	maxTotalGoldForAggressiveLevelingStash     = 150000 // Trigger aggressive stashing if total gold (inventory + stashed) is below this
+
+	// DLC-specific stash tab constants. These use high values to avoid collision
+	// with shared stash page numbers (tabs 2..6).
+	StashTabGems      = 100
+	StashTabMaterials = 101
+	StashTabRunes     = 102
 )
+
+// currentStashTab tracks which tab/page the stash UI is currently showing,
+// so we can navigate incrementally instead of always resetting to page 1.
+// Reset to 0 when the stash is opened or closed.
+var currentStashTab int
 
 func Stash(forceStash bool) error {
 	ctx := context.Get()
@@ -215,7 +226,12 @@ func stashItemAcrossTabs(i data.Item, matchedRule string, ruleFile string, first
 	}
 
 	itemStashed := false
-	maxTab := 4
+	// Tab 1=Personal, Tabs 2..N=Shared stash pages.
+	// Non-DLC: 3 shared pages (tabs 2-4). DLC: 5 shared pages (tabs 2-6).
+	maxTab := 4 // personal + 3 shared pages
+	if ctx.CharacterCfg.Character.DLCEnabled {
+		maxTab = 6 // personal + 5 shared pages
+	}
 
 	for tabAttempt := targetStartTab; tabAttempt <= maxTab; tabAttempt++ {
 		SwitchStashTab(tabAttempt)
@@ -583,10 +599,18 @@ func clickStashGoldBtn() {
 }
 
 // SwitchStashTab switches to the specified stash tab.
-// Tab mapping: 1=Personal, 2=Shared Page 1, 3=Shared Page 2, 4=Shared Page 3.
-// With the new patch, the UI has 2 visible tabs (Personal + Shared).
-// Shared stash pages are navigated via Next/Prev page buttons.
+// Tab mapping:
+//
+//	Tab 1          = Personal stash
+//	Tab 2..N       = Shared stash pages (non-DLC: 2-4, DLC: 2-6)
+//	StashTabGems   = DLC Gems tab (100)
+//	StashTabMaterials = DLC Materials tab (101)
+//	StashTabRunes  = DLC Runes tab (102)
 func SwitchStashTab(tab int) {
+	if tab == currentStashTab {
+		return // Already on this tab
+	}
+
 	// Ensure any chat messages that could prevent clicking on the tab are cleared
 	ClearMessages()
 	utils.Sleep(200)
@@ -599,54 +623,119 @@ func SwitchStashTab(tab int) {
 	} else {
 		switchStashTabHD(ctx, tab)
 	}
+	currentStashTab = tab
 }
 
 func switchStashTabHD(ctx *context.Status, tab int) {
-	// Determine which UI tab to click: 1=Personal, 2=Shared
-	uiTab := 1
-	if tab >= 2 {
-		uiTab = 2
+	// DLC-specific tabs: click directly, no page navigation
+	switch tab {
+	case StashTabGems:
+		ctx.HID.Click(game.LeftButton, ui.DLCGemsTabX, ui.DLCGemsTabY)
+		utils.PingSleep(utils.Medium, 500)
+		return
+	case StashTabMaterials:
+		ctx.HID.Click(game.LeftButton, ui.DLCMaterialsTabX, ui.DLCMaterialsTabY)
+		utils.PingSleep(utils.Medium, 500)
+		return
+	case StashTabRunes:
+		ctx.HID.Click(game.LeftButton, ui.DLCRunesTabX, ui.DLCRunesTabY)
+		utils.PingSleep(utils.Medium, 500)
+		return
 	}
 
-	x := ui.SwitchStashTabBtnX + ui.SwitchStashTabBtnTabSize*uiTab - ui.SwitchStashTabBtnTabSize/2
-	ctx.HID.Click(game.LeftButton, x, ui.SwitchStashTabBtnY)
-	utils.PingSleep(utils.Medium, 500)
+	prev := currentStashTab
 
-	// For shared stash (tabs 2-4), navigate to the correct page
-	if tab >= 2 {
-		// Reset to page 1 by clicking Previous button twice
-		for i := 0; i < 2; i++ {
-			ctx.HID.Click(game.LeftButton, ui.SharedStashPrevPageX, ui.SharedStashPrevPageY)
-			utils.PingSleep(utils.Medium, 250)
+	// If switching between Personal (1) and Shared (2+), or from a DLC tab,
+	// we need to click the UI tab button.
+	needTabClick := (prev < 2 && tab >= 2) || (prev >= 2 && tab < 2) || prev == 0 || prev >= StashTabGems
+
+	if tab == 1 || needTabClick {
+		uiTab := 1
+		if tab >= 2 {
+			uiTab = 2
 		}
-		// Navigate forward to desired page (tab 2=page 1, tab 3=page 2, tab 4=page 3)
-		nextClicks := tab - 2
-		for i := 0; i < nextClicks; i++ {
-			ctx.HID.Click(game.LeftButton, ui.SharedStashNextPageX, ui.SharedStashNextPageY)
-			utils.PingSleep(utils.Medium, 250)
+		x := ui.SwitchStashTabBtnX + ui.SwitchStashTabBtnTabSize*uiTab - ui.SwitchStashTabBtnTabSize/2
+		ctx.HID.Click(game.LeftButton, x, ui.SwitchStashTabBtnY)
+		utils.PingSleep(utils.Medium, 500)
+	}
+
+	// Navigate shared stash pages
+	if tab >= 2 {
+		// If coming from a known shared page, navigate incrementally
+		if prev >= 2 && prev < StashTabGems && !needTabClick {
+			delta := tab - prev
+			if delta > 0 {
+				for i := 0; i < delta; i++ {
+					ctx.HID.Click(game.LeftButton, ui.SharedStashNextPageX, ui.SharedStashNextPageY)
+					utils.PingSleep(utils.Medium, 250)
+				}
+			} else if delta < 0 {
+				for i := 0; i < -delta; i++ {
+					ctx.HID.Click(game.LeftButton, ui.SharedStashPrevPageX, ui.SharedStashPrevPageY)
+					utils.PingSleep(utils.Medium, 250)
+				}
+			}
+		} else {
+			// Full reset: clicking the Shared tab lands on page 1, then navigate forward
+			nextClicks := tab - 2
+			for i := 0; i < nextClicks; i++ {
+				ctx.HID.Click(game.LeftButton, ui.SharedStashNextPageX, ui.SharedStashNextPageY)
+				utils.PingSleep(utils.Medium, 250)
+			}
 		}
 	}
 }
 
 func switchStashTabLegacy(ctx *context.Status, tab int) {
-	uiTab := 1
-	if tab >= 2 {
-		uiTab = 2
+	// DLC-specific tabs
+	switch tab {
+	case StashTabGems:
+		ctx.HID.Click(game.LeftButton, ui.DLCGemsTabXClassic, ui.DLCGemsTabYClassic)
+		utils.PingSleep(utils.Medium, 500)
+		return
+	case StashTabMaterials:
+		ctx.HID.Click(game.LeftButton, ui.DLCMaterialsTabXClassic, ui.DLCMaterialsTabYClassic)
+		utils.PingSleep(utils.Medium, 500)
+		return
+	case StashTabRunes:
+		ctx.HID.Click(game.LeftButton, ui.DLCRunesTabXClassic, ui.DLCRunesTabYClassic)
+		utils.PingSleep(utils.Medium, 500)
+		return
 	}
 
-	x := ui.SwitchStashTabBtnXClassic + ui.SwitchStashTabBtnTabSizeClassic*uiTab - ui.SwitchStashTabBtnTabSizeClassic/2
-	ctx.HID.Click(game.LeftButton, x, ui.SwitchStashTabBtnYClassic)
-	utils.PingSleep(utils.Medium, 500)
+	prev := currentStashTab
+	needTabClick := (prev < 2 && tab >= 2) || (prev >= 2 && tab < 2) || prev == 0 || prev >= StashTabGems
+
+	if tab == 1 || needTabClick {
+		uiTab := 1
+		if tab >= 2 {
+			uiTab = 2
+		}
+		x := ui.SwitchStashTabBtnXClassic + ui.SwitchStashTabBtnTabSizeClassic*uiTab - ui.SwitchStashTabBtnTabSizeClassic/2
+		ctx.HID.Click(game.LeftButton, x, ui.SwitchStashTabBtnYClassic)
+		utils.PingSleep(utils.Medium, 500)
+	}
 
 	if tab >= 2 {
-		for i := 0; i < 2; i++ {
-			ctx.HID.Click(game.LeftButton, ui.SharedStashPrevPageXClassic, ui.SharedStashPrevPageYClassic)
-			utils.PingSleep(utils.Medium, 250)
-		}
-		nextClicks := tab - 2
-		for i := 0; i < nextClicks; i++ {
-			ctx.HID.Click(game.LeftButton, ui.SharedStashNextPageXClassic, ui.SharedStashNextPageYClassic)
-			utils.PingSleep(utils.Medium, 250)
+		if prev >= 2 && prev < StashTabGems && !needTabClick {
+			delta := tab - prev
+			if delta > 0 {
+				for i := 0; i < delta; i++ {
+					ctx.HID.Click(game.LeftButton, ui.SharedStashNextPageXClassic, ui.SharedStashNextPageYClassic)
+					utils.PingSleep(utils.Medium, 250)
+				}
+			} else if delta < 0 {
+				for i := 0; i < -delta; i++ {
+					ctx.HID.Click(game.LeftButton, ui.SharedStashPrevPageXClassic, ui.SharedStashPrevPageYClassic)
+					utils.PingSleep(utils.Medium, 250)
+				}
+			}
+		} else {
+			nextClicks := tab - 2
+			for i := 0; i < nextClicks; i++ {
+				ctx.HID.Click(game.LeftButton, ui.SharedStashNextPageXClassic, ui.SharedStashNextPageYClassic)
+				utils.PingSleep(utils.Medium, 250)
+			}
 		}
 	}
 }
@@ -654,6 +743,9 @@ func switchStashTabLegacy(ctx *context.Status, tab int) {
 func OpenStash() error {
 	ctx := context.Get()
 	ctx.SetLastAction("OpenStash")
+
+	// Reset tab tracker — stash always opens on personal tab
+	currentStashTab = 1
 
 	bank, found := ctx.Data.Objects.FindOne(object.Bank)
 	if !found {
@@ -672,9 +764,10 @@ func CloseStash() error {
 	ctx := context.Get()
 	ctx.SetLastAction("CloseStash")
 
+	currentStashTab = 0 // Reset tab tracker on close
+
 	if ctx.Data.OpenMenus.Stash {
 		ctx.HID.PressKey(win.VK_ESCAPE)
-
 	} else {
 		return errors.New("stash is not open")
 	}
@@ -697,12 +790,24 @@ func TakeItemsFromStash(stashedItems []data.Item) error {
 
 	for _, i := range stashedItems {
 
-		if i.Location.LocationType != item.LocationStash && i.Location.LocationType != item.LocationSharedStash {
+		// Determine the tab to switch to based on location type
+		var targetTab int
+		switch i.Location.LocationType {
+		case item.LocationStash:
+			targetTab = 1 // Personal stash
+		case item.LocationSharedStash:
+			targetTab = i.Location.Page + 1 // Page 1=tab 2, Page 2=tab 3, etc.
+		case item.LocationGemsTab:
+			targetTab = StashTabGems
+		case item.LocationMaterialsTab:
+			targetTab = StashTabMaterials
+		case item.LocationRunesTab:
+			targetTab = StashTabRunes
+		default:
 			continue
 		}
 
-		// Make sure we're on the correct tab
-		SwitchStashTab(i.Location.Page + 1)
+		SwitchStashTab(targetTab)
 
 		// Move the item to the inventory
 		screenPos := ui.GetScreenCoordsForItem(i)

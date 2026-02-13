@@ -143,6 +143,23 @@ const (
 	SharedStashPrevPageXClassic = 294
 	SharedStashPrevPageYClassic = 557
 
+	// DLC stash tab coordinates (tabs 3/4/5: Gems, Materials, Runes)
+	DLCGemsTabX      = 268
+	DLCGemsTabY      = 129
+	DLCMaterialsTabX = 334
+	DLCMaterialsTabY = 128
+	DLCRunesTabX     = 398
+	DLCRunesTabY     = 128
+
+	// DLC stash tab coordinates (Classic/Legacy) — DLC does not support Legacy graphics.
+	// These values are unused but kept for compile compatibility.
+	DLCGemsTabXClassic      = 450
+	DLCGemsTabYClassic      = 84
+	DLCMaterialsTabXClassic = 546
+	DLCMaterialsTabYClassic = 84
+	DLCRunesTabXClassic     = 642
+	DLCRunesTabYClassic     = 84
+
 	SwitchVendorTabBtnX        = 107
 	SwitchVendorTabBtnXClassic = 258
 
@@ -271,12 +288,12 @@ const (
 	CharNameClickY1 = 560
 	CharNameClickY2 = 600
 
-	CharLadderBtnX    = 570
-	CharLadderBtnY    = 620
-	CharHardcoreBtnX  = 640
-	CharHardcoreBtnY  = 620
-	CharExpansionBtnX = 710
-	CharExpansionBtnY = 620
+	CharLadderBtnX           = 570
+	CharLadderBtnY           = 620
+	CharHardcoreBtnX         = 640
+	CharHardcoreBtnY         = 620
+	CharExpansionBtnX        = 710
+	CharExpansionBtnY        = 620
 	CharOfflineHardcoreBtnX  = 605
 	CharOfflineExpansionBtnX = 675
 

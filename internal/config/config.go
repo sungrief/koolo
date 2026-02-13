@@ -267,6 +267,7 @@ type CharacterCfg struct {
 		Class                        string              `yaml:"class"`
 		UseMerc                      bool                `yaml:"useMerc"`
 		StashToShared                bool                `yaml:"stashToShared"`
+		DLCEnabled                   bool                `yaml:"dlcEnabled"`
 		UseTeleport                  bool                `yaml:"useTeleport"`
 		ClearPathDist                int                 `yaml:"clearPathDist"`
 		ShouldHireAct2MercFrozenAura bool                `yaml:"shouldHireAct2MercFrozenAura"`

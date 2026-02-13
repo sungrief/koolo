@@ -67,6 +67,7 @@ character:
   class: sorceress # Allowed values: sorceress, lightning, hammerdin, foh, dragondin, paladin (leveling only), barb_leveling
   useMerc: true
   stashToShared: false
+  dlcEnabled: false # Set to true if you own the DLC (enables Gems/Materials/Runes stash tabs)
   useTeleport: true # If set to false, bot will not use teleport skill and will walk to the destination
   clearPathDist: 7 # Distance (in game units) to clear enemies while walking through areas
   shouldHireAct2MercFrozenAura: false # If true, bot will try to hire Act 2 merc with Frozen Aura skill
