@@ -346,14 +346,20 @@ func onSafeNavigation() {
 	ctx := context.Get()
 
 	if _, isLevelingChar := ctx.Char.(context.LevelingCharacter); isLevelingChar {
-		statPoints, hasUnusedPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
-		if hasUnusedPoints && statPoints.Value > 0 {
+		statPoints, hasUnusedStatPoints := ctx.Data.PlayerUnit.FindStat(stat.StatPoints, 0)
+		skillPoints, hasUnusedSkillPoints := ctx.Data.PlayerUnit.FindStat(stat.SkillPoints, 0)
+		needsAllocation := (hasUnusedStatPoints && statPoints.Value > 0) || (hasUnusedSkillPoints && skillPoints.Value > 0)
+
+		if needsAllocation {
 			ctx.PauseIfNotPriority()
 			ctx.DisableItemPickup()
 			EnsureSkillPoints()
 			EnsureStatPoints()
 			EnsureSkillBindings()
 			ctx.EnableItemPickup()
+		} else if ctx.CharacterCfg.Game.Leveling.EnsureKeyBinding {
+			// Even without pending points, check if newly learned skills need binding
+			EnsureSkillBindings()
 		}
 		if ctx.HealthManager.IsLowStamina() {
 			TryConsumeStaminaPot()
