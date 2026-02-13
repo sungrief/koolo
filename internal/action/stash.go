@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	maxGoldPerStashTab = 2500000
+	maxGoldPerStashTab    = 2500000
+	maxGoldPerSharedStash = 7500000 // Combined gold cap for all shared stash pages
 
 	// NEW CONSTANTS FOR IMPROVED GOLD STASHING
 	minInventoryGoldForStashAggressiveLeveling = 1000   // Stash if inventory gold exceeds 1k during leveling when total gold is low
@@ -83,19 +84,14 @@ func isStashingRequired(firstRun bool) bool {
 		}
 	}
 
-	isStashFull := true
-	for _, goldInStash := range ctx.Data.Inventory.StashedGold {
-		if goldInStash < maxGoldPerStashTab {
-			isStashFull = false
-			break // Optimization: No need to check further tabs if one has space
-		}
-	}
+	// Check if all stash tabs are full of gold
+	// Personal stash: 2.5M cap, Shared stash: 7.5M combined cap
+	isStashFull := ctx.Data.Inventory.StashedGold[0] >= maxGoldPerStashTab &&
+		ctx.Data.Inventory.StashedGold[1] >= maxGoldPerSharedStash
 
 	// Calculate total gold (inventory + stashed) for the new aggressive stashing rule
-	totalGold := ctx.Data.Inventory.Gold
-	for _, stashedGold := range ctx.Data.Inventory.StashedGold {
-		totalGold += stashedGold
-	}
+	// StashedGold[0] = personal, StashedGold[1] = combined shared gold
+	totalGold := ctx.Data.Inventory.Gold + ctx.Data.Inventory.StashedGold[0] + ctx.Data.Inventory.StashedGold[1]
 
 	// 1. AGGRESSIVE STASHING for leveling characters with LOW TOTAL GOLD
 	if isLevelingChar && totalGold < maxTotalGoldForAggressiveLevelingStash && ctx.Data.Inventory.Gold >= minInventoryGoldForStashAggressiveLeveling && !isStashFull {
@@ -125,23 +121,29 @@ func stashGold() {
 
 	ctx.Logger.Info("Stashing gold...", slog.Int("gold", ctx.Data.Inventory.Gold))
 
-	for tab, goldInStash := range ctx.Data.Inventory.StashedGold {
+	// Try personal stash first (tab 1, max 2.5M)
+	ctx.RefreshGameData()
+	if ctx.Data.Inventory.Gold > 0 && ctx.Data.Inventory.StashedGold[0] < maxGoldPerStashTab {
+		SwitchStashTab(1)
+		clickStashGoldBtn()
+		utils.PingSleep(utils.Critical, 1000)
 		ctx.RefreshGameData()
 		if ctx.Data.Inventory.Gold == 0 {
-			ctx.Logger.Info("All inventory gold stashed.") // Added log for clarity
+			ctx.Logger.Info("All inventory gold stashed.")
 			return
 		}
+	}
 
-		if goldInStash < maxGoldPerStashTab {
-			SwitchStashTab(tab + 1) // Stash tabs are 0-indexed in data, but 1-indexed for UI interaction
-			clickStashGoldBtn()
-			utils.PingSleep(utils.Critical, 1000) // Critical operation: Wait for stash UI to process gold deposit
-			// After clicking, refresh data again to see if gold is now 0 or less
-			ctx.RefreshGameData()             // Crucial: Refresh data to see if gold has been deposited
-			if ctx.Data.Inventory.Gold == 0 { // Check if all gold was stashed in this tab
-				ctx.Logger.Info("All inventory gold stashed.")
-				return
-			}
+	// Try shared stash (tab 2, combined max 7.5M)
+	// Gold is shared across all pages, so depositing on any page works
+	if ctx.Data.Inventory.Gold > 0 && ctx.Data.Inventory.StashedGold[1] < maxGoldPerSharedStash {
+		SwitchStashTab(2)
+		clickStashGoldBtn()
+		utils.PingSleep(utils.Critical, 1000)
+		ctx.RefreshGameData()
+		if ctx.Data.Inventory.Gold == 0 {
+			ctx.Logger.Info("All inventory gold stashed.")
+			return
 		}
 	}
 
@@ -580,6 +582,10 @@ func clickStashGoldBtn() {
 	}
 }
 
+// SwitchStashTab switches to the specified stash tab.
+// Tab mapping: 1=Personal, 2=Shared Page 1, 3=Shared Page 2, 4=Shared Page 3.
+// With the new patch, the UI has 2 visible tabs (Personal + Shared).
+// Shared stash pages are navigated via Next/Prev page buttons.
 func SwitchStashTab(tab int) {
 	// Ensure any chat messages that could prevent clicking on the tab are cleared
 	ClearMessages()
@@ -589,23 +595,60 @@ func SwitchStashTab(tab int) {
 	ctx.SetLastStep("switchTab")
 
 	if ctx.GameReader.LegacyGraphics() {
-		x := ui.SwitchStashTabBtnXClassic
-		y := ui.SwitchStashTabBtnYClassic
-
-		tabSize := ui.SwitchStashTabBtnTabSizeClassic
-		x = x + tabSize*tab - tabSize/2
-		ctx.HID.Click(game.LeftButton, x, y)
-		utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for tab switch
+		switchStashTabLegacy(ctx, tab)
 	} else {
-		x := ui.SwitchStashTabBtnX
-		y := ui.SwitchStashTabBtnY
+		switchStashTabHD(ctx, tab)
+	}
+}
 
-		tabSize := ui.SwitchStashTabBtnTabSize
-		x = x + tabSize*tab - tabSize/2
-		ctx.HID.Click(game.LeftButton, x, y)
-		utils.PingSleep(utils.Medium, 500) // Medium operation: Wait for tab switch
+func switchStashTabHD(ctx *context.Status, tab int) {
+	// Determine which UI tab to click: 1=Personal, 2=Shared
+	uiTab := 1
+	if tab >= 2 {
+		uiTab = 2
 	}
 
+	x := ui.SwitchStashTabBtnX + ui.SwitchStashTabBtnTabSize*uiTab - ui.SwitchStashTabBtnTabSize/2
+	ctx.HID.Click(game.LeftButton, x, ui.SwitchStashTabBtnY)
+	utils.PingSleep(utils.Medium, 500)
+
+	// For shared stash (tabs 2-4), navigate to the correct page
+	if tab >= 2 {
+		// Reset to page 1 by clicking Previous button twice
+		for i := 0; i < 2; i++ {
+			ctx.HID.Click(game.LeftButton, ui.SharedStashPrevPageX, ui.SharedStashPrevPageY)
+			utils.PingSleep(utils.Medium, 250)
+		}
+		// Navigate forward to desired page (tab 2=page 1, tab 3=page 2, tab 4=page 3)
+		nextClicks := tab - 2
+		for i := 0; i < nextClicks; i++ {
+			ctx.HID.Click(game.LeftButton, ui.SharedStashNextPageX, ui.SharedStashNextPageY)
+			utils.PingSleep(utils.Medium, 250)
+		}
+	}
+}
+
+func switchStashTabLegacy(ctx *context.Status, tab int) {
+	uiTab := 1
+	if tab >= 2 {
+		uiTab = 2
+	}
+
+	x := ui.SwitchStashTabBtnXClassic + ui.SwitchStashTabBtnTabSizeClassic*uiTab - ui.SwitchStashTabBtnTabSizeClassic/2
+	ctx.HID.Click(game.LeftButton, x, ui.SwitchStashTabBtnYClassic)
+	utils.PingSleep(utils.Medium, 500)
+
+	if tab >= 2 {
+		for i := 0; i < 2; i++ {
+			ctx.HID.Click(game.LeftButton, ui.SharedStashPrevPageXClassic, ui.SharedStashPrevPageYClassic)
+			utils.PingSleep(utils.Medium, 250)
+		}
+		nextClicks := tab - 2
+		for i := 0; i < nextClicks; i++ {
+			ctx.HID.Click(game.LeftButton, ui.SharedStashNextPageXClassic, ui.SharedStashNextPageYClassic)
+			utils.PingSleep(utils.Medium, 250)
+		}
+	}
 }
 
 func OpenStash() error {

@@ -133,6 +133,16 @@ const (
 	SwitchStashTabBtnTabSize        = 55
 	SwitchStashTabBtnTabSizeClassic = 96
 
+	// Shared stash page navigation buttons (new patch: shared stash is one tab with 3 pages)
+	SharedStashNextPageX        = 325
+	SharedStashNextPageY        = 489
+	SharedStashPrevPageX        = 221
+	SharedStashPrevPageY        = 489
+	SharedStashNextPageXClassic = 477
+	SharedStashNextPageYClassic = 555
+	SharedStashPrevPageXClassic = 294
+	SharedStashPrevPageYClassic = 557
+
 	SwitchVendorTabBtnX        = 107
 	SwitchVendorTabBtnXClassic = 258
 
