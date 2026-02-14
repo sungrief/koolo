@@ -159,7 +159,6 @@ func PreRun(firstRun bool) error {
 		ResetStats()
 		EnsureStatPoints()
 		EnsureSkillPoints()
-		ctx.RefreshGameData() // Refresh so EnsureSkillBindings sees newly learned skills
 	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
 		AutoRespecIfNeeded()
 		EnsureStatPoints()
@@ -263,7 +262,6 @@ func InRunReturnTownRoutine() error {
 		EnsureStatPoints()
 		ctx.PauseIfNotPriority() // Check after EnsureStatPoints
 		EnsureSkillPoints()
-		ctx.RefreshGameData()    // Refresh so EnsureSkillBindings sees newly learned skills
 		ctx.PauseIfNotPriority() // Check after EnsureSkillPoints
 	} else if !isLevelingChar && ctx.CharacterCfg.Character.AutoStatSkill.Enabled {
 		AutoRespecIfNeeded()

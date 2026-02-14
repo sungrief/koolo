@@ -313,10 +313,6 @@ func spendSkillPoint(skillID skill.ID, useBulk bool) int {
 func EnsureSkillBindings() error {
 	ctx := context.Get()
 	ctx.SetLastAction("EnsureSkillBindings")
-
-	// Refresh game data to ensure PlayerUnit.Skills reflects any recently learned skills
-	ctx.RefreshGameData()
-
 	char, isLevelingChar := ctx.Char.(context.LevelingCharacter)
 	// New: avoid opening skill UI on a brand-new character; this is where crashes happen.
 	clvl, _ := ctx.Data.PlayerUnit.FindStat(stat.Level, 0)
