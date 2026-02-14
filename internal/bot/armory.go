@@ -61,7 +61,7 @@ type ArmoryCharacter struct {
 	Class         string       `json:"class"`
 	Experience    int          `json:"experience"`
 	Gold          int          `json:"gold"`
-	StashedGold   [4]int       `json:"stashedGold"`
+	StashedGold   [6]int       `json:"stashedGold"`
 	DumpTime      time.Time    `json:"dumpTime"`
 	GameName      string       `json:"gameName"`
 	Equipped      []ArmoryItem `json:"equipped"`
