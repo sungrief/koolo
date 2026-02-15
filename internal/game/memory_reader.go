@@ -288,6 +288,7 @@ func (gd *MemoryReader) GetData() Data {
 		AreaData:     currentArea,
 		Data:         d,
 		CharacterCfg: cfgCopy,
+		ExpChar:      gd.GameReader.ExpChar,
 	}
 }
 

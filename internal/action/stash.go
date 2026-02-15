@@ -226,7 +226,7 @@ func stashItemAcrossTabs(i data.Item, matchedRule string, ruleFile string, first
 	// Tab 1=Personal, Tabs 2..N=Shared stash pages.
 	// Non-DLC: 3 shared pages (tabs 2-4). DLC: 5 shared pages (tabs 2-6).
 	maxTab := 4 // personal + 3 shared pages
-	if ctx.CharacterCfg.Character.DLCEnabled {
+	if ctx.Data.IsDLC() {
 		maxTab = 6 // personal + 5 shared pages
 	}
 

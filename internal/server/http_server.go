@@ -1921,7 +1921,6 @@ func (s *HttpServer) updateConfigFromForm(values url.Values, cfg *config.Charact
 	// General (Character & Game)
 	if sections.General {
 		cfg.Character.StashToShared = values.Has("characterStashToShared")
-		cfg.Character.DLCEnabled = values.Has("characterDLCEnabled")
 		cfg.Character.UseTeleport = values.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = values.Has("characterUseExtraBuffs")
 		s.updateAutoStatSkillFromForm(values, cfg)
@@ -2517,7 +2516,6 @@ func (s *HttpServer) characterSettings(w http.ResponseWriter, r *http.Request) {
 			cfg.Game.RunewordRerollRules = nil
 		}
 		cfg.Character.StashToShared = r.Form.Has("characterStashToShared")
-		cfg.Character.DLCEnabled = r.Form.Has("characterDLCEnabled")
 		cfg.Character.UseTeleport = r.Form.Has("characterUseTeleport")
 		cfg.Character.UseExtraBuffs = r.Form.Has("characterUseExtraBuffs")
 		cfg.Character.UseSwapForBuffs = r.Form.Has("useSwapForBuffs")
