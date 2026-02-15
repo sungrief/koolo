@@ -37,8 +37,6 @@ const (
 	StashTabRunes     = 102
 )
 
-
-
 func Stash(forceStash bool) error {
 	ctx := context.Get()
 	ctx.SetLastAction("Stash")
