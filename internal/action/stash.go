@@ -37,10 +37,7 @@ const (
 	StashTabRunes     = 102
 )
 
-// currentStashTab tracks which tab/page the stash UI is currently showing,
-// so we can navigate incrementally instead of always resetting to page 1.
-// Reset to 0 when the stash is opened or closed.
-var currentStashTab int
+
 
 func Stash(forceStash bool) error {
 	ctx := context.Get()
@@ -607,7 +604,8 @@ func clickStashGoldBtn() {
 //	StashTabMaterials = DLC Materials tab (101)
 //	StashTabRunes  = DLC Runes tab (102)
 func SwitchStashTab(tab int) {
-	if tab == currentStashTab {
+	ctx := context.Get()
+	if tab == ctx.CurrentGame.CurrentStashTab {
 		return // Already on this tab
 	}
 
@@ -615,7 +613,6 @@ func SwitchStashTab(tab int) {
 	ClearMessages()
 	utils.Sleep(200)
 
-	ctx := context.Get()
 	ctx.SetLastStep("switchTab")
 
 	if ctx.GameReader.LegacyGraphics() {
@@ -623,7 +620,7 @@ func SwitchStashTab(tab int) {
 	} else {
 		switchStashTabHD(ctx, tab)
 	}
-	currentStashTab = tab
+	ctx.CurrentGame.CurrentStashTab = tab
 }
 
 func switchStashTabHD(ctx *context.Status, tab int) {
@@ -643,7 +640,7 @@ func switchStashTabHD(ctx *context.Status, tab int) {
 		return
 	}
 
-	prev := currentStashTab
+	prev := ctx.CurrentGame.CurrentStashTab
 
 	// If switching between Personal (1) and Shared (2+), or from a DLC tab,
 	// we need to click the UI tab button.
@@ -703,7 +700,7 @@ func switchStashTabLegacy(ctx *context.Status, tab int) {
 		return
 	}
 
-	prev := currentStashTab
+	prev := ctx.CurrentGame.CurrentStashTab
 	needTabClick := (prev < 2 && tab >= 2) || (prev >= 2 && tab < 2) || prev == 0 || prev >= StashTabGems
 
 	if tab == 1 || needTabClick {
@@ -745,7 +742,7 @@ func OpenStash() error {
 	ctx.SetLastAction("OpenStash")
 
 	// Reset tab tracker — stash always opens on personal tab
-	currentStashTab = 1
+	ctx.CurrentGame.CurrentStashTab = 1
 
 	bank, found := ctx.Data.Objects.FindOne(object.Bank)
 	if !found {
@@ -764,7 +761,7 @@ func CloseStash() error {
 	ctx := context.Get()
 	ctx.SetLastAction("CloseStash")
 
-	currentStashTab = 0 // Reset tab tracker on close
+	ctx.CurrentGame.CurrentStashTab = 0 // Reset tab tracker on close
 
 	if ctx.Data.OpenMenus.Stash {
 		ctx.HID.PressKey(win.VK_ESCAPE)
