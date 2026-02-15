@@ -1,8 +1,6 @@
 package action
 
 import (
-	d2goGame "github.com/hectorgimenez/d2go/pkg/data/game" // alias needed because of name comflict with /koolo/internal/game
-	"github.com/hectorgimenez/d2go/pkg/memory"
 	"github.com/hectorgimenez/koolo/internal/context"
 	"github.com/hectorgimenez/koolo/internal/game"
 	"github.com/hectorgimenez/koolo/internal/ui"
@@ -10,8 +8,6 @@ import (
 )
 
 const (
-	expansionTypeOffset      = uintptr(0x1DEE468) // Mirrors d2go memory offset for the expansion pointer (offset is not exported by d2go).
-	expansionCharValueOffset = uintptr(0x5C)      // Offset from expansion pointer to the character type value: 1=Classic, 2=LoD, 3=DLC.
 	legacySwitchPollAttempts = 4
 	legacySwitchPollDelayMs  = 300
 )
@@ -49,8 +45,9 @@ func enableLegacyMode(ctx *context.Status, closeMiniPanel bool) bool {
 		return false
 	}
 
-	if !legacyGraphicsSupported(ctx) {
-		ctx.Logger.Debug("Skipping legacy mode switch for dlc character")
+	// Requires PR #576 (Data.ExpChar + Data.IsDLC), comment can be removed afterwards
+	if ctx.Data.IsDLC() {
+		ctx.Logger.Debug("Skipping legacy mode switch for DLC character")
 		return false
 	}
 
@@ -73,26 +70,6 @@ func enableLegacyMode(ctx *context.Status, closeMiniPanel bool) bool {
 	}
 
 	return true
-}
-
-func legacyGraphicsSupported(ctx *context.Status) bool {
-	if ctx == nil || ctx.GameReader == nil || ctx.GameReader.Process == nil {
-		return false
-	}
-
-	baseAddr := ctx.GameReader.Process.ModuleBaseAddress()
-	if baseAddr == 0 {
-		return false
-	}
-
-	expansionPtr := uintptr(ctx.GameReader.Process.ReadUInt(baseAddr+expansionTypeOffset, memory.Uint64))
-	if expansionPtr == 0 {
-		return false
-	}
-
-	// Read current character mode directly from memory.
-	charType := uint16(ctx.GameReader.Process.ReadUInt(expansionPtr+expansionCharValueOffset, memory.Uint16))
-	return charType == d2goGame.CharClassic || charType == d2goGame.CharLoD
 }
 
 func waitForLegacyGraphicsState(ctx *context.Status, expected bool) bool {
