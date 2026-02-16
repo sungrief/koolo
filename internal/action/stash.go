@@ -223,10 +223,13 @@ func stashItemAcrossTabs(i data.Item, matchedRule string, ruleFile string, first
 	itemStashed := false
 	// Tab 1=Personal, Tabs 2..N=Shared stash pages.
 	// Non-DLC: 3 shared pages (tabs 2-4). DLC: 5 shared pages (tabs 2-6).
-	maxTab := 4 // personal + 3 shared pages
-	if ctx.Data.IsDLC() {
-		maxTab = 6 // personal + 5 shared pages
+	// Use SharedStashPages from memory to determine actual count.
+	sharedPages := ctx.Data.Inventory.SharedStashPages
+	if sharedPages == 0 {
+		// Fallback: assume 3 pages if not detected
+		sharedPages = 3
 	}
+	maxTab := 1 + sharedPages // personal (1) + all shared pages
 
 	for tabAttempt := targetStartTab; tabAttempt <= maxTab; tabAttempt++ {
 		SwitchStashTab(tabAttempt)
