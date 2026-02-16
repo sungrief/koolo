@@ -26,7 +26,13 @@ func MakeRunewords() error {
 		return nil
 	}
 
-	insertItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
+	// Build location list - include RunesTab for DLC characters (runes are stored there)
+	insertLocations := []item.LocationType{item.LocationStash, item.LocationSharedStash, item.LocationInventory}
+	if ctx.Data.IsDLC() {
+		insertLocations = append(insertLocations, item.LocationRunesTab)
+	}
+
+	insertItems := ctx.Data.Inventory.ByLocation(insertLocations...)
 	baseItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 
 	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
@@ -113,7 +119,12 @@ func MakeRunewords() error {
 
 					// Recalculate available items from the refreshed game state so the maker
 					// doesn't try to reuse the same base or inserts.
-					insertItems = ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
+					// Rebuild location list for DLC characters
+					insertLocations = []item.LocationType{item.LocationStash, item.LocationSharedStash, item.LocationInventory}
+					if ctx.Data.IsDLC() {
+						insertLocations = append(insertLocations, item.LocationRunesTab)
+					}
+					insertItems = ctx.Data.Inventory.ByLocation(insertLocations...)
 					baseItems = ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 				} else {
 					// No inserts available for this recipe at this time
@@ -138,10 +149,20 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 
 	ctx.SetLastAction("SocketItem")
 
-	ins := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
+	// Build location list - include RunesTab for DLC characters
+	insertLocations := []item.LocationType{item.LocationStash, item.LocationSharedStash, item.LocationInventory}
+	if ctx.Data.IsDLC() {
+		insertLocations = append(insertLocations, item.LocationRunesTab)
+	}
+	ins := ctx.Data.Inventory.ByLocation(insertLocations...)
 
 	for _, itm := range items {
-		if itm.Location.LocationType == item.LocationStash || itm.Location.LocationType == item.LocationSharedStash {
+		// Check if item is in any stash location (personal, shared, or DLC tabs)
+		if itm.Location.LocationType == item.LocationStash ||
+			itm.Location.LocationType == item.LocationSharedStash ||
+			itm.Location.LocationType == item.LocationGemsTab ||
+			itm.Location.LocationType == item.LocationMaterialsTab ||
+			itm.Location.LocationType == item.LocationRunesTab {
 			OpenStash()
 			break
 		}
