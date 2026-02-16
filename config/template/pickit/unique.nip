@@ -288,11 +288,6 @@
 [name] == jewel 				&& [quality] == unique # [itemskillondeath] >= 1 && [passivecoldmastery] >= 5 && [passivecoldpierce] >= 5														// rainbow facet cold die
 [name] == jewel 				&& [quality] == unique # [itemskillondeath] >= 1 && [passivefiremastery] >= 5 && [passivefirepierce] >= 5														// rainbow facet fire die
 [name] == jewel 				&& [quality] == unique # [itemskillondeath] >= 1 && [passiveltngmastery] >= 5 && [passiveltngpierce] >= 5														// rainbow facet light die
-[name] == jewel 				&& [quality] == unique # [itemskillondeath] >= 1 && [passivepoismastery] >= 5 && [passivelpoispierce] >= 5														// rainbow facet pois die
-[name] == jewel 				&& [quality] == unique # [itemskillonlevel] >= 1 && [passivecoldmastery] >= 5 && [passivecoldpierce] >= 5														// rainbow facet cold lvl
-[name] == jewel 				&& [quality] == unique # [itemskillonlevel] >= 1 && [passivefiremastery] >= 5 && [passivefirepierce] >= 5														// rainbow facet fire lvl
-[name] == jewel 				&& [quality] == unique # [itemskillonlevel] >= 1 && [passiveltngmastery] >= 5 && [passiveltngpierce] >= 5														// rainbow facet light lvl
-[name] == jewel 				&& [quality] == unique # [itemskillonlevel] >= 1 && [passivepoismastery] >= 5 && [passivelpoispierce] >= 5														// rainbow facet pois lvl
 
 [name] == jewel 				&& [quality] == unique # [itemgoldbonus] >= 25																													//rotw jewels
 
