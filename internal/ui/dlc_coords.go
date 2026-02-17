@@ -64,10 +64,10 @@ var DLCTabCoords = map[item.Name]data.Position{
 	"DeepWorldstoneShard":     {X: 383, Y: 239},
 	"NorthernWorldstoneShard": {X: 416, Y: 239},
 	// Essences & Token
-	"TokenOfAbsolution":            {X: 276, Y: 286},
-	"TwistedEssenceOfSuffering":    {X: 312, Y: 288},
-	"ChargedEssenceOfHatred":       {X: 345, Y: 287},
-	"BurningEssenceOfTerror":       {X: 380, Y: 285},
+	"TokenOfAbsolution":             {X: 276, Y: 286},
+	"TwistedEssenceOfSuffering":     {X: 312, Y: 288},
+	"ChargedEssenceOfHatred":        {X: 345, Y: 287},
+	"BurningEssenceOfTerror":        {X: 380, Y: 285},
 	"FesteringEssenceOfDestruction": {X: 416, Y: 282},
 	// Keys
 	"KeyOfTerror":      {X: 132, Y: 181},

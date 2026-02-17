@@ -58,7 +58,7 @@ func CubeAddItems(items ...data.Item) error {
 				SwitchStashTab(1)
 			case item.LocationSharedStash:
 				SwitchStashTab(nwIt.Location.Page + 1)
-	case item.LocationGemsTab:
+			case item.LocationGemsTab:
 				SwitchStashTab(StashTabGems)
 			case item.LocationMaterialsTab:
 				SwitchStashTab(StashTabMaterials)
