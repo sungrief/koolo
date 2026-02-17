@@ -243,21 +243,78 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 
 	previousPage := -1 // Initialize to invalid page number
 	for _, itm := range orderedItems {
-		if itm.Location.LocationType == item.LocationSharedStash || itm.Location.LocationType == item.LocationStash {
-			currentPage := itm.Location.Page + 1
-			if previousPage != currentPage || currentPage != base.Location.Page {
-				SwitchStashTab(currentPage)
+		isDLCTab := itm.Location.LocationType == item.LocationGemsTab ||
+			itm.Location.LocationType == item.LocationMaterialsTab ||
+			itm.Location.LocationType == item.LocationRunesTab
+
+		if isDLCTab {
+			// DLC tab items require Ctrl+click to move to inventory first,
+			// because left-click does not pick up from DLC tabs directly.
+			switch itm.Location.LocationType {
+			case item.LocationGemsTab:
+				SwitchStashTab(StashTabGems)
+			case item.LocationMaterialsTab:
+				SwitchStashTab(StashTabMaterials)
+			case item.LocationRunesTab:
+				SwitchStashTab(StashTabRunes)
 			}
-			previousPage = currentPage
+
+			screenPos := ui.GetScreenCoordsForItem(itm)
+			ctx.Logger.Debug("SocketItems: moving DLC tab item to inventory",
+				"item", string(itm.Name),
+				"location", string(itm.Location.LocationType),
+				"screenX", screenPos.X,
+				"screenY", screenPos.Y,
+			)
+			ctx.HID.ClickWithModifier(game.LeftButton, screenPos.X, screenPos.Y, game.CtrlKey)
+			utils.Sleep(500)
+			ctx.RefreshGameData()
+
+			// DLC tab items get new UnitIDs when moved to inventory,
+			// so find the item by name in inventory.
+			var invItem *data.Item
+			for idx := range ctx.Data.Inventory.AllItems {
+				candidate := &ctx.Data.Inventory.AllItems[idx]
+				if candidate.Name == itm.Name && candidate.Location.LocationType == item.LocationInventory {
+					invItem = candidate
+					break
+				}
+			}
+			if invItem == nil {
+				ctx.Logger.Error("SocketItems: DLC item not found in inventory after Ctrl+click",
+					"item", string(itm.Name),
+				)
+				return fmt.Errorf("failed to move DLC item %s to inventory for socketing", itm.Name)
+			}
+
+			// Left-click from inventory to pick up to cursor
+			invScreenPos := ui.GetScreenCoordsForItem(*invItem)
+			ctx.Logger.Debug("SocketItems: picking up DLC item from inventory",
+				"item", string(invItem.Name),
+				"screenX", invScreenPos.X,
+				"screenY", invScreenPos.Y,
+			)
+			ctx.HID.Click(game.LeftButton, invScreenPos.X, invScreenPos.Y)
+			utils.Sleep(300)
+		} else {
+			// Regular stash or inventory items: left-click to pick up to cursor
+			if itm.Location.LocationType == item.LocationSharedStash || itm.Location.LocationType == item.LocationStash {
+				currentPage := itm.Location.Page + 1
+				if previousPage != currentPage || currentPage != base.Location.Page {
+					SwitchStashTab(currentPage)
+				}
+				previousPage = currentPage
+			}
+
+			screenPos := ui.GetScreenCoordsForItem(itm)
+			ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
+			utils.Sleep(300)
 		}
 
-		screenPos := ui.GetScreenCoordsForItem(itm)
-		ctx.HID.Click(game.LeftButton, screenPos.X, screenPos.Y)
-		utils.Sleep(300)
-
+		// Click on base item to socket the insert
 		for _, movedBase := range ctx.Data.Inventory.AllItems {
 			if base.UnitID == movedBase.UnitID {
-				if (base.Location.LocationType == item.LocationStash) && base.Location.Page != itm.Location.Page {
+				if !isDLCTab && (base.Location.LocationType == item.LocationStash) && base.Location.Page != itm.Location.Page {
 					SwitchStashTab(base.Location.Page + 1)
 				}
 
