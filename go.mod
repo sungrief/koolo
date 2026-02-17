@@ -47,4 +47,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
-replace github.com/hectorgimenez/d2go => github.com/kwader2k/d2go v0.0.0-20260217111030-81ba4d165f69
+replace github.com/hectorgimenez/d2go => github.com/kwader2k/d2go v0.0.0-20260217174024-73771786c022
