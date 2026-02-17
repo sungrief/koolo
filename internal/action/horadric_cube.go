@@ -98,6 +98,11 @@ func CubeAddItems(items ...data.Item) error {
 	// not their original stash/DLC tab positions from before the pickup phase.
 	ctx.RefreshGameData()
 
+	// Track DLC items already matched by their new UnitID to avoid matching
+	// the same inventory item twice when multiple identical items are needed
+	// (e.g., 3x PerfectAmethyst for a grand charm reroll).
+	usedUnitIDs := make(map[data.UnitID]struct{})
+
 	for _, itm := range items {
 		var found *data.Item
 
@@ -109,6 +114,9 @@ func CubeAddItems(items ...data.Item) error {
 
 		for _, updatedItem := range ctx.Data.Inventory.AllItems {
 			if isDLC {
+				if _, used := usedUnitIDs[updatedItem.UnitID]; used {
+					continue
+				}
 				if updatedItem.Name == itm.Name && updatedItem.Location.LocationType == item.LocationInventory {
 					found = &updatedItem
 					break
@@ -121,7 +129,9 @@ func CubeAddItems(items ...data.Item) error {
 			}
 		}
 
-		if found == nil {
+		if found != nil {
+			usedUnitIDs[found.UnitID] = struct{}{}
+		} else {
 			ctx.Logger.Warn("Item not found in inventory for cube",
 				slog.String("Item", string(itm.Name)),
 				slog.Int("UnitID", int(itm.UnitID)),

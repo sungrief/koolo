@@ -241,6 +241,7 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 		)
 	}
 
+	usedDLCIDs := make(map[data.UnitID]struct{})
 	previousPage := -1 // Initialize to invalid page number
 	for _, itm := range orderedItems {
 		isDLCTab := itm.Location.LocationType == item.LocationGemsTab ||
@@ -272,15 +273,22 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 
 			// DLC tab items get new UnitIDs when moved to inventory,
 			// so find the item by name in inventory.
+			// Track used UnitIDs to avoid matching the same item when
+			// multiple identical runes are needed (e.g., 3x Jah).
 			var invItem *data.Item
 			for idx := range ctx.Data.Inventory.AllItems {
 				candidate := &ctx.Data.Inventory.AllItems[idx]
+				if _, used := usedDLCIDs[candidate.UnitID]; used {
+					continue
+				}
 				if candidate.Name == itm.Name && candidate.Location.LocationType == item.LocationInventory {
 					invItem = candidate
 					break
 				}
 			}
-			if invItem == nil {
+			if invItem != nil {
+				usedDLCIDs[invItem.UnitID] = struct{}{}
+			} else {
 				ctx.Logger.Error("SocketItems: DLC item not found in inventory after Ctrl+click",
 					"item", string(itm.Name),
 				)
