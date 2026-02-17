@@ -32,7 +32,7 @@ func MakeRunewords() error {
 		insertLocations = append(insertLocations, item.LocationRunesTab)
 	}
 
-	insertItems := ctx.Data.Inventory.ByLocation(insertLocations...)
+	insertItems := FilterDLCGhostItems(ctx.Data.Inventory.ByLocation(insertLocations...))
 	baseItems := ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 
 	_, isLevelingChar := ctx.Char.(context.LevelingCharacter)
@@ -124,7 +124,7 @@ func MakeRunewords() error {
 					if ctx.Data.IsDLC() {
 						insertLocations = append(insertLocations, item.LocationRunesTab)
 					}
-					insertItems = ctx.Data.Inventory.ByLocation(insertLocations...)
+					insertItems = FilterDLCGhostItems(ctx.Data.Inventory.ByLocation(insertLocations...))
 					baseItems = ctx.Data.Inventory.ByLocation(item.LocationStash, item.LocationSharedStash, item.LocationInventory)
 				} else {
 					// No inserts available for this recipe at this time
@@ -154,7 +154,7 @@ func SocketItems(ctx *context.Status, recipe Runeword, base data.Item, items ...
 	if ctx.Data.IsDLC() {
 		insertLocations = append(insertLocations, item.LocationRunesTab)
 	}
-	ins := ctx.Data.Inventory.ByLocation(insertLocations...)
+	ins := FilterDLCGhostItems(ctx.Data.Inventory.ByLocation(insertLocations...))
 
 	for _, itm := range items {
 		// Check if item is in any stash location (personal, shared, or DLC tabs)
