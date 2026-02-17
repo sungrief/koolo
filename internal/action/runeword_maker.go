@@ -610,11 +610,15 @@ func hasItemsForRunewordRecipe(items []data.Item, recipe Runeword) ([]data.Item,
 
 	for _, item := range items {
 		if count, ok := RunewordRecipeItems[string(item.Name)]; ok {
+			// DLC stacked items: one entry can satisfy multiple recipe slots
+			availableQty := isDLCStackedQuantity(item)
+			satisfies := min(availableQty, count)
 
-			itemsForRecipe = append(itemsForRecipe, item)
+			for i := 0; i < satisfies; i++ {
+				itemsForRecipe = append(itemsForRecipe, item)
+			}
 
-			// Check if we now have exactly the needed count before decrementing
-			count -= 1
+			count -= satisfies
 			if count == 0 {
 				delete(RunewordRecipeItems, string(item.Name))
 				if len(RunewordRecipeItems) == 0 {
